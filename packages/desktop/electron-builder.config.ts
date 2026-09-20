@@ -57,6 +57,7 @@ const getBase = (appId: string): Configuration => ({
   },
   files: ["out/**/*", "resources/**/*", "!resources/opencode-cli*"],
   extraResources: [
+    ...(channel === "dev" ? [{ from: "resources/aladdin-speech-home.txt", to: "aladdin-speech-home.txt" }] : []),
     ...(channel === "dev"
       ? [
           {
@@ -75,6 +76,9 @@ const getBase = (appId: string): Configuration => ({
   mac: {
     category: "public.app-category.developer-tools",
     icon: `resources/icons/icon.icns`,
+    extendInfo: {
+      NSMicrophoneUsageDescription: "Aladdin uses the microphone to transcribe your voice messages locally.",
+    },
     hardenedRuntime: true,
     gatekeeperAssess: false,
     entitlements: "resources/entitlements.plist",
@@ -127,7 +131,7 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode Dev",
+        productName: "Aladdin",
         deb: { fpm: [metainfoFpm(appId)] },
         rpm: { packageName: "opencode-dev", fpm: [metainfoFpm(appId)] },
       }

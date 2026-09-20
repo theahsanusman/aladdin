@@ -32,3 +32,8 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Aladdin local speech runtime and model weights
+packages/opencode/script/aladdin-speech/.venv/
+packages/opencode/script/aladdin-speech/.models/
+packages/desktop/resources/aladdin-speech-home.txt

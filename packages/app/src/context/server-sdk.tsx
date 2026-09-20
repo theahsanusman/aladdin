@@ -12,6 +12,7 @@ import { createRefCountMap } from "@/utils/refcount"
 import { useGlobal } from "./global"
 import { ServerScope } from "@/utils/server-scope"
 import { detectServerProtocol, type ServerProtocol } from "@/utils/server-protocol"
+import { authTokenFromCredentials } from "@/utils/server"
 import { createCompatibleApi, type CompatibleApi } from "@/utils/server-compat"
 
 const isAbortError = (error: unknown) =>
@@ -182,6 +183,7 @@ type ServerSDKBase = {
   createClient: (
     opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">,
   ) => ReturnType<typeof createSdkForServer>
+  request: (path: string, init?: RequestInit) => Promise<Response>
 }
 
 function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerScope): ServerSDKBase {
@@ -369,6 +371,16 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
         ...opts,
       })
     },
+    request(path: string, init?: RequestInit) {
+      const headers = new Headers(init?.headers)
+      if (server.http.password) {
+        headers.set(
+          "Authorization",
+          `Basic ${authTokenFromCredentials({ username: server.http.username, password: server.http.password })}`,
+        )
+      }
+      return (platform.fetch ?? globalThis.fetch)(new URL(path, server.http.url), { ...init, headers })
+    },
   }
 }
 
@@ -439,6 +451,9 @@ function createDirSdkContext(directory: string, serverSDK: ServerSDKBase) {
     },
     createClient(opts: Parameters<typeof serverSDK.createClient>[0]) {
       return serverSDK.createClient(opts)
+    },
+    request(path: string, init?: RequestInit) {
+      return serverSDK.request(path, init)
     },
   }
 }

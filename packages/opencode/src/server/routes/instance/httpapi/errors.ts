@@ -140,6 +140,12 @@ export class PermissionNotFoundError extends Schema.TaggedErrorClass<PermissionN
   { httpApiStatus: 404 },
 ) {}
 
+export class AladdinProviderError extends Schema.TaggedErrorClass<AladdinProviderError>()(
+  "AladdinProviderError",
+  { message: Schema.String },
+  { httpApiStatus: 502 },
+) {}
+
 export class McpServerNotFoundError extends Schema.TaggedErrorClass<McpServerNotFoundError>()(
   "McpServerNotFoundError",
   {

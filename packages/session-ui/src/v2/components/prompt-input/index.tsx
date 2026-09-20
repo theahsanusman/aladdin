@@ -44,6 +44,7 @@ export type PromptInputV2Props = {
   variantControlVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
+  toolbarActions?: JSX.Element
 }
 
 export function PromptInputV2(props: PromptInputV2Props) {
@@ -216,6 +217,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
               onContext={props.controller.openContext}
               onShell={props.controller.openShell}
             />
+            {props.toolbarActions}
             <Show when={view.agent} keyed>
               {(control) => (
                 <PromptInputV2ConfiguredSelect

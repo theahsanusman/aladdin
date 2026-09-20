@@ -26,7 +26,7 @@ import { Image } from "../../src/image/image"
 import { Question } from "../../src/question"
 import { Todo } from "../../src/session/todo"
 import { Session } from "@/session/session"
-import { SessionMessageTable } from "@opencode-ai/core/session/sql"
+import { SessionMessageTable, SessionTable } from "@opencode-ai/core/session/sql"
 import { LLM } from "../../src/session/llm"
 import { MessageV2 } from "../../src/session/message-v2"
 import { FSUtil } from "@opencode-ai/core/fs-util"
@@ -575,6 +575,34 @@ withMcpInstructions.instance(
       const body = JSON.stringify(hits[0]?.body)
       expect(body).toContain('<server name=\\"guide-server\\">')
       expect(body).toContain("Use lookup before mutate.")
+      yield* Fiber.interrupt(fiber)
+    }),
+  15_000,
+)
+
+it.instance(
+  "loop includes the durable goal and session todos in model context",
+  () =>
+    Effect.gen(function* () {
+      const { llm } = yield* useServerConfig(providerCfg)
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const todos = yield* Todo.Service
+      const { db } = yield* Database.Service
+      const chat = yield* sessions.create({
+        title: "Goal context",
+        permission: [{ permission: "*", pattern: "*", action: "allow" }],
+      })
+      yield* db.update(SessionTable).set({ goal_objective: "Ship Aladdin", goal_status: "active" }).where(eq(SessionTable.id, chat.id)).run()
+      yield* todos.update({ sessionID: chat.id, todos: [{ content: "Verify voice", status: "in_progress", priority: "high" }] })
+      yield* llm.hang
+      yield* user(chat.id, "continue")
+
+      const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
+      yield* awaitWithTimeout(llm.wait(1), "timed out waiting for goal context request", "10 seconds")
+      const body = JSON.stringify((yield* llm.hits)[0]?.body)
+      expect(body).toContain("Objective: Ship Aladdin")
+      expect(body).toContain("- [in_progress] Verify voice")
       yield* Fiber.interrupt(fiber)
     }),
   15_000,

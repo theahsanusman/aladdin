@@ -46,6 +46,7 @@ import {
   SessionInputTable,
   SessionMessageTable,
   SessionTable,
+  TodoTable,
 } from "@opencode-ai/core/session/sql"
 import { SessionStore } from "@opencode-ai/core/session/store"
 import { SystemContext } from "@opencode-ai/core/system-context"
@@ -630,6 +631,25 @@ describe("SessionRunnerLLM", () => {
     }),
   )
 
+  it.effect("keeps the durable goal and todos in each provider request", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const { db } = yield* Database.Service
+      yield* db.update(SessionTable).set({ goal_objective: "Ship Aladdin", goal_status: "active" }).where(eq(SessionTable.id, sessionID)).run()
+      yield* db.insert(TodoTable).values({ session_id: sessionID, content: "Verify voice", status: "in_progress", priority: "high", position: 0 }).run()
+      requests.length = 0
+      responses = undefined
+      streamGate = undefined
+      streamStarted = undefined
+      response = []
+
+      yield* (yield* SessionV2.Service).prompt({ sessionID, prompt: Prompt.make({ text: "Continue" }) })
+      expect(requests).toHaveLength(1)
+      expect(JSON.stringify(requests[0]?.system)).toContain("Objective: Ship Aladdin")
+      expect(JSON.stringify(requests[0]?.system)).toContain("- [in_progress] Verify voice")
+    }),
+  )
+
   it.effect("streams one request with registry definitions from chronological V2 user history", () =>
     Effect.gen(function* () {
       yield* setup
@@ -1078,6 +1098,8 @@ describe("SessionRunnerLLM", () => {
   it.effect("automatically compacts into a completed summary and retained recent turn", () =>
     Effect.gen(function* () {
       yield* setup
+      const { db } = yield* Database.Service
+      yield* db.update(SessionTable).set({ goal_objective: "Keep the durable goal", goal_status: "active" }).where(eq(SessionTable.id, sessionID)).run()
       const session = yield* SessionV2.Service
       response = fragmentFixture("text", "text-first", ["Earlier answer"]).completeEvents
       yield* session.prompt({
@@ -1101,6 +1123,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests).toHaveLength(2)
+      expect(JSON.stringify(requests[1]?.system)).toContain("Objective: Keep the durable goal")
       expect(requests.map((request) => request.http?.headers)).toEqual([
         {
           "x-session-affinity": sessionID,

@@ -1,4 +1,5 @@
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
+import { Icon as LegacyIcon } from "@opencode-ai/ui/icon"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
@@ -6,13 +7,14 @@ import { Icon } from "@opencode-ai/ui/v2/icon"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
-import { createEffect, createMemo, on, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
 import type { PromptInputProps } from "@/components/prompt-input/contracts"
 import { normalizePromptHistoryEntry, promptLength, type PromptHistoryComment } from "@/components/prompt-input/history"
 import { createPersistedPromptInputHistory } from "@/components/prompt-input/history-store"
 import { promptDesignPlaceholder, promptPlaceholder } from "@/components/prompt-input/placeholder"
+import { encodeAudio, recordingMime } from "@/components/prompt-input/voice"
 import { createPromptSubmit } from "@/components/prompt-input/submit"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
 import { useComments } from "@/context/comments"
@@ -23,6 +25,7 @@ import { usePermission } from "@/context/permission"
 import { type ImageAttachmentPart, usePrompt } from "@/context/prompt"
 import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
+import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
 import { createSessionTabs } from "@/pages/session/helpers"
 import { showToast } from "@/utils/toast"
@@ -48,6 +51,86 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
   const dialog = useDialog()
   const command = useCommand()
   const language = useLanguage()
+  const sdk = useSDK()
+  const settings = useSettings()
+  const [voiceState, setVoiceState] = createSignal<"idle" | "recording" | "transcribing">("idle")
+  let recorder: MediaRecorder | undefined
+  let stream: MediaStream | undefined
+  let cancelled = false
+
+  const stopStream = () => {
+    stream?.getTracks().forEach((track) => track.stop())
+    stream = undefined
+  }
+  const transcribe = async (blob: Blob) => {
+    if (cancelled) return
+    setVoiceState("transcribing")
+    try {
+      if (!blob.size || blob.size > 30_000_000) throw new Error("Record a voice message shorter than 30 MB")
+      const response = await sdk().request("/aladdin/voice/transcribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          audio: await encodeAudio(blob),
+          mime: blob.type || "application/octet-stream",
+          model: settings.aladdin.voice.inputModel(),
+        }),
+      })
+      if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+      const result = (await response.json()) as { text?: unknown }
+      if (typeof result.text !== "string" || !result.text.trim()) throw new Error("No speech was detected")
+      if (cancelled) return
+      const content = `${props.controller.value().trim() ? " " : ""}${result.text.trim()}`
+      props.controller.addPart({ type: "text", content, start: 0, end: content.length })
+      props.controller.restoreFocus()
+    } catch (error) {
+      if (!cancelled)
+        showToast({
+          title: language.t("prompt.voice.error.title"),
+          description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
+          variant: "error",
+        })
+    } finally {
+      stopStream()
+      if (!cancelled) setVoiceState("idle")
+    }
+  }
+  const toggleVoice = async () => {
+    if (voiceState() === "recording") {
+      setVoiceState("transcribing")
+      recorder?.stop()
+      return
+    }
+    if (voiceState() !== "idle") return
+    try {
+      cancelled = false
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (cancelled) return stopStream()
+      const mimeType = recordingMime()
+      const chunks: BlobPart[] = []
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data)
+      }
+      recorder.onstop = () => {
+        if (!cancelled) void transcribe(new Blob(chunks, { type: recorder?.mimeType }))
+      }
+      recorder.start()
+      setVoiceState("recording")
+    } catch (error) {
+      stopStream()
+      showToast({
+        title: language.t("prompt.voice.error.title"),
+        description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
+        variant: "error",
+      })
+    }
+  }
+  onCleanup(() => {
+    cancelled = true
+    if (recorder?.state === "recording") recorder.stop()
+    stopStream()
+  })
 
   return (
     <div class="flex flex-col gap-3">
@@ -58,6 +141,25 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
         variantControlVisible={!props.controller.model.loading}
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
+        toolbarActions={
+          <button
+            data-action="prompt-voice"
+            type="button"
+            class="flex size-8 items-center justify-center rounded-md text-v2-text-text-base hover:bg-v2-background-bg-hover disabled:opacity-50"
+            disabled={voiceState() === "transcribing"}
+            onClick={() => void toggleVoice()}
+            aria-label={language.t(voiceState() === "recording" ? "prompt.voice.stop" : "prompt.voice.start")}
+            title={language.t(
+              voiceState() === "recording"
+                ? "prompt.voice.stop"
+                : voiceState() === "transcribing"
+                  ? "prompt.voice.transcribing"
+                  : "prompt.voice.start",
+            )}
+          >
+            <LegacyIcon name={voiceState() === "recording" ? "stop" : "microphone"} class="size-5" />
+          </button>
+        }
         modelControl={
           <PromptInputV2ModelControl
             loading={props.controller.model.loading}

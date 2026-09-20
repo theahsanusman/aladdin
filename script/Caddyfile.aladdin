@@ -1,0 +1,10 @@
+https://192.168.100.13:8443, https://Ahsans-MacBook-Pro.local:8443, https://aladdin.local:8443 {
+	tls "/Users/ahsan/Library/Application Support/Aladdin/certs/aladdin.pem" "/Users/ahsan/Library/Application Support/Aladdin/certs/aladdin-key.pem"
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4096
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+}

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
-import { mkdirSync, rmSync } from "node:fs"
+import { spawn, type ChildProcess } from "node:child_process"
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import * as http from "node:http"
 import { createServer } from "node:net"
 import { homedir, tmpdir } from "node:os"
@@ -51,7 +52,7 @@ import { startBackgroundCli } from "./background-cli"
 import { setNativeTranslations } from "./native-translations"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "OpenCode Dev",
+  dev: "Aladdin",
   beta: "OpenCode Beta",
   prod: "OpenCode",
 }
@@ -66,6 +67,7 @@ const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
 
 let logger: ReturnType<typeof initLogging>
 let server: SidecarListener | null = null
+let speech: ChildProcess | undefined
 
 const pendingDeepLinks: string[] = []
 
@@ -90,6 +92,53 @@ async function killSidecar() {
   const current = server
   server = null
   await current.stop()
+}
+
+async function startLocalSpeech() {
+  if (CHANNEL !== "dev" || process.platform !== "darwin") return
+  const marker = app.isPackaged
+    ? join(process.resourcesPath, "aladdin-speech-home.txt")
+    : join(import.meta.dirname, "../../resources/aladdin-speech-home.txt")
+  if (!existsSync(marker)) return
+  const home = readFileSync(marker, "utf8").trim()
+  const python = join(home, ".venv/bin/python")
+  const model = join(home, ".models/Qwen3-ASR-1.7B-8bit")
+  if (!existsSync(python) || !existsSync(join(model, "model.safetensors"))) {
+    logger.error("Qwen speech runtime or model is missing", { home })
+    return
+  }
+  process.env.ALADDIN_ASR_MODEL = model
+  const endpoint = "http://127.0.0.1:43121"
+  const running = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(500) }).then(
+    (response) => response.ok,
+    () => false,
+  )
+  if (!running) {
+    speech = spawn(python, ["-m", "mlx_audio.server", "--host", "127.0.0.1", "--port", "43121"], {
+      cwd: home,
+      stdio: "ignore",
+      env: process.env,
+    })
+    speech.on("error", (error) => logger.error("Qwen speech process failed", { error: error.message }))
+  }
+  for (const delay of [250, 500, 1000, 2000, 4000, 8000]) {
+    const ready = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(500) }).then(
+      (response) => response.ok,
+      () => false,
+    )
+    if (ready) {
+      await fetch(`${endpoint}/v1/models?model_name=${encodeURIComponent(model)}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(120_000),
+      }).then(
+        (response) => logger.log("Qwen speech model warmed", { ready: response.ok }),
+        (error) => logger.error("Qwen speech model failed to warm", { error: String(error) }),
+      )
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay))
+  }
+  logger.error("Qwen speech server did not become ready")
 }
 
 function ensureLoopbackNoProxy() {
@@ -223,6 +272,7 @@ const main = Effect.gen(function* () {
 
   app.on("before-quit", () => {
     setAppQuitting()
+    speech?.kill()
     void stopSidecars()
   })
 
@@ -253,6 +303,7 @@ const main = Effect.gen(function* () {
   const serverReady = Deferred.makeUnsafe<ServerReadyData, unknown>()
 
   yield* Effect.promise(() => app.whenReady())
+  void startLocalSpeech().catch((error) => logger.error("Qwen speech startup failed", { error: String(error) }))
 
   if (!TEST_ONBOARDING) migrate()
   yield* Effect.promise(() => cleanupStoreFiles(app.getPath("userData"))).pipe(

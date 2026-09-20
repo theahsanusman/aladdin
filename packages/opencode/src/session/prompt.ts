@@ -53,6 +53,8 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { eq } from "drizzle-orm"
 import { SessionTable } from "@opencode-ai/core/session/sql"
+import { TodoTable } from "@opencode-ai/core/session/sql"
+import { SessionGoal } from "@opencode-ai/core/session/goal"
 import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@opencode-ai/llm"
@@ -1267,6 +1269,21 @@ const layer = Layer.effect(
               ...(mcpInstructions ? [mcpInstructions] : []),
               ...(skills ? [skills] : []),
             ]
+            const goalRow = yield* db
+              .select({ objective: SessionTable.goal_objective, status: SessionTable.goal_status, evidence: SessionTable.goal_evidence })
+              .from(SessionTable)
+              .where(eq(SessionTable.id, sessionID))
+              .get()
+              .pipe(Effect.orDie)
+            if (goalRow?.objective && goalRow.status) {
+              const tasks = yield* db
+                .select({ content: TodoTable.content, status: TodoTable.status })
+                .from(TodoTable)
+                .where(eq(TodoTable.session_id, sessionID))
+                .all()
+                .pipe(Effect.orDie)
+              system.push(SessionGoal.prompt({ objective: goalRow.objective, status: goalRow.status, evidence: goalRow.evidence }, tasks)!)
+            }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

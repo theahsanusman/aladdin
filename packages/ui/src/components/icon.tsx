@@ -1,6 +1,7 @@
 import { onMount, splitProps, type ComponentProps } from "solid-js"
 
 const icons = {
+  microphone: `<path d="M10 12.5C11.841 12.5 13.3333 11.0076 13.3333 9.16667V5.83333C13.3333 3.99238 11.841 2.5 10 2.5C8.15905 2.5 6.66667 3.99238 6.66667 5.83333V9.16667C6.66667 11.0076 8.15905 12.5 10 12.5ZM4.16667 9.16667C4.16667 12.3883 6.77834 15 10 15C13.2217 15 15.8333 12.3883 15.8333 9.16667M10 15V17.5M7.5 17.5H12.5" stroke="currentColor" stroke-linecap="square"/>`,
   "align-right": `<path d="M12.292 6.04167L16.2503 9.99998L12.292 13.9583M2.91699 9.99998H15.6253M17.0837 3.75V16.25" stroke="currentColor" stroke-linecap="square"/>`,
   "arrow-up": `<path fill-rule="evenodd" clip-rule="evenodd" d="M9.99991 2.24121L16.0921 8.33343L15.2083 9.21731L10.6249 4.63397V17.5001H9.37492V4.63398L4.7916 9.21731L3.90771 8.33343L9.99991 2.24121Z" fill="currentColor"/>`,
   "arrow-left": `<path d="M8.33464 4.58398L2.91797 10.0007L8.33464 15.4173M3.33464 10.0007H17.0846" stroke="currentColor" stroke-linecap="square"/>`,

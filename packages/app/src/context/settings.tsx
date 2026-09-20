@@ -3,6 +3,7 @@ import { batch, createEffect, createMemo, createSignal, onCleanup } from "solid-
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
+import { defaultAladdinSettings, type AladdinSettings, normalizeModelList } from "@/context/aladdin-settings"
 
 export interface NotificationSettings {
   agent: boolean
@@ -52,6 +53,7 @@ export interface Settings {
   }
   notifications: NotificationSettings
   sounds: SoundSettings
+  aladdin: AladdinSettings
 }
 
 export const monoDefault = "System Mono"
@@ -219,6 +221,7 @@ const defaultSettings: Settings = {
     errorsEnabled: true,
     errors: "nope-03",
   },
+  aladdin: defaultAladdinSettings,
 }
 
 function withFallback<T>(read: () => T | undefined, fallback: T) {
@@ -540,6 +543,62 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         errors: withFallback(() => store.sounds?.errors, defaultSettings.sounds.errors),
         setErrors(value: string) {
           setStore("sounds", "errors", value)
+        },
+      },
+      aladdin: {
+        voice: {
+          inputModel: withFallback(
+            () => store.aladdin?.voice?.inputModel === "qwen3-asr-1.7b" ? "qwen3-asr-1.7b" : undefined,
+            defaultAladdinSettings.voice.inputModel,
+          ),
+          setInputModel(value: AladdinSettings["voice"]["inputModel"]) {
+            setStore("aladdin", "voice", "inputModel", value)
+          },
+          outputModel: withFallback(
+            () => store.aladdin?.voice?.outputModel === "qwen3-tts-1.7b" ? "qwen3-tts-1.7b" : undefined,
+            defaultAladdinSettings.voice.outputModel,
+          ),
+          setOutputModel(value: AladdinSettings["voice"]["outputModel"]) {
+            setStore("aladdin", "voice", "outputModel", value)
+          },
+          outputVoice: withFallback(() => store.aladdin?.voice?.outputVoice, defaultAladdinSettings.voice.outputVoice),
+          setOutputVoice(value: string) {
+            setStore("aladdin", "voice", "outputVoice", value.trim())
+          },
+          callMode: withFallback(() => store.aladdin?.voice?.callMode, defaultAladdinSettings.voice.callMode),
+          setCallMode(value: boolean) {
+            setStore("aladdin", "voice", "callMode", value)
+          },
+        },
+        image: {
+          provider: withFallback(() => store.aladdin?.image?.provider, defaultAladdinSettings.image.provider),
+          setProvider(value: AladdinSettings["image"]["provider"]) {
+            setStore("aladdin", "image", "provider", value)
+          },
+          model: withFallback(() => store.aladdin?.image?.model, defaultAladdinSettings.image.model),
+          setModel(value: string) {
+            setStore("aladdin", "image", "model", value.trim())
+          },
+          drawThingsModel: withFallback(
+            () => store.aladdin?.image?.drawThingsModel,
+            defaultAladdinSettings.image.drawThingsModel,
+          ),
+          setDrawThingsModel(value: string) {
+            setStore("aladdin", "image", "drawThingsModel", value.trim())
+          },
+          drawThingsModels: withFallback(
+            () => store.aladdin?.image?.drawThingsModels,
+            defaultAladdinSettings.image.drawThingsModels,
+          ),
+          setDrawThingsModels(value: string[]) {
+            setStore("aladdin", "image", "drawThingsModels", normalizeModelList(value))
+          },
+        },
+        mobile: {
+          enabled: withFallback(() => store.aladdin?.mobile?.enabled, defaultAladdinSettings.mobile.enabled),
+          setEnabled(value: boolean) {
+            setStore("aladdin", "mobile", "enabled", value)
+          },
         },
       },
     }

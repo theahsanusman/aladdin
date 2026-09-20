@@ -82,6 +82,9 @@ import { createPromptInputTransientState } from "./prompt-input/transient-state"
 import { showToast } from "@/utils/toast"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
+import { encodeAudio, recordingMime } from "./prompt-input/voice"
+import { useSettings } from "@/context/settings"
+import { DialogGenerateImage } from "./dialog-generate-image"
 
 export { createPromptInputHistory }
 export type { PromptInputControls, PromptInputHistory, PromptInputProps, PromptInputState, PromptInputSubmission }
@@ -127,11 +130,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
+  const settings = useSettings()
   const tabs = () => props.controls.session.tabs
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
   let slashPopoverRef!: HTMLDivElement
+  let voiceRecorder: MediaRecorder | undefined
+  let voiceStream: MediaStream | undefined
+  let voiceCancelled = false
   let restoreEndOnFocus = true
   let savedCursor: number | null = null
 
@@ -261,6 +268,87 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     () => prompt.capture(),
     Math.floor(Math.random() * EXAMPLES.length),
   )
+  const [voiceState, setVoiceState] = createSignal<"idle" | "recording" | "transcribing">("idle")
+
+  const stopVoiceStream = () => {
+    voiceStream?.getTracks().forEach((track) => track.stop())
+    voiceStream = undefined
+  }
+
+  const transcribe = async (blob: Blob) => {
+    if (voiceCancelled) return
+    setVoiceState("transcribing")
+    try {
+      if (!blob.size || blob.size > 30_000_000) throw new Error("Record a voice message shorter than 30 MB")
+      const response = await sdk().request("/aladdin/voice/transcribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          audio: await encodeAudio(blob),
+          mime: blob.type || "application/octet-stream",
+          model: settings.aladdin.voice.inputModel(),
+        }),
+      })
+      if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+      const result = (await response.json()) as { text?: unknown }
+      if (typeof result.text !== "string" || !result.text.trim()) throw new Error("No speech was detected")
+      if (voiceCancelled) return
+      setEditorText([editorRef.textContent?.trim(), result.text.trim()].filter(Boolean).join(" "))
+      handleInput()
+      focusEditorEnd()
+    } catch (error) {
+      showToast({
+        title: language.t("prompt.voice.error.title"),
+        description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
+        variant: "error",
+      })
+    } finally {
+      stopVoiceStream()
+      setVoiceState("idle")
+    }
+  }
+
+  const toggleVoice = async () => {
+    if (voiceState() === "recording") {
+      setVoiceState("transcribing")
+      voiceRecorder?.stop()
+      return
+    }
+    if (voiceState() !== "idle") return
+    try {
+      voiceCancelled = false
+      voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (voiceCancelled) {
+        stopVoiceStream()
+        return
+      }
+      const mimeType = recordingMime()
+      const chunks: BlobPart[] = []
+      voiceRecorder = new MediaRecorder(voiceStream, mimeType ? { mimeType } : undefined)
+      voiceRecorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data)
+      }
+      voiceRecorder.onstop = () => {
+        if (voiceCancelled) return
+        void transcribe(new Blob(chunks, { type: voiceRecorder?.mimeType }))
+      }
+      voiceRecorder.start()
+      setVoiceState("recording")
+    } catch (error) {
+      stopVoiceStream()
+      showToast({
+        title: language.t("prompt.voice.error.title"),
+        description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
+        variant: "error",
+      })
+    }
+  }
+
+  onCleanup(() => {
+    voiceCancelled = true
+    if (voiceRecorder?.state === "recording") voiceRecorder.stop()
+    stopVoiceStream()
+  })
   const buttonsSpring = useSpring(() => (store.mode === "normal" ? 1 : 0), { visualDuration: 0.2, bounce: 0 })
   const motion = (value: number) => ({
     opacity: value,
@@ -1501,7 +1589,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           onMouseDown={(e) => {
             const target = e.target
             if (!(target instanceof HTMLElement)) return
-            if (target.closest('[data-action="prompt-attach"], [data-action="prompt-submit"]')) {
+            if (
+              target.closest(
+                '[data-action="prompt-attach"], [data-action="prompt-image"], [data-action="prompt-voice"], [data-action="prompt-submit"]',
+              )
+            ) {
               return
             }
             editorRef?.focus()
@@ -1590,7 +1682,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 left-2">
+          <div class="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1">
             <div
               aria-hidden={store.mode !== "normal"}
               class="pointer-events-auto"
@@ -1617,6 +1709,45 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   <Icon name="plus" class="size-4.5" />
                 </Button>
               </TooltipKeybind>
+            </div>
+            <div class="pointer-events-auto">
+              <Tooltip placement="top" value={language.t("prompt.image.start")}>
+                <Button
+                  data-action="prompt-image"
+                  type="button"
+                  variant="ghost"
+                  class="size-8 p-0"
+                  disabled={store.mode !== "normal"}
+                  onClick={() => dialog.show(() => <DialogGenerateImage onGenerated={addAttachment} />)}
+                  aria-label={language.t("prompt.image.start")}
+                >
+                  <Icon name="photo" class="size-4.5" />
+                </Button>
+              </Tooltip>
+            </div>
+            <div class="pointer-events-auto">
+              <Tooltip
+                placement="top"
+                value={
+                  voiceState() === "recording"
+                    ? language.t("prompt.voice.stop")
+                    : voiceState() === "transcribing"
+                      ? language.t("prompt.voice.transcribing")
+                      : language.t("prompt.voice.start")
+                }
+              >
+                <Button
+                  data-action="prompt-voice"
+                  type="button"
+                  variant="ghost"
+                  class="size-8 p-0"
+                  disabled={store.mode !== "normal" || voiceState() === "transcribing"}
+                  onClick={() => void toggleVoice()}
+                  aria-label={language.t("prompt.voice.start")}
+                >
+                  <Icon name={voiceState() === "recording" ? "stop" : "microphone"} class="size-4.5" />
+                </Button>
+              </Tooltip>
             </div>
           </div>
         </div>

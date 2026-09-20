@@ -14,6 +14,7 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLayout } from "@/context/layout"
 import { useTabs } from "@/context/tabs"
 import { useServerSync } from "@/context/server-sync"
+import { SettingsAladdin } from "./aladdin"
 
 export const DialogSettings: Component<{
   sessionID?: string
@@ -65,6 +66,10 @@ export const DialogSettings: Component<{
                       <Icon name="keyboard" />
                       {language.t("settings.tab.shortcuts")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="aladdin">
+                      <Icon name="brain" />
+                      {language.t("settings.aladdin.title")}
+                    </TabsV2.Trigger>
                   </div>
                 </div>
 
@@ -98,6 +103,9 @@ export const DialogSettings: Component<{
         </TabsV2.Content>
         <TabsV2.Content value="shortcuts" class="settings-v2-panel">
           <SettingsKeybinds v2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="aladdin" class="settings-v2-panel">
+          <SettingsAladdin onOpenProviders={showProviders} />
         </TabsV2.Content>
         <TabsV2.Content value="servers" class="settings-v2-panel">
           <SettingsServersV2 />
