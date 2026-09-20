@@ -217,7 +217,6 @@ export function PromptInputV2(props: PromptInputV2Props) {
               onContext={props.controller.openContext}
               onShell={props.controller.openShell}
             />
-            {props.toolbarActions}
             <Show when={view.agent} keyed>
               {(control) => (
                 <PromptInputV2ConfiguredSelect
@@ -256,6 +255,7 @@ export function PromptInputV2(props: PromptInputV2Props) {
               )}
             </Show>
           </div>
+          {props.toolbarActions}
           <PromptInputV2SubmitButton
             mode={state.mode}
             stopping={view.submit.stopping()}
