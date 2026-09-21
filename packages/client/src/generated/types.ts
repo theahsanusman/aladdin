@@ -2710,6 +2710,8 @@ export type QuestionsListRequestsOutput = {
       readonly custom?: boolean
     }>
     readonly tool?: { readonly messageID: string; readonly callID: string }
+    readonly timeoutSeconds?: number
+    readonly expiresAt?: number | "Infinity" | "-Infinity" | "NaN"
   }>
 }
 
@@ -2727,6 +2729,8 @@ export type QuestionsListOutput = {
       readonly custom?: boolean
     }>
     readonly tool?: { readonly messageID: string; readonly callID: string }
+    readonly timeoutSeconds?: number
+    readonly expiresAt?: number | "Infinity" | "-Infinity" | "NaN"
   }>
 }["data"]
 
@@ -2805,3 +2809,22 @@ export type ProjectCopiesRefreshInput = {
 }
 
 export type ProjectCopiesRefreshOutput = void
+
+export type UsageSummaryInput = {
+  readonly from?: { readonly from?: number | undefined; readonly to?: number | undefined }["from"]
+  readonly to?: { readonly from?: number | undefined; readonly to?: number | undefined }["to"]
+}
+
+export type UsageSummaryOutput = ReadonlyArray<{
+  readonly date: string
+  readonly providerID: string
+  readonly modelID: string
+  readonly messages: number
+  readonly cost: number
+  readonly tokens: {
+    readonly input: number
+    readonly output: number
+    readonly reasoning: number
+    readonly cache: { readonly read: number; readonly write: number }
+  }
+}>

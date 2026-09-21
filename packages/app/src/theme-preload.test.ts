@@ -8,6 +8,7 @@ beforeEach(() => {
   document.head.innerHTML = ""
   document.documentElement.removeAttribute("data-theme")
   document.documentElement.removeAttribute("data-color-scheme")
+  document.documentElement.removeAttribute("data-look")
   localStorage.clear()
   Object.defineProperty(window, "matchMedia", {
     value: () =>
@@ -42,5 +43,35 @@ describe("theme preload", () => {
 
     expect(document.documentElement.dataset.theme).toBe("nightowl")
     expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:#fff;")
+  })
+
+  test("defaults the look to liquid glass before mount", () => {
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("liquid-glass")
+  })
+
+  test("applies a stored classic look before mount", () => {
+    localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "classic" } }))
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("classic")
+  })
+
+  test("ignores unknown stored looks", () => {
+    localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "neon" } }))
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("liquid-glass")
+  })
+
+  test("survives malformed stored settings", () => {
+    localStorage.setItem("settings.v3", "{not json")
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("liquid-glass")
   })
 })

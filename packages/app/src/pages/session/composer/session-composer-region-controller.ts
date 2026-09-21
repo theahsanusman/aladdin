@@ -5,13 +5,15 @@ import { createStore } from "solid-js/store"
 import type { PromptInputState } from "@/components/prompt-input"
 import { useSync } from "@/context/sync"
 import { getSessionHandoff, setSessionHandoff } from "@/pages/session/handoff"
-import type { SessionComposerController } from "./session-composer-state"
+import type { GoalAction, SessionComposerController, SessionGoalView } from "./session-composer-state"
 
 export type SessionComposerFollowupDock = {
   items: { id: string; text: string }[]
   sending?: string
   onSend: (id: string) => void
   onEdit: (id: string) => void
+  onDelete: (id: string) => void
+  onReorder: (id: string, toIndex: number) => void
 }
 
 export type SessionComposerRevertDock = {
@@ -28,10 +30,13 @@ export function createSessionComposerRegionController(input: {
   prompt: PromptInputState
   ready: Accessor<boolean>
   centered: Accessor<boolean>
-  todo: {
-    collapsed: Accessor<boolean>
-    onToggle: () => void
-  }
+    todo: {
+      collapsed: Accessor<boolean>
+      onToggle: () => void
+    }
+    goal: Accessor<SessionGoalView | undefined>
+    goalBusy: Accessor<boolean>
+    onGoalAction: (action: GoalAction) => void
   followup: Accessor<SessionComposerFollowupDock | undefined>
   revert: Accessor<SessionComposerRevertDock | undefined>
   onResponseSubmit: () => void
@@ -123,6 +128,9 @@ export function createSessionComposerRegionController(input: {
     state: input.state,
     centered: input.centered,
     todo: input.todo,
+    goal: input.goal,
+    goalBusy: input.goalBusy,
+    onGoalAction: input.onGoalAction,
     followup: input.followup,
     revert: input.revert,
     onResponseSubmit: input.onResponseSubmit,

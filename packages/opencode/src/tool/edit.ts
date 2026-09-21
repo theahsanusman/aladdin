@@ -16,6 +16,7 @@ import { Format } from "../format"
 import { InstanceState } from "@/effect/instance-state"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectoryEffect } from "./external-directory"
+import { Claim } from "@/claim/registry"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import * as Bom from "@/util/bom"
 
@@ -81,6 +82,10 @@ export const EditTool = Tool.define(
             ? params.filePath
             : path.join(instance.directory, params.filePath)
           yield* assertExternalDirectoryEffect(ctx, filePath)
+          const conflict = Claim.acquire({ sessionID: ctx.sessionID, paths: [filePath], callID: ctx.callID })
+          if (conflict) {
+            throw new Error(`File is being edited by another session (${conflict.owner}): ${conflict.path}`)
+          }
 
           let diff = ""
           let contentOld = ""

@@ -82,7 +82,7 @@ export const SettingsProvidersV2: Component<{
   }
 
   const canDisconnect = (item: ProviderItem) =>
-    source(item) !== "env" && (protocol() === "v1" || !isConfigCustom(item.id))
+    source(item) !== "env" && source(item) !== "config" && (protocol() === "v1" || !isConfigCustom(item.id))
 
   const note = (id: string) => PROVIDER_NOTES.find((item) => item.match(id))?.key
 
@@ -177,7 +177,9 @@ export const SettingsProvidersV2: Component<{
                       when={canDisconnect(item)}
                       fallback={
                         <span class="settings-v2-provider-env-hint">
-                          {language.t("settings.providers.connected.environmentDescription")}
+                          {source(item) === "config"
+                            ? "Managed in configuration"
+                            : language.t("settings.providers.connected.environmentDescription")}
                         </span>
                       }
                     >

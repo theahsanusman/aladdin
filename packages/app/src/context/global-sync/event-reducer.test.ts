@@ -71,6 +71,7 @@ const baseState = (input: Partial<State> = {}) =>
     session: [],
     sessionTotal: 0,
     session_status: {},
+    session_goal: {},
     session_diff: {},
     todo: {},
     permission: {},

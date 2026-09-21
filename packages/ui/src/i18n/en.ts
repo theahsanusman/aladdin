@@ -81,6 +81,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Usage limit reached. To continue using this model now, enable usage from your available balance",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Open settings",
+  "dialog.usageExceeded.switchAccount": "Switch account",
 
   "ui.sessionTurn.status.delegating": "Delegating work",
   "ui.sessionTurn.status.planning": "Planning next steps",
@@ -202,6 +203,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Copied",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} avg tok/s",
   "ui.message.interrupted": "Interrupted",
   "ui.message.queued": "Queued",
   "ui.message.attachment.alt": "attachment",
@@ -212,6 +214,12 @@ export const dict: Record<string, string> = {
   "ui.patch.action.patched": "Patched",
 
   "ui.question.subtitle.answered": "{{count}} answered",
+  "ui.question.subtitle.timeout": "{{count}} assumed at deadline",
+  "ui.question.subtitle.unattended": "{{count}} assumed unattended",
+  "ui.question.subtitle.skipped": "{{count}} skipped",
+  "ui.question.source.timeout": "The deadline passed before an answer; the first (recommended) option was assumed.",
+  "ui.question.source.unattended": "No user was available; the first (recommended) option was assumed.",
+  "ui.question.source.skipped": "Skipped; the agent proceeds with its own judgment.",
   "ui.question.answer.none": "(no answer)",
   "ui.question.review.notAnswered": "(not answered)",
   "ui.question.multiHint": "Select all answers that apply",

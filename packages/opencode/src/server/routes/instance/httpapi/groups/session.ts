@@ -74,13 +74,26 @@ export const RevertPayload = Schema.Struct(Struct.omit(SessionRevert.RevertInput
 export const PermissionResponsePayload = Schema.Struct({
   response: PermissionV1.Reply,
 })
-
+export const GoalInfo = Schema.Struct({
+  objective: Schema.String,
+  status: Schema.Literals(["active", "paused", "completed"]),
+  evidence: Schema.NullOr(Schema.String),
+  started: Schema.NullOr(Schema.Finite),
+}).annotate({ identifier: "SessionGoal.Info" })
+export const GoalCompletePayload = Schema.Struct({
+  evidence: Schema.String,
+})
 export const SessionPaths = {
   list: root,
   status: `${root}/status`,
   get: `${root}/:sessionID`,
   children: `${root}/:sessionID/children`,
   todo: `${root}/:sessionID/todo`,
+  goal: `${root}/:sessionID/goal`,
+  goalPause: `${root}/:sessionID/goal/pause`,
+  goalResume: `${root}/:sessionID/goal/resume`,
+  goalComplete: `${root}/:sessionID/goal/complete`,
+  goalClear: `${root}/:sessionID/goal/clear`,
   diff: `${root}/:sessionID/diff`,
   messages: `${root}/:sessionID/message`,
   message: `${root}/:sessionID/message/:messageID`,
@@ -163,6 +176,67 @@ export const SessionApi = HttpApi.make("session")
             identifier: "session.todo",
             summary: "Get session todos",
             description: "Retrieve the todo list associated with a specific session, showing tasks and action items.",
+          }),
+        ),
+        HttpApiEndpoint.get("goal", SessionPaths.goal, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.NullOr(GoalInfo), "Session goal"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.goal",
+            summary: "Get session goal",
+            description: "Retrieve the durable goal tracked for a specific session, when one is active.",
+          }),
+        ),
+        HttpApiEndpoint.post("goalPause", SessionPaths.goalPause, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.NullOr(GoalInfo), "Paused goal"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.goal.pause",
+            summary: "Pause session goal",
+            description: "Pause the session goal so the agent stops advancing it until it is resumed.",
+          }),
+        ),
+        HttpApiEndpoint.post("goalResume", SessionPaths.goalResume, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.NullOr(GoalInfo), "Resumed goal"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.goal.resume",
+            summary: "Resume session goal",
+            description: "Resume a paused session goal.",
+          }),
+        ),
+        HttpApiEndpoint.post("goalComplete", SessionPaths.goalComplete, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          payload: GoalCompletePayload,
+          success: described(Schema.NullOr(GoalInfo), "Completed goal"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.goal.complete",
+            summary: "Complete session goal",
+            description: "Mark the session goal completed and record the evidence that proves it.",
+          }),
+        ),
+        HttpApiEndpoint.post("goalClear", SessionPaths.goalClear, {
+          params: { sessionID: SessionID },
+          query: WorkspaceRoutingQuery,
+          success: described(Schema.NullOr(GoalInfo), "Cleared goal"),
+          error: [HttpApiError.BadRequest, ApiNotFoundError],
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "session.goal.clear",
+            summary: "Clear session goal",
+            description: "Remove the session goal entirely.",
           }),
         ),
         HttpApiEndpoint.get("diff", SessionPaths.diff, {

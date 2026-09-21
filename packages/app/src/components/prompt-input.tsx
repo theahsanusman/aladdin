@@ -9,6 +9,7 @@ import {
   createMemo,
   createSignal,
   createResource,
+  For,
   Switch,
   Match,
   type JSX,
@@ -269,8 +270,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     Math.floor(Math.random() * EXAMPLES.length),
   )
   const [voiceState, setVoiceState] = createSignal<"idle" | "recording" | "transcribing">("idle")
+  const [voiceLevel, setVoiceLevel] = createSignal(0)
+  let voiceAudioContext: AudioContext | undefined
+  let voiceAnimationFrame = 0
 
   const stopVoiceStream = () => {
+    cancelAnimationFrame(voiceAnimationFrame)
+    void voiceAudioContext?.close()
+    voiceAudioContext = undefined
+    setVoiceLevel(0)
     voiceStream?.getTracks().forEach((track) => track.stop())
     voiceStream = undefined
   }
@@ -279,7 +287,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     if (voiceCancelled) return
     setVoiceState("transcribing")
     try {
-      if (!blob.size || blob.size > 30_000_000) throw new Error("Record a voice message shorter than 30 MB")
+      if (!blob.size || blob.size > 30_000_000) throw new Error(language.t("prompt.voice.error.size"))
       const response = await sdk().request("/aladdin/voice/transcribe", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -289,9 +297,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           model: settings.aladdin.voice.inputModel(),
         }),
       })
-      if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+      if (!response.ok) throw new Error(language.t("prompt.voice.error.transcription", { status: String(response.status) }))
       const result = (await response.json()) as { text?: unknown }
-      if (typeof result.text !== "string" || !result.text.trim()) throw new Error("No speech was detected")
+      if (typeof result.text !== "string" || !result.text.trim()) throw new Error(language.t("prompt.voice.error.noSpeech"))
       if (voiceCancelled) return
       setEditorText([editorRef.textContent?.trim(), result.text.trim()].filter(Boolean).join(" "))
       handleInput()
@@ -334,6 +342,19 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       }
       voiceRecorder.start()
       setVoiceState("recording")
+      voiceAudioContext = new AudioContext()
+      const analyser = voiceAudioContext.createAnalyser()
+      analyser.fftSize = 512
+      voiceAudioContext.createMediaStreamSource(voiceStream).connect(analyser)
+      const levels = new Uint8Array(analyser.fftSize)
+      const monitor = () => {
+        if (voiceState() !== "recording") return
+        analyser.getByteTimeDomainData(levels)
+        const rms = Math.sqrt(levels.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / levels.length)
+        setVoiceLevel(Math.min(1, rms * 7))
+        voiceAnimationFrame = requestAnimationFrame(monitor)
+      }
+      voiceAnimationFrame = requestAnimationFrame(monitor)
     } catch (error) {
       stopVoiceStream()
       showToast({
@@ -1699,7 +1720,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   data-action="prompt-attach"
                   type="button"
                   variant="ghost"
-                  class="size-8 p-0"
+                  class="relative size-8 p-0"
                   style={buttons()}
                   onClick={pick}
                   disabled={store.mode !== "normal"}
@@ -1746,6 +1767,14 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   aria-label={language.t("prompt.voice.start")}
                 >
                   <Icon name={voiceState() === "recording" ? "stop" : "microphone"} class="size-4.5" />
+                  <Show when={voiceState() === "recording"}>
+                    <span class="sr-only">{Math.round(voiceLevel() * 100)}%</span>
+                    <span class="pointer-events-none absolute inset-x-1 bottom-0 flex h-3 items-end justify-center gap-px" aria-hidden="true">
+                      <For each={[0, 1, 2, 3, 4, 5, 6]}>
+                        {(index) => <span class="w-0.5 rounded-full bg-text-base transition-[height] duration-75" style={{ height: `${3 + Math.max(0, voiceLevel() - index * 0.08) * 9}px` }} />}
+                      </For>
+                    </span>
+                  </Show>
                 </Button>
               </Tooltip>
             </div>

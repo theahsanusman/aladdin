@@ -190,6 +190,25 @@ const setLegacySummaryDiff = (sessionID: SessionIDType) =>
       .pipe(Effect.orDie)
   })
 
+const setGoal = (
+  sessionID: SessionIDType,
+  goal: { objective: string; status: "active" | "paused" | "completed"; evidence: string | null; started: number },
+) =>
+  Effect.gen(function* () {
+    const { db } = yield* Database.Service
+    yield* db
+      .update(SessionTable)
+      .set({
+        goal_objective: goal.objective,
+        goal_status: goal.status,
+        goal_evidence: goal.evidence,
+        goal_started: goal.started,
+      })
+      .where(eq(SessionTable.id, sessionID))
+      .run()
+      .pipe(Effect.orDie)
+  })
+
 const getWorkspaceID = (sessionID: SessionIDType) =>
   Effect.gen(function* () {
     const { db } = yield* Database.Service
@@ -1039,6 +1058,71 @@ describe("session HttpApi", () => {
         )
 
         expect(response.status).toBe(400)
+      }),
+    { git: true, config: { formatter: false, lsp: false } },
+  )
+
+  // A goal is normally created by the model through the goal tool, so the helper above seeds the projected row.
+  it.instance(
+    "serves goal routes",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
+        const session = yield* createSession({ title: "goal" })
+        const goalPath = pathFor(SessionPaths.goal, { sessionID: session.id })
+        const started = 1_700_000_000_000
+
+        expect(yield* requestJson<unknown>(goalPath, { headers })).toBeNull()
+
+        const missing = yield* request(pathFor(SessionPaths.goalPause, { sessionID: session.id }), {
+          method: "POST",
+          headers,
+        })
+        expect(missing.status).toBe(400)
+
+        yield* setGoal(session.id, { objective: "Ship Aladdin", status: "active", evidence: null, started })
+        expect(yield* requestJson<unknown>(goalPath, { headers })).toEqual({
+          objective: "Ship Aladdin",
+          status: "active",
+          evidence: null,
+          started,
+        })
+
+        expect(
+          yield* requestJson<unknown>(pathFor(SessionPaths.goalPause, { sessionID: session.id }), {
+            method: "POST",
+            headers,
+          }),
+        ).toEqual({ objective: "Ship Aladdin", status: "paused", evidence: null, started })
+
+        expect(
+          yield* requestJson<unknown>(pathFor(SessionPaths.goalResume, { sessionID: session.id }), {
+            method: "POST",
+            headers,
+          }),
+        ).toMatchObject({ status: "active", started })
+
+        expect(
+          yield* requestJson<unknown>(pathFor(SessionPaths.goalComplete, { sessionID: session.id }), {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ evidence: "Verified through the goal routes" }),
+          }),
+        ).toMatchObject({ status: "completed", evidence: "Verified through the goal routes" })
+
+        expect(yield* requestJson<unknown>(goalPath, { headers })).toMatchObject({
+          status: "completed",
+          evidence: "Verified through the goal routes",
+        })
+
+        expect(
+          yield* requestJson<unknown>(pathFor(SessionPaths.goalClear, { sessionID: session.id }), {
+            method: "POST",
+            headers,
+          }),
+        ).toBeNull()
+        expect(yield* requestJson<unknown>(goalPath, { headers })).toBeNull()
       }),
     { git: true, config: { formatter: false, lsp: false } },
   )

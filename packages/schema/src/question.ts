@@ -1,7 +1,7 @@
 export * as Question from "./question"
 
 import { Schema } from "effect"
-import { optional } from "./schema"
+import { optional, NonNegativeInt } from "./schema"
 import { define, inventory } from "./event"
 import { ascending } from "./identifier"
 import { SessionID } from "./session-id"
@@ -54,6 +54,13 @@ export const Request = Schema.Struct({
   sessionID: SessionID,
   questions: Schema.Array(Info).annotate({ description: "Questions to ask" }),
   tool: Tool.pipe(optional),
+  timeoutSeconds: NonNegativeInt.pipe(optional).annotate({
+    description:
+      "Seconds to wait for an answer before the runtime proceeds on the user's behalf. Unset means the configured default.",
+  }),
+  expiresAt: Schema.Number.pipe(optional).annotate({
+    description: "Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.",
+  }),
 }).annotate({ identifier: "QuestionV2.Request" })
 export interface Request extends Schema.Schema.Type<typeof Request> {}
 
@@ -74,6 +81,9 @@ const Replied = define({
     sessionID: SessionID,
     requestID: ID,
     answers: Schema.Array(Answer),
+    source: Schema.Literals(["user", "timeout"]).pipe(optional).annotate({
+      description: "What resolved the request: an explicit user reply or the deadline assuming the first option.",
+    }),
   },
 })
 const Rejected = define({

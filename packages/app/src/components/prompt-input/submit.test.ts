@@ -135,6 +135,11 @@ beforeAll(async () => {
   mock.module("@opencode-ai/ui/toast", () => ({
     Toast: { Region: () => null },
     showToast: () => 0,
+    toaster: { dismiss: () => undefined },
+  }))
+
+  mock.module("@/utils/toast", () => ({
+    showToast: () => 0,
   }))
 
   mock.module("@opencode-ai/core/util/encode", () => ({
@@ -302,6 +307,79 @@ beforeEach(() => {
   createSessionGate = undefined
   serverSessionSyncs = 0
   for (const key of Object.keys(storedSessions)) delete storedSessions[key]
+})
+
+describe("prompt submit queueing", () => {
+  const length = (value: Prompt) =>
+    value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0)
+
+  test("queues a busy prompt instead of sending it", async () => {
+    params = { id: "session-1" }
+    const queued: unknown[] = []
+    const submit = createPromptSubmit({
+      prompt,
+      info: () => ({ id: "session-1" }),
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      autoAccept: () => false,
+      mode: () => "normal",
+      working: () => true,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: length,
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      shouldQueue: () => true,
+      onQueue: (draft) => queued.push(draft),
+    })
+
+    await submit.handleSubmit({ preventDefault: () => undefined } as unknown as Event)
+
+    expect(queued).toHaveLength(1)
+    expect(queued[0]).toMatchObject({
+      sessionID: "session-1",
+      agent: "agent",
+      model: { providerID: "provider", modelID: "model" },
+    })
+    expect(sentPrompts).toEqual([])
+    expect(optimistic).toEqual([])
+  })
+
+  test("steers instead of queueing when the caller forces it", async () => {
+    params = { id: "session-1" }
+    const queued: unknown[] = []
+    const submit = createPromptSubmit({
+      prompt,
+      info: () => ({ id: "session-1" }),
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      autoAccept: () => false,
+      mode: () => "normal",
+      working: () => true,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: length,
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      shouldQueue: () => true,
+      onQueue: (draft) => queued.push(draft),
+    })
+
+    await submit.handleSubmit({ preventDefault: () => undefined } as unknown as Event, { steer: true })
+    await Bun.sleep(0)
+
+    expect(queued).toEqual([])
+    expect(sentPrompts).toEqual(["/repo/main"])
+    expect(promptInputs[0]).toMatchObject({
+      sessionID: "session-1",
+      delivery: "steer",
+      text: "ls",
+    })
+  })
 })
 
 describe("prompt submit worktree selection", () => {

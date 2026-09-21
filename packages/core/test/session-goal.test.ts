@@ -45,6 +45,7 @@ describe("SessionGoal", () => {
         objective: "Ship Aladdin",
         status: "active",
         evidence: null,
+        started: expect.any(Number),
       })
       yield* todos.update({ sessionID, todos: [{ content: "Verify voice", status: "pending", priority: "high" }] })
       expect(SessionGoal.prompt(yield* goals.get(sessionID), yield* todos.get(sessionID))).toContain(
@@ -59,8 +60,22 @@ describe("SessionGoal", () => {
         objective: "Ship Aladdin",
         status: "completed",
         evidence: "Voice tested",
+        started: expect.any(Number),
       })
       expect(yield* goals.get(sessionID)).toMatchObject({ status: "completed", evidence: "Voice tested" })
+    }),
+  )
+
+  it.effect("keeps the start time across pauses and clears the goal completely", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const goals = yield* SessionGoal.Service
+      const started = (yield* goals.start({ sessionID, objective: "Stay steady" })).started
+      expect(yield* goals.pause(sessionID)).toMatchObject({ status: "paused", started })
+      expect(yield* goals.resume(sessionID)).toMatchObject({ status: "active", started })
+      yield* goals.clear(sessionID)
+      expect(yield* goals.get(sessionID)).toBeUndefined()
+      expect(yield* Effect.exit(goals.pause(sessionID))).toMatchObject({ _tag: "Failure" })
     }),
   )
 
@@ -88,7 +103,7 @@ describe("SessionGoal", () => {
       }))
       expect(await run(Effect.gen(function* () {
         return yield* (yield* SessionGoal.Service).get(sessionID)
-      }))).toEqual({ objective: "Survive restart", status: "active", evidence: null })
+      }))).toEqual({ objective: "Survive restart", status: "active", evidence: null, started: expect.any(Number) })
     } finally {
       await rm(directory, { recursive: true, force: true })
     }

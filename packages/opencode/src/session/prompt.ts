@@ -40,6 +40,7 @@ import { ShellID } from "@/tool/shell/id"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { Truncate } from "@/tool/truncate"
 import { Image } from "@/image/image"
+import { Claim } from "@/claim/registry"
 import { decodeDataUrl } from "@/util/data-url"
 import { Process } from "@/util/process"
 import { Cause, Effect, Exit, Latch, Layer, Option, Scope, Context, Schema, Types } from "effect"
@@ -1069,7 +1070,11 @@ const layer = Layer.effect(
       }
 
       if (input.noReply === true) return message
-      return yield* loop({ sessionID: input.sessionID })
+      return yield* loop({ sessionID: input.sessionID }).pipe(
+        // File claims live for the duration of one prompt turn: every write/edit
+        // runs inside this prompt, including subagent sessions.
+        Effect.ensuring(Effect.sync(() => Claim.releaseSession(input.sessionID))),
+      )
     })
 
     const lastAssistant = Effect.fnUntraced(function* (sessionID: SessionID) {
@@ -1270,7 +1275,12 @@ const layer = Layer.effect(
               ...(skills ? [skills] : []),
             ]
             const goalRow = yield* db
-              .select({ objective: SessionTable.goal_objective, status: SessionTable.goal_status, evidence: SessionTable.goal_evidence })
+              .select({
+                objective: SessionTable.goal_objective,
+                status: SessionTable.goal_status,
+                evidence: SessionTable.goal_evidence,
+                started: SessionTable.goal_started,
+              })
               .from(SessionTable)
               .where(eq(SessionTable.id, sessionID))
               .get()
@@ -1282,7 +1292,17 @@ const layer = Layer.effect(
                 .where(eq(TodoTable.session_id, sessionID))
                 .all()
                 .pipe(Effect.orDie)
-              system.push(SessionGoal.prompt({ objective: goalRow.objective, status: goalRow.status, evidence: goalRow.evidence }, tasks)!)
+              system.push(
+                SessionGoal.prompt(
+                  {
+                    objective: goalRow.objective,
+                    status: goalRow.status,
+                    evidence: goalRow.evidence,
+                    started: goalRow.started,
+                  },
+                  tasks,
+                )!,
+              )
             }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)

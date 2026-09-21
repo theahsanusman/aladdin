@@ -1,10 +1,20 @@
-Use this tool when you need to ask the user questions during execution. This allows you to:
-1. Gather user preferences or requirements
-2. Clarify ambiguous instructions
-3. Get decisions on implementation choices as you work
-4. Offer choices to the user about what direction to take.
+Use this tool when you need the user to make a decision you cannot make yourself.
 
-Usage notes:
-- When `custom` is enabled (default), a "Type your own answer" option is added automatically; don't include "Other" or catch-all options
-- Answers are returned as arrays of labels; set `multiple: true` to allow selecting more than one
-- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label
+Ask only when:
+1. Requirements are genuinely ambiguous and reading the repo, config, or environment cannot resolve them
+2. A consequential decision has multiple reasonable directions and the user's preference matters
+3. You are blocked on information only the user has
+
+Do not ask:
+- For permission or approval; the permission system handles that
+- To confirm what you can verify yourself, or to narrate progress
+- More than once per decision; batch related questions into one call (1-3 questions max)
+
+Format:
+- Give each question 2-3 mutually exclusive options, each with a short label and a one-line description
+- If you recommend an option, put it first and end its label with "(Recommended)"
+- With custom enabled (default) a "Type your own answer" option is added automatically; never add "Other" yourself
+- Set `timeoutSeconds` only when this decision needs more or less time than the configured default (300 seconds); at the deadline the runtime proceeds with the first option, and the user can skip at any time
+- Unattended sessions are resolved immediately with the first (recommended) option
+
+Answers arrive as arrays of labels in question order. When a deadline passes, a question is skipped, or the session is unattended, say which assumption you made instead of continuing silently.

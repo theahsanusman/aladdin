@@ -23,6 +23,15 @@ export const todoState = (input: {
 
 export const todoDockAtBoundary = (state: ReturnType<typeof todoState>) => state === "open"
 
+export type SessionGoalView = {
+  objective: string
+  status: "active" | "paused" | "completed"
+  evidence: string | null
+  started: number | null
+}
+
+export type GoalAction = "pause" | "resume" | "clear"
+
 const idle = { type: "idle" as const }
 
 export function createSessionComposerController(options?: { closeMs?: number | (() => number) }) {
@@ -43,10 +52,12 @@ export function createSessionComposerController(options?: { closeMs?: number | (
     })
   })
 
+  // Questions never block the composer: the user can keep typing or send a message while the
+  // agent waits, and the pending question resolves by answer, skip, or its deadline.
   const blocked = createMemo(() => {
     const id = params.id
     if (!id) return false
-    return !!permissionRequest() || !!questionRequest()
+    return !!permissionRequest()
   })
 
   const todos = createMemo((): Todo[] => {
@@ -61,13 +72,54 @@ export function createSessionComposerController(options?: { closeMs?: number | (
 
   const live = createMemo(() => sync().data.session_working(params.id ?? "") || blocked())
 
+  const goal = createMemo((): SessionGoalView | undefined => {
+    const id = params.id
+    if (!id) return
+    return serverSync().session.data.session_goal[id]
+  })
+
   const [store, setStore] = createStore({
     sessionID: params.id,
     responding: undefined as string | undefined,
     dock: todos().length > 0 && !done() && live(),
     closing: false,
     opening: false,
+    goalBusy: false,
   })
+
+  createEffect(
+    on(
+      () => params.id,
+      (id) => {
+        setStore("goalBusy", false)
+        if (!id) return
+        void serverSync().session.goal(id).catch(() => {})
+      },
+    ),
+  )
+
+  const goalAction = (action: GoalAction) => {
+    const id = params.id
+    if (!id || store.goalBusy) return
+    setStore("goalBusy", true)
+    const requests = {
+      pause: () => sdk().client.session.goal2.pause({ sessionID: id }),
+      resume: () => sdk().client.session.goal2.resume({ sessionID: id }),
+      clear: () => sdk().client.session.goal2.clear({ sessionID: id }),
+    }
+    requests[action]()
+      .then((result) => {
+        serverSync().session.set("session_goal", id, result.data ?? undefined)
+      })
+      .catch((error: unknown) => {
+        showToast({
+          title: language.t("session.goal.error"),
+          description: error instanceof Error ? error.message : String(error),
+          variant: "error",
+        })
+      })
+      .finally(() => setStore("goalBusy", false))
+  }
 
   const permissionResponding = createMemo(() => {
     const perm = permissionRequest()
@@ -192,6 +244,9 @@ export function createSessionComposerController(options?: { closeMs?: number | (
     permissionResponding,
     decide,
     todos,
+    goal,
+    goalBusy: () => store.goalBusy,
+    goalAction,
     dock: () =>
       store.sessionID === params.id
         ? store.dock

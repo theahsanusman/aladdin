@@ -68,6 +68,7 @@ import { createSessionLineage } from "@/pages/session/session-lineage"
 import { SessionPage, SessionRouteErrorBoundary, TargetSessionRouteContent } from "@/pages/session"
 import { NewHome } from "@/pages/home"
 import { LegacyHome } from "@/pages/home/legacy-home"
+import { AutomationsPage } from "@/pages/automations"
 
 const NewSession = lazy(() => import("@/pages/new-session"))
 
@@ -626,6 +627,7 @@ function Routes(props: { serverScoped?: JSX.Element }) {
           {
             <>
               <Route path="/" component={LegacyHome} />
+              <Route path="/automations" component={AutomationsPage} />
               <Route path="/server/:serverKey/session/:id" component={LegacyTargetSessionRoute} />
             </>
           }
@@ -637,6 +639,7 @@ function Routes(props: { serverScoped?: JSX.Element }) {
       </Route>
       <Show when={settings.general.newLayoutDesigns()}>
         <Route path="/" component={NewHome} />
+        <Route path="/automations" component={AutomationsPage} />
         <Route path="/:dir/session/:id" component={NewLayoutLegacySessionRedirect} />
         <Route path="/server/:serverKey/session/:id" component={TargetSessionRoute} />
       </Show>

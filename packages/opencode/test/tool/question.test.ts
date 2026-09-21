@@ -90,6 +90,54 @@ describe("tool.question", () => {
     }),
   )
 
+  it.instance("should report a skipped question instead of failing the turn", () =>
+    Effect.gen(function* () {
+      const question = yield* Question.Service
+      const toolInfo = yield* QuestionTool
+      const tool = yield* toolInfo.init()
+      const questions = [
+        {
+          question: "Where should this deploy?",
+          header: "Deploy",
+          options: [
+            { label: "Staging", description: "Safe rehearsal target" },
+            { label: "Production", description: "Live users" },
+          ],
+        },
+      ]
+
+      const fiber = yield* tool.execute({ questions }, ctx).pipe(Effect.forkScoped)
+      const item = yield* pending(question)
+      yield* question.reject(item.id)
+
+      const result = yield* Fiber.join(fiber)
+      expect(result.metadata.source).toBe("skipped")
+      expect(result.output).toContain("skipped")
+    }),
+  )
+
+  it.instance("should report the assumed option when the deadline passes", () =>
+    Effect.gen(function* () {
+      const toolInfo = yield* QuestionTool
+      const tool = yield* toolInfo.init()
+      const questions = [
+        {
+          question: "Where should this deploy?",
+          header: "Deploy",
+          options: [
+            { label: "Staging", description: "Safe rehearsal target" },
+            { label: "Production", description: "Live users" },
+          ],
+        },
+      ]
+
+      const result = yield* tool.execute({ questions, timeoutSeconds: 0 }, ctx)
+      expect(result.metadata.source).toBe("timeout")
+      expect(result.metadata.answers).toEqual([["Staging"]])
+      expect(result.output).toContain("deadline passed")
+    }),
+  )
+
   // intentionally removed the zod validation due to tool call errors, hoping prompting is gonna be good enough
   //   test("should throw an Error for header exceeding 30 characters", async () => {
   //     const tool = await QuestionTool.init()

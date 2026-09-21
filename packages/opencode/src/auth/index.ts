@@ -17,6 +17,7 @@ export class Oauth extends Schema.Class<Oauth>("OAuth")({
   access: Schema.String,
   expires: NonNegativeInt,
   accountId: Schema.optional(Schema.String),
+  email: Schema.optional(Schema.String),
   enterpriseUrl: Schema.optional(Schema.String),
 }) {}
 
@@ -45,6 +46,15 @@ export interface Interface {
   readonly all: () => Effect.Effect<Record<string, Info>, AuthError>
   readonly set: (key: string, info: Info) => Effect.Effect<void, AuthError>
   readonly remove: (key: string) => Effect.Effect<void, AuthError>
+  readonly profiles: (providerID: string) => Effect.Effect<{
+    personal: boolean
+    company: boolean
+    personalIdentity?: string
+    companyIdentity?: string
+    active?: "personal" | "company"
+  }, AuthError>
+  readonly saveProfile: (providerID: string, profile: "personal" | "company") => Effect.Effect<void, AuthError>
+  readonly activateProfile: (providerID: string, profile: "personal" | "company") => Effect.Effect<void, AuthError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Auth") {}
@@ -75,6 +85,14 @@ const layer = Layer.effect(
       const data = yield* all()
       if (norm !== key) delete data[key]
       delete data[norm + "/"]
+      if (norm === "openai" && info.type === "oauth" && data.openai?.type === "oauth" && info.accountId && info.accountId === data.openai.accountId) {
+        for (const profile of ["personal", "company"] as const) {
+          const stored = data[`openai::aladdin-profile::${profile}`]
+          if (!stored || JSON.stringify(stored) !== JSON.stringify(data.openai)) continue
+          data[`openai::aladdin-profile::${profile}`] = info
+          break
+        }
+      }
       yield* fsys
         .writeJson(file, { ...data, [norm]: info }, 0o600)
         .pipe(Effect.mapError(fail("Failed to write auth data")))
@@ -88,7 +106,61 @@ const layer = Layer.effect(
       yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
     })
 
-    return Service.of({ get, all, set, remove })
+    const profileKey = (providerID: string, profile: "personal" | "company") =>
+      `${providerID}::aladdin-profile::${profile}`
+
+    const identity = (info: Info | undefined) => {
+      if (info?.type !== "oauth") return undefined
+      if (info.email) return `Email: ${info.email}`
+      if (info.accountId) return `Account ID: ${info.accountId}`
+      return undefined
+    }
+
+    const profiles = Effect.fn("Auth.profiles")(function* (providerID: string) {
+      const data = yield* all()
+      const active = data[providerID]
+      const personal = data[profileKey(providerID, "personal")]
+      const company = data[profileKey(providerID, "company")]
+      return {
+        personal: Boolean(personal),
+        company: Boolean(company),
+        personalIdentity: identity(personal),
+        companyIdentity: identity(company),
+        active:
+          active && personal && JSON.stringify(active) === JSON.stringify(personal)
+            ? ("personal" as const)
+            : active && company && JSON.stringify(active) === JSON.stringify(company)
+              ? ("company" as const)
+              : undefined,
+      }
+    })
+
+    const saveProfile = Effect.fn("Auth.saveProfile")(function* (
+      providerID: string,
+      profile: "personal" | "company",
+    ) {
+      const current = yield* get(providerID)
+      if (current?.type !== "oauth")
+        return yield* Effect.fail(new AuthError({ message: `Connect a ChatGPT OAuth login before saving ${profile}` }))
+      const other = (yield* get(profileKey(providerID, profile === "personal" ? "company" : "personal")))
+      if (other?.type === "oauth" && current.accountId && current.accountId === other.accountId)
+        return yield* Effect.fail(new AuthError({ message: "This ChatGPT account is already saved in the other slot" }))
+      yield* set(profileKey(providerID, profile), current)
+    })
+
+    const activateProfile = Effect.fn("Auth.activateProfile")(function* (
+      providerID: string,
+      profile: "personal" | "company",
+    ) {
+      const data = yield* all()
+      const current = data[profileKey(providerID, profile)]
+      if (!current) return yield* Effect.fail(new AuthError({ message: `${profile} ${providerID} profile is not connected` }))
+      yield* fsys
+        .writeJson(file, { ...data, [providerID]: current }, 0o600)
+        .pipe(Effect.mapError(fail("Failed to activate auth profile")))
+    })
+
+    return Service.of({ get, all, set, remove, profiles, saveProfile, activateProfile })
   }),
 )
 

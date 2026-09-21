@@ -18,6 +18,7 @@ import {
 } from "@/context/settings"
 import { playSoundById, SOUND_OPTIONS } from "@/utils/sound"
 import { createSoundPreviewController, type ShellOption } from "./general-controller-behavior"
+import type { AppLook } from "@/context/app-look"
 
 export { createShellOptions, createSoundPreviewController } from "./general-controller-behavior"
 export type { ShellOption, ShellSelectOption } from "./general-controller-behavior"
@@ -88,6 +89,10 @@ export function createAppearanceSettingsController() {
       options: themes,
       current: createMemo(() => themes().find((option) => option.id === theme.themeId())),
       select: (option: { id: string } | null) => option && theme.setTheme(option.id),
+    },
+    look: {
+      current: settings.appearance.look,
+      select: (value: AppLook) => settings.appearance.setLook(value),
     },
     fonts: {
       ui: createMemo(() => ({

@@ -560,6 +560,21 @@ The default is `1`, which allows primary agents to launch subagents but prevents
 
 ---
 
+### Subagent limit
+
+You can cap how many subagents a single request may launch using the `subagent_limit` option.
+
+```json title="opencode.json"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "subagent_limit": 3
+}
+```
+
+Unset means unlimited. Set it to `0` to disable subagents entirely. Each subagent runs its own model context, so this cap controls how much one request can spend on delegation. Resuming an existing subagent with `task_id` does not count against the limit.
+
+---
+
 ### Sharing
 
 You can configure the [share](/docs/share) feature through the `share` option.

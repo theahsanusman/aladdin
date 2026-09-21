@@ -148,6 +148,21 @@ export function retryable(error: Err, provider: string) {
   const message = isRecord(error.data) ? error.data.message : undefined
   if (typeof message !== "string") return undefined
   const lower = message.toLowerCase()
+  if (
+    provider === "openai" &&
+    /too[_ -]?many[_ -]?requests|rate[_ -]?limit|usage[_ -]?limit|quota[_ -]?exceeded|resource[_ -]?exhausted/i.test(message)
+  ) {
+    return {
+      message,
+      action: {
+        reason: "account_rate_limit",
+        provider,
+        title: "ChatGPT limit reached",
+        message: "The active ChatGPT account has reached its current usage limit. Switch to your other saved account to continue.",
+        label: "switch account",
+      },
+    }
+  }
   if (lower.includes("too_many_requests")) return { message: "Too Many Requests" }
   if (lower.includes("exhausted") || lower.includes("unavailable")) return { message: "Provider is overloaded" }
   if (matchesRetryableMessage(message)) return { message }

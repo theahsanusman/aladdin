@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, onCleanup, onMount, type Component } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useMutation } from "@tanstack/solid-query"
 import { Button } from "@opencode-ai/ui/button"
@@ -15,6 +15,9 @@ import { useServerSDK } from "@/context/server-sdk"
 import { ScopedKey } from "@/utils/server-scope"
 
 const cache = new Map<string, { tab: number; answers: QuestionAnswer[]; custom: string[]; customOn: boolean[] }>()
+
+/** Upper bound for the option list so long option sets scroll instead of taking over the dock. */
+const OPTIONS_MAX_HEIGHT = 320
 
 function Mark(props: { multi: boolean; picked: boolean; onClick?: (event: MouseEvent) => void }) {
   return (
@@ -84,6 +87,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
 
   let root: HTMLDivElement | undefined
   let optionsRef: HTMLDivElement | undefined
+  let optionsContentRef: HTMLDivElement | undefined
   let customRef: HTMLButtonElement | undefined
   let optsRef: HTMLButtonElement[] = []
   let replied = false
@@ -103,7 +107,32 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
   const customLabel = () => language.t("ui.messagePart.option.typeOwnAnswer")
   const customPlaceholder = () => language.t("ui.question.custom.placeholder")
 
+  const deadline = () => {
+    const expiresAt = props.request.expiresAt
+    if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) return undefined
+    return expiresAt
+  }
+  const [clock, setClock] = createSignal(Date.now())
+  onMount(() => {
+    if (deadline() === undefined) return
+    const timer = setInterval(() => setClock(Date.now()), 1000)
+    onCleanup(() => clearInterval(timer))
+  })
+  const remaining = createMemo(() => {
+    const expiresAt = deadline()
+    if (expiresAt === undefined) return undefined
+    return Math.max(0, expiresAt - clock())
+  })
+  const expired = createMemo(() => remaining() === 0)
+  const countdown = createMemo(() => {
+    const ms = remaining()
+    if (ms === undefined) return undefined
+    const total = Math.ceil(ms / 1000)
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`
+  })
+
   const last = createMemo(() => store.tab >= total() - 1)
+  const optionsOverflow = createMemo(() => store.optionsHeight > OPTIONS_MAX_HEIGHT)
   const collapse = useSpring(() => (store.minimized ? 1 : 0), { visualDuration: 0.3, bounce: 0 })
   const hidden = createMemo(() => Math.max(0, Math.min(1, collapse())))
   const optionsOff = createMemo(() => hidden() > 0.98)
@@ -148,6 +177,17 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     const gap = 8
     const max = Math.max(240, Math.floor(dockBottom - top - gap - below))
     root.style.setProperty("--question-prompt-max-height", `${max}px`)
+  }
+
+  /**
+   * Height the scroller needs to show the current question in full, read from the
+   * uncapped inner element so the applied cap cannot clamp the measurement. That
+   * element owns the list's padding, so its scrollHeight is already the full height.
+   */
+  const measureOptions = () => {
+    const el = optionsContentRef
+    if (!el) return
+    setStore("optionsHeight", el.scrollHeight)
   }
 
   const clamp = (i: number) => Math.max(0, Math.min(count() - 1, i))
@@ -199,11 +239,15 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
   })
 
   createEffect(() => {
-    const el = optionsRef
+    const el = optionsContentRef
     if (!el) return
-    const update = () => setStore("optionsHeight", (height) => Math.max(height, el.scrollHeight))
-    update()
-    createResizeObserver(el, update)
+    createResizeObserver(el, measureOptions)
+  })
+
+  // Re-measure when the visible question changes so switching to a shorter tab shrinks the list.
+  createEffect(() => {
+    store.tab
+    measureOptions()
   })
 
   onCleanup(() => {
@@ -217,8 +261,22 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
     })
   })
 
+  const expire = () => {
+    replied = true
+    cache.delete(cacheKey)
+    props.onSubmit()
+    showToast({
+      title: language.t("session.question.expired.title"),
+      description: language.t("session.question.expired.description"),
+    })
+  }
+
   const fail = (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err)
+    if (/expired/i.test(message)) {
+      expire()
+      return
+    }
     showToast({ title: language.t("common.requestFailed"), description: message })
   }
 
@@ -251,11 +309,19 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
 
   const reply = async (answers: QuestionAnswer[]) => {
     if (sending()) return
+    if (expired()) {
+      expire()
+      return
+    }
     await replyMutation.mutateAsync(answers)
   }
 
   const reject = async () => {
     if (sending()) return
+    if (expired()) {
+      expire()
+      return
+    }
     await rejectMutation.mutateAsync()
   }
 
@@ -478,6 +544,15 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
                   </For>
                 </div>
               </Show>
+              <Show when={countdown()}>
+                {(value) => (
+                  <div data-slot="question-countdown" data-expired={expired()}>
+                    {expired()
+                      ? language.t("session.question.continuing")
+                      : language.t("session.question.countdown", { time: value() })}
+                  </div>
+                )}
+              </Show>
               <button
                 type="button"
                 data-component="icon-button"
@@ -497,7 +572,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
         footer={
           <>
             <Button variant="ghost" size="large" disabled={sending()} onClick={reject} aria-keyshortcuts="Escape">
-              {language.t("ui.common.dismiss")}
+              {language.t("session.question.skip")}
             </Button>
             <div data-slot="question-footer-actions">
               <Show when={store.tab > 0}>
@@ -537,28 +612,32 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
         <div
           ref={(el) => (optionsRef = el)}
           data-slot="question-options"
+          data-scroll={optionsOverflow() ? "true" : undefined}
           aria-hidden={store.minimized || optionsOff() ? "true" : undefined}
           classList={{ "pointer-events-none": hidden() > 0.1 }}
           style={{
-            "max-height": `${Math.max(0, store.optionsHeight * (1 - hidden()))}px`,
+            "max-height": `${Math.max(0, Math.min(store.optionsHeight, OPTIONS_MAX_HEIGHT) * (1 - hidden()))}px`,
             opacity: `${Math.max(0, Math.min(1, 1 - hidden()))}`,
             visibility: optionsOff() ? "hidden" : "visible",
           }}
         >
-          <For each={options()}>
-            {(opt, i) => (
-              <Option
-                multi={multi()}
-                picked={picked(opt.label)}
-                label={opt.label}
-                description={opt.description}
-                disabled={sending()}
-                ref={(el) => (optsRef[i()] = el)}
-                onFocus={() => setStore("focus", i())}
-                onClick={() => selectOption(i())}
-              />
-            )}
-          </For>
+          {/* Observed for content size: this element is never capped, so measuring it
+              cannot feed back into the max-height written on the parent. */}
+          <div ref={(el) => (optionsContentRef = el)} data-slot="question-options-content">
+            <For each={options()}>
+              {(opt, i) => (
+                <Option
+                  multi={multi()}
+                  picked={picked(opt.label)}
+                  label={opt.label}
+                  description={opt.description}
+                  disabled={sending()}
+                  ref={(el) => (optsRef[i()] = el)}
+                  onFocus={() => setStore("focus", i())}
+                  onClick={() => selectOption(i())}
+                />
+              )}
+            </For>
 
           <Show
             when={store.editing}
@@ -633,6 +712,7 @@ export const SessionQuestionDock: Component<{ request: QuestionRequest; onSubmit
               </span>
             </form>
           </Show>
+          </div>
         </div>
       </DockPrompt>
     </div>

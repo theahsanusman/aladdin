@@ -172,6 +172,7 @@ export function TerminalPanelV2(props: { stacked?: boolean } = {}) {
       aria-label={language.t("terminal.title")}
       aria-hidden={!opened()}
       inert={!opened()}
+      data-component="terminal-panel"
       class="relative shrink-0 overflow-hidden bg-v2-background-bg-base"
       classList={{
         "w-full": !isDesktop() || stacked(),

@@ -22,6 +22,14 @@ model = None
 model_lock = Lock()
 
 
+def warm_model():
+    global model
+    with model_lock:
+        if model is None:
+            model = load_model(MODEL)
+    return model
+
+
 class SpeechRequest(BaseModel):
     input: str = Field(min_length=1, max_length=4096)
     model: str = "qwen3-tts-1.7b"
@@ -39,6 +47,12 @@ def voices():
     return {"voices": VOICES, "english": ENGLISH_VOICES}
 
 
+@app.post("/warm")
+def warm():
+    warm_model()
+    return {"status": "ready", "loaded": True}
+
+
 @app.post("/v1/audio/speech")
 def speech(request: SpeechRequest):
     if request.voice not in VOICES:
@@ -46,13 +60,11 @@ def speech(request: SpeechRequest):
     if request.language.lower() != "english":
         raise HTTPException(status_code=422, detail="Aladdin is configured for English speech")
 
-    global model
+    current = warm_model()
     with model_lock:
-        if model is None:
-            model = load_model(MODEL)
         output = next(
             iter(
-                model.generate(
+                current.generate(
                     text=request.input,
                     voice=request.voice,
                     temperature=0.9,

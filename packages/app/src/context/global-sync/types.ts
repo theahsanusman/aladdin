@@ -48,6 +48,14 @@ export type State = {
     [sessionID: string]: SessionStatus
   }
   session_working(id: string): boolean
+  session_goal: {
+    [sessionID: string]: {
+      objective: string
+      status: "active" | "paused" | "completed"
+      evidence: string | null
+      started: number | null
+    } | undefined
+  }
   session_diff: {
     [sessionID: string]: FileDiffInfo[]
   }

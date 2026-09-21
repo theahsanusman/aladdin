@@ -12,14 +12,14 @@ import { Tools } from "./tools"
 export const name = "goal"
 
 export const Input = Schema.Struct({
-  action: Schema.Literals(["get", "start", "pause", "resume", "complete"]),
+  action: Schema.Literals(["get", "start", "pause", "resume", "complete", "clear"]),
   objective: Schema.optional(Schema.String),
   evidence: Schema.optional(Schema.String),
 })
 
 export const Output = Schema.Struct({
-  objective: Schema.String,
-  status: Schema.Literals(["active", "paused", "completed"]),
+  objective: Schema.NullOr(Schema.String),
+  status: Schema.NullOr(Schema.Literals(["active", "paused", "completed"])),
   evidence: Schema.NullOr(Schema.String),
 })
 
@@ -32,7 +32,7 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description: "Maintain a durable session goal. Start with a clear objective, pause or resume when the user steers, and complete only with concrete evidence after all session todos are completed. Use get to inspect the current goal.",
+          description: "Maintain a durable session goal. Start with a clear objective, pause or resume when the user steers, and complete only with concrete evidence after all session todos are completed. Use get to inspect the current goal and clear to remove one.",
           input: Input,
           output: Output,
           toModelOutput: ({ output }) => [{ type: "text", text: JSON.stringify(output) }],
@@ -57,6 +57,10 @@ const layer = Layer.effectDiscard(
               }
               if (input.action === "pause") return yield* goals.pause(context.sessionID)
               if (input.action === "resume") return yield* goals.resume(context.sessionID)
+              if (input.action === "clear") {
+                yield* goals.clear(context.sessionID)
+                return { objective: null, status: null, evidence: null }
+              }
               if (!input.evidence) return yield* Effect.fail(new ToolFailure({ message: "Completion evidence is required" }))
               return yield* goals.complete({ sessionID: context.sessionID, evidence: input.evidence })
             }).pipe(Effect.mapError((error) => new ToolFailure({ message: error.message }))),

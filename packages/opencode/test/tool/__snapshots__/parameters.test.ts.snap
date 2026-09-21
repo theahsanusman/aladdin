@@ -245,6 +245,10 @@ exports[`tool parameters JSON Schema (wire shape) question 1`] = `
       },
       "type": "array",
     },
+    "timeoutSeconds": {
+      "description": "Seconds to wait for an answer before proceeding with the first (recommended) option. 0 decides immediately. Defaults to the configured question.timeout_seconds (300 seconds).",
+      "type": "number",
+    },
   },
   "required": [
     "questions",

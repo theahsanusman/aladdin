@@ -6,6 +6,7 @@ import { ConfigProvider, Context, Effect, Exit, Layer, Scope } from "effect"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { OpenApi } from "effect/unstable/httpapi"
 import { createServer } from "node:http"
+import { createServer as createSecureServer } from "node:https"
 import { MDNS } from "./mdns"
 import { HttpApiApp } from "./routes/instance/httpapi/server"
 import { disposeMiddleware } from "./routes/instance/httpapi/lifecycle"
@@ -34,6 +35,12 @@ type ListenOptions = CorsOptions & {
   hostname: string
   mdns?: boolean
   mdnsDomain?: string
+  // PEM contents. Supplying these switches the listener to HTTPS, which a phone on the same
+  // network needs: browsers only expose a microphone in a secure context.
+  tls?: { cert: string; key: string }
+  // Mobile listeners serve the bundled web UI even when the host process disabled it for its own
+  // listener, because a phone has no other way to load the app.
+  serveWebUI?: boolean
 }
 type ListenerState = {
   scope: Scope.Scope
@@ -84,7 +91,7 @@ const listenEffect: (opts: ListenOptions) => Effect.Effect<EffectListener, unkno
   function* (opts: ListenOptions) {
     const state = yield* startWithPortFallback(opts)
     const address = yield* tcpAddress(state)
-    const listenerUrl = makeURL(opts.hostname, address.port)
+    const listenerUrl = makeURL(opts.hostname, address.port, !!opts.tls)
     const unpublishMdns = yield* setupMdns(opts, address.port, state.scope)
     url = listenerUrl
 
@@ -104,7 +111,7 @@ function listenerLayer(opts: ListenOptions, port: number) {
     disableListenLog: true,
   }).pipe(
     Layer.provideMerge(AppNodeBuilder.build(WebSocketTracker.node)),
-    Layer.provideMerge(serverLayer({ port, hostname: opts.hostname })),
+    Layer.provideMerge(serverLayer({ port, hostname: opts.hostname, tls: opts.tls })),
     // Install a fresh `ConfigProvider` per listener so `Config.string(...)`
     // reads reflect the current `process.env`. Effect's default
     // `ConfigProvider` snapshots `process.env` on first read and caches the
@@ -145,10 +152,11 @@ function tcpAddress(state: ListenerState) {
   })
 }
 
-function makeURL(hostname: string, port: number) {
+function makeURL(hostname: string, port: number, secure = false) {
   const result = new URL("http://localhost")
   result.hostname = hostname
   result.port = String(port)
+  if (secure) result.protocol = "https:"
   return result
 }
 
@@ -196,8 +204,8 @@ function forceClose(state: ListenerState) {
   return Effect.all([state.http.closeAll, state.websockets.closeAll], { concurrency: "unbounded", discard: true })
 }
 
-function serverLayer(opts: { port: number; hostname: string }) {
-  const server = createServer()
+function serverLayer(opts: { port: number; hostname: string; tls?: { cert: string; key: string } }) {
+  const server = opts.tls ? createSecureServer({ cert: opts.tls.cert, key: opts.tls.key }) : createServer()
   const serverRef = { closeStarted: false, forceStop: false }
   const close = server.close.bind(server)
   // Keep shutdown owned by NodeHttpServer, but honor listener.stop(true) by

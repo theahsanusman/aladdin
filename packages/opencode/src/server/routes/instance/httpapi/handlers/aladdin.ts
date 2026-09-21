@@ -1,12 +1,16 @@
 import os from "node:os"
 import path from "node:path"
+import { readdir } from "node:fs/promises"
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { RootHttpApi } from "../api"
-import { ImageInput, SpeechInput, TranscriptionInput } from "../groups/aladdin"
+import { ImageInput, OpenAIProfileInput, SpeechInput, TranscriptionInput } from "../groups/aladdin"
 import { Auth } from "@/auth"
+import { Path } from "@opencode-ai/core/global"
+import { disableMobileAccess, enableMobileAccess, mobileAccessStatus } from "@/aladdin/mobile"
 import { generate } from "@/aladdin/image"
 import { AladdinProviderError } from "../errors"
+import { Flag } from "@opencode-ai/core/flag/flag"
 
 const qwenEndpoint = "http://127.0.0.1:43121"
 const ttsEndpoint = "http://127.0.0.1:43122"
@@ -33,16 +37,13 @@ async function drawThingsModels() {
     }
   }
   const directory = path.join(os.homedir(), "Library/Containers/com.liuliu.draw-things/Data/Documents/Models")
-  const glob = new Bun.Glob("**/*.{ckpt,safetensors,pth}")
-  const models: string[] = []
   try {
-    for await (const file of glob.scan({ cwd: directory, absolute: false, onlyFiles: true })) {
-      models.push(file)
-    }
+    return (await readdir(directory, { recursive: true }))
+      .filter((file) => /\.(ckpt|safetensors|pth)$/i.test(file))
+      .sort((a, b) => a.localeCompare(b))
   } catch {
     return []
   }
-  return models.sort((a, b) => a.localeCompare(b))
 }
 
 function mediaError() {
@@ -52,6 +53,18 @@ function mediaError() {
 export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (handlers) =>
   Effect.gen(function* () {
     const auth = yield* Auth.Service
+    // Mobile access is only offered when the server is already password protected: an unauthenticated
+    // HTTPS endpoint on the local network would expose the whole machine.
+    const mobileInput = { passwordRequired: !Flag.OPENCODE_SERVER_PASSWORD, data: Path.data }
+    const mobileStatus = Effect.fn("AladdinHttpApi.mobileStatus")(function* () {
+      return yield* Effect.promise(() => mobileAccessStatus(mobileInput))
+    })
+    const mobileEnable = Effect.fn("AladdinHttpApi.mobileEnable")(function* () {
+      return yield* Effect.tryPromise({ try: () => enableMobileAccess(mobileInput), catch: mediaError })
+    })
+    const mobileDisable = Effect.fn("AladdinHttpApi.mobileDisable")(function* () {
+      return yield* Effect.promise(() => disableMobileAccess(mobileInput))
+    })
     const status = Effect.fn("AladdinHttpApi.status")(function* () {
       const [speechInput, speechOutput, models] = yield* Effect.promise(() =>
         Promise.all([
@@ -125,6 +138,39 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       }
     })
 
+    const voices = Effect.fn("AladdinHttpApi.voices")(function* () {
+      const response = yield* Effect.tryPromise({
+        try: () => fetch(`${outputEndpoint}/v1/voices`, { signal: AbortSignal.timeout(2_000) }),
+        catch: mediaError,
+      })
+      if (!response.ok) return yield* Effect.fail(mediaError())
+      const result = yield* Effect.tryPromise({
+        try: () => response.json() as Promise<{ voices?: unknown; english?: unknown }>,
+        catch: mediaError,
+      })
+      const names = (value: unknown) =>
+        Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+      return { voices: names(result.voices), english: names(result.english) }
+    })
+
+    const openAIProfiles = Effect.fn("AladdinHttpApi.openAIProfiles")(function* () {
+      return yield* auth.profiles("openai").pipe(Effect.orDie)
+    })
+
+    const saveOpenAIProfile = Effect.fn("AladdinHttpApi.saveOpenAIProfile")(function* (ctx: {
+      payload: typeof OpenAIProfileInput.Type
+    }) {
+      yield* auth.saveProfile("openai", ctx.payload.profile).pipe(Effect.mapError(mediaError))
+      return yield* auth.profiles("openai").pipe(Effect.mapError(mediaError))
+    })
+
+    const activateOpenAIProfile = Effect.fn("AladdinHttpApi.activateOpenAIProfile")(function* (ctx: {
+      payload: typeof OpenAIProfileInput.Type
+    }) {
+      yield* auth.activateProfile("openai", ctx.payload.profile).pipe(Effect.mapError(mediaError))
+      return yield* auth.profiles("openai").pipe(Effect.mapError(mediaError))
+    })
+
     const image = Effect.fn("AladdinHttpApi.image")(function* (ctx: { payload: typeof ImageInput.Type }) {
       if (!ctx.payload.prompt.trim() || ctx.payload.prompt.length > 20_000 || !ctx.payload.model.trim()) {
         return yield* Effect.fail(mediaError())
@@ -141,6 +187,13 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       .handle("status", status)
       .handle("transcribe", transcribe)
       .handle("speak", speak)
+      .handle("voices", voices)
+      .handle("openAIProfiles", openAIProfiles)
+      .handle("saveOpenAIProfile", saveOpenAIProfile)
+      .handle("activateOpenAIProfile", activateOpenAIProfile)
       .handle("image", image)
+      .handle("mobileStatus", mobileStatus)
+      .handle("mobileEnable", mobileEnable)
+      .handle("mobileDisable", mobileDisable)
   }),
 )

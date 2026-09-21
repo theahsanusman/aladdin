@@ -315,7 +315,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
                 limit:
                   model.id.includes("gpt-5.5") || model.id.includes("gpt-5.6")
                     ? {
-                        context: 400_000,
+                        context: 272_000,
                         input: 272_000,
                         output: 128_000,
                       }
@@ -364,13 +364,14 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
             if (currentAuth.type !== "oauth")
               return websocketFetch ? websocketFetch(requestInput, init) : fetch(requestInput, init)
 
-            const authWithAccount = currentAuth as typeof currentAuth & { accountId?: string }
+            const authWithAccount = currentAuth as typeof currentAuth & { accountId?: string; email?: string }
 
             if (!currentAuth.access || currentAuth.expires < Date.now()) {
               if (!refreshPromise) {
                 refreshPromise = refreshAccessToken(currentAuth.refresh, issuer)
                   .then(async (tokens) => {
                     const accountId = extractAccountId(tokens) || authWithAccount.accountId
+                    const email = (tokens.id_token && parseJwtClaims(tokens.id_token)?.email) || authWithAccount.email
                     await input.client.auth.set({
                       path: { id: "openai" },
                       body: {
@@ -379,6 +380,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
                         access: tokens.access_token,
                         expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
                         ...(accountId && { accountId }),
+                        ...(email && { email }),
                       },
                     })
                     return {
@@ -456,12 +458,14 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
                 const tokens = await callbackPromise
                 stopOAuthServer()
                 const accountId = extractAccountId(tokens)
+                const email = parseJwtClaims(tokens.id_token)?.email
                 return {
                   type: "success" as const,
                   refresh: tokens.refresh_token,
                   access: tokens.access_token,
                   expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
                   accountId,
+                  email,
                 }
               },
             }
@@ -537,6 +541,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
                       access: tokens.access_token,
                       expires: Date.now() + (tokens.expires_in ?? 3600) * 1000,
                       accountId: extractAccountId(tokens),
+                      email: parseJwtClaims(tokens.id_token)?.email,
                     }
                   }
 

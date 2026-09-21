@@ -112,6 +112,8 @@ import type {
   ProjectCopiesRemoveOutput,
   ProjectCopiesRefreshInput,
   ProjectCopiesRefreshOutput,
+  UsageSummaryInput,
+  UsageSummaryOutput,
 } from "./types"
 import { ClientError } from "./client-error"
 
@@ -983,6 +985,20 @@ export function make(options: ClientOptions) {
             successStatus: 204,
             declaredStatuses: [400, 401],
             empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    usage: {
+      summary: (input?: UsageSummaryInput, requestOptions?: RequestOptions) =>
+        request<UsageSummaryOutput>(
+          {
+            method: "GET",
+            path: `/api/usage/summary`,
+            query: { from: input?.["from"], to: input?.["to"] },
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
           },
           requestOptions,
         ),

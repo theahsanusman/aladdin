@@ -36,6 +36,7 @@ export const SessionTable = sqliteTable(
     goal_objective: text(),
     goal_status: text({ enum: ["active", "paused", "completed"] }),
     goal_evidence: text(),
+    goal_started: integer(),
     version: text().notNull(),
     share_url: text(),
     summary_additions: integer(),

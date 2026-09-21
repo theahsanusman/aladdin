@@ -27,7 +27,7 @@ export const PlanExitTool = Tool.define(
           const instance = yield* InstanceState.context
           const info = yield* session.get(ctx.sessionID)
           const plan = path.relative(instance.worktree, Session.plan(info, instance))
-          const answers = yield* question.ask({
+          const result = yield* question.ask({
             sessionID: ctx.sessionID,
             questions: [
               {
@@ -43,7 +43,9 @@ export const PlanExitTool = Tool.define(
             tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
           })
 
-          if (answers[0]?.[0] === "No") yield* new Question.RejectedError()
+          // Only an explicit "Yes" may start implementation: a timeout, skip, or
+          // unattended resolution must never auto-approve a plan.
+          if (result.source !== "user" || result.answers[0]?.[0] !== "Yes") yield* new Question.RejectedError()
 
           const messages = yield* session.messages({ sessionID: ctx.sessionID }).pipe(Effect.orDie)
           const lastUser = messages.findLast((item) => item.info.role === "user" && item.info.model)

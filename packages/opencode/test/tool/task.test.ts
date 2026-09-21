@@ -113,6 +113,26 @@ function stubOps(opts?: {
   }
 }
 
+function taskContext(sessionID: SessionID, messageID: MessageID, extra: Record<string, any> = {}) {
+  return {
+    sessionID,
+    messageID,
+    agent: "build",
+    abort: new AbortController().signal,
+    extra: { promptOps: stubOps(), ...extra },
+    messages: [],
+    metadata: () => Effect.void,
+    ask: () => Effect.void,
+  }
+}
+
+function failureMessage(exit: Exit.Exit<unknown, unknown>) {
+  if (!Exit.isFailure(exit)) throw new Error("expected task failure")
+  const failure = Cause.squash(exit.cause)
+  if (!(failure instanceof Error)) throw new Error("expected Error defect")
+  return failure.message
+}
+
 function reply(
   input: SessionPrompt.PromptInput,
   text: string,
@@ -1097,5 +1117,101 @@ describe("tool.task", () => {
       expect((yield* jobs.get(child.id))?.status).toBe("cancelled")
       expect((yield* jobs.get(grandchild.id))?.status).toBe("cancelled")
     }),
+  )
+
+  it.instance(
+    "enforces the subagent limit per request",
+    () =>
+      Effect.gen(function* () {
+        const sessions = yield* Session.Service
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        const context = taskContext(chat.id, assistant.id)
+
+        yield* def.execute({ description: "first", prompt: "first", subagent_type: "general" }, context)
+        const exit = yield* def
+          .execute({ description: "second", prompt: "second", subagent_type: "general" }, context)
+          .pipe(Effect.exit)
+
+        expect(failureMessage(exit)).toContain("Subagent limit reached")
+        expect(yield* sessions.children(chat.id)).toHaveLength(1)
+      }),
+    { config: { subagent_limit: 1 } },
+  )
+
+  it.instance(
+    "allows a new subagent in a later request",
+    () =>
+      Effect.gen(function* () {
+        const sessions = yield* Session.Service
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+
+        yield* def.execute(
+          { description: "first", prompt: "first", subagent_type: "general" },
+          taskContext(chat.id, assistant.id),
+        )
+
+        const user = yield* sessions.updateMessage({
+          id: MessageID.ascending(),
+          role: "user",
+          sessionID: chat.id,
+          agent: "build",
+          model: ref,
+          time: { created: Date.now() },
+        })
+        const nextRequest = yield* sessions.updateMessage({ ...assistant, id: MessageID.ascending(), parentID: user.id })
+
+        const result = yield* def.execute(
+          { description: "second", prompt: "second", subagent_type: "general" },
+          taskContext(chat.id, nextRequest.id),
+        )
+
+        expect(result.metadata.sessionId).toBeDefined()
+        expect(yield* sessions.children(chat.id)).toHaveLength(2)
+      }),
+    { config: { subagent_limit: 1 } },
+  )
+
+  it.instance(
+    "disables subagents when the limit is zero",
+    () =>
+      Effect.gen(function* () {
+        const sessions = yield* Session.Service
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+
+        const exit = yield* def
+          .execute({ description: "blocked", prompt: "blocked", subagent_type: "general" }, taskContext(chat.id, assistant.id))
+          .pipe(Effect.exit)
+
+        expect(failureMessage(exit)).toContain("Subagents are disabled")
+        expect(yield* sessions.children(chat.id)).toHaveLength(0)
+      }),
+    { config: { subagent_limit: 0 } },
+  )
+
+  it.instance(
+    "does not count resumed subagents against the limit",
+    () =>
+      Effect.gen(function* () {
+        const sessions = yield* Session.Service
+        const { chat, assistant } = yield* seed()
+        const child = yield* sessions.create({ parentID: chat.id, title: "Existing child" })
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+
+        const result = yield* def.execute(
+          { description: "resume", prompt: "resume", subagent_type: "general", task_id: child.id },
+          taskContext(chat.id, assistant.id),
+        )
+
+        expect(result.metadata.sessionId).toBe(child.id)
+        expect(yield* sessions.children(chat.id)).toHaveLength(1)
+      }),
+    { config: { subagent_limit: 0 } },
   )
 })

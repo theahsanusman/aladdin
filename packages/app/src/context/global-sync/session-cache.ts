@@ -8,6 +8,10 @@ type SessionCache = {
   session_status: Record<string, SessionStatus | undefined>
   session_diff: Record<string, FileDiffInfo[] | undefined>
   todo: Record<string, Todo[] | undefined>
+  session_goal: Record<
+    string,
+    { objective: string; status: "active" | "paused" | "completed"; evidence: string | null; started: number | null } | undefined
+  >
   message: Record<string, Message[] | undefined>
   session_message: Record<string, SessionMessageInfo[] | undefined>
   part: Record<string, Part[] | undefined>
@@ -32,6 +36,7 @@ export function dropSessionCaches(store: SessionCache, sessionIDs: Iterable<stri
   for (const sessionID of stale) {
     delete store.message[sessionID]
     delete store.todo[sessionID]
+    delete store.session_goal[sessionID]
     delete store.session_message[sessionID]
     delete store.session_diff[sessionID]
     delete store.session_status[sessionID]

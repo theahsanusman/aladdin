@@ -13,6 +13,7 @@ import {
   type JSX,
   type ComponentProps,
 } from "solid-js"
+import { tokensPerSecond } from "./tokens-per-second"
 import { createStore } from "solid-js/store"
 import stripAnsi from "strip-ansi"
 import { Dynamic } from "solid-js/web"
@@ -1689,6 +1690,18 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     })
   })
 
+  const speed = createMemo(() => {
+    if (props.message.role !== "assistant") return ""
+    const message = props.message as AssistantMessage
+    const value = tokensPerSecond({
+      tokens: message.tokens.output + message.tokens.reasoning,
+      created: message.time.created,
+      completed: message.time.completed,
+    })
+    if (!value) return ""
+    return i18n.t("ui.message.speed", { value: numfmt().format(Number(value.toFixed(1))) })
+  })
+
   const meta = createMemo(() => {
     if (props.message.role !== "assistant") return ""
     const agent = (props.message as AssistantMessage).agent
@@ -1696,6 +1709,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
       agent ? agent[0]?.toUpperCase() + agent.slice(1) : "",
       model(),
       duration(),
+      speed(),
       interrupted() ? i18n.t("ui.message.interrupted") : "",
     ]
     return items.filter((x) => !!x).join(" \u00B7 ")
@@ -2580,18 +2594,33 @@ ToolRegistry.register({
     const questions = createMemo(() => (props.input.questions ?? []) as QuestionInfo[])
     const answers = createMemo(() => (props.metadata.answers ?? []) as QuestionAnswer[])
     const completed = createMemo(() => answers().length > 0)
+    const source = createMemo(() => {
+      const value = props.metadata.source
+      if (value === "timeout" || value === "unattended" || value === "skipped") return value
+      return undefined
+    })
+    const sourceNote = createMemo(() => {
+      const value = source()
+      if (value === "timeout") return i18n.t("ui.question.source.timeout")
+      if (value === "unattended") return i18n.t("ui.question.source.unattended")
+      if (value === "skipped") return i18n.t("ui.question.source.skipped")
+      return undefined
+    })
 
     const subtitle = createMemo(() => {
       const count = questions().length
       if (count === 0) return ""
-      if (completed()) return i18n.t("ui.question.subtitle.answered", { count })
-      return `${count} ${i18n.t(count > 1 ? "ui.common.question.other" : "ui.common.question.one")}`
+      if (source() === "skipped") return i18n.t("ui.question.subtitle.skipped", { count })
+      if (!completed()) return `${count} ${i18n.t(count > 1 ? "ui.common.question.other" : "ui.common.question.one")}`
+      if (source() === "timeout") return i18n.t("ui.question.subtitle.timeout", { count })
+      if (source() === "unattended") return i18n.t("ui.question.subtitle.unattended", { count })
+      return i18n.t("ui.question.subtitle.answered", { count })
     })
 
     return (
       <BasicTool
         {...props}
-        defaultOpen={completed()}
+        defaultOpen={completed() || source() === "skipped"}
         icon="bubble-5"
         trigger={{
           title: i18n.t("ui.tool.questions"),
@@ -2612,6 +2641,9 @@ ToolRegistry.register({
               }}
             </For>
           </div>
+        </Show>
+        <Show when={sourceNote()}>
+          {(note) => <div data-slot="question-source">{note()}</div>}
         </Show>
       </BasicTool>
     )

@@ -58,6 +58,23 @@ export function useUsageExceededDialogs() {
       if (!action) return
       if (dialog.active) return
 
+      if (action.provider === "openai" && action.reason === "account_rate_limit") {
+        dialog.show(() => (
+          <DialogUsageExceeded
+            title={action.title}
+            description={action.message}
+            actionLabel={t("dialog.usageExceeded.switchAccount")}
+            onClose={(dismissed) => {
+              if (dismissed) return
+              void import("../../components/settings-v2/dialog-settings-v2").then((x) => {
+                void dialog.show(() => <x.DialogSettings defaultValue="aladdin" />)
+              })
+            }}
+          />
+        ))
+        return
+      }
+
       const keys = goUpsellKeys(evt.properties.status)
       if (!keys) return
 

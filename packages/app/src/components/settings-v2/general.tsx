@@ -7,6 +7,7 @@ import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import { APP_LOOKS } from "@/context/app-look"
 import { useUpdaterAction } from "../updater-action"
 import { useSettings } from "@/context/settings"
 import { ExternalLink } from "../external-link"
@@ -166,6 +167,28 @@ const AppearanceSection: Component<{ controller: AppearanceSettingsController }>
             value={(option) => option.id}
             label={(option) => option.name}
             onSelect={props.controller.theme.select}
+          />
+        </SettingsRowV2>
+
+        <SettingsRowV2
+          title={language.t("settings.general.row.look.title")}
+          description={language.t("settings.general.row.look.description")}
+        >
+          <SelectV2
+            appearance="inline"
+            data-action="settings-look"
+            options={APP_LOOKS}
+            current={APP_LOOKS.find((option) => option === props.controller.look.current())}
+            placement="bottom-end"
+            gutter={6}
+            label={(option) =>
+              language.t(
+                option === "classic"
+                  ? "settings.general.row.look.option.classic"
+                  : "settings.general.row.look.option.liquidGlass",
+              )
+            }
+            onSelect={(option) => option && props.controller.look.select(option)}
           />
         </SettingsRowV2>
 

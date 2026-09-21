@@ -3,7 +3,7 @@ import * as Tool from "./tool"
 import { SessionGoal } from "@opencode-ai/core/session/goal"
 
 export const Parameters = Schema.Struct({
-  action: Schema.Literals(["get", "start", "pause", "resume", "complete"]),
+  action: Schema.Literals(["get", "start", "pause", "resume", "complete", "clear"]),
   objective: Schema.optional(Schema.String),
   evidence: Schema.optional(Schema.String),
 })
@@ -20,6 +20,14 @@ export const GoalTool = Tool.define<typeof Parameters, Record<string, never>, Se
         Effect.gen(function* () {
           if (params.action !== "get") {
             yield* ctx.ask({ permission: "goal", patterns: ["*"], always: ["*"], metadata: {} })
+          }
+          if (params.action === "clear") {
+            yield* goals.clear(ctx.sessionID)
+            return {
+              title: "Goal cleared",
+              output: JSON.stringify({ objective: null }),
+              metadata: {},
+            }
           }
           const result = params.action === "get"
             ? yield* goals.get(ctx.sessionID)

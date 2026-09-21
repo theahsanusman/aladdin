@@ -1,0 +1,174 @@
+/*
+ * Liquid Glass look.
+ *
+ * Scoped to `html[data-look="liquid-glass"]`. The theme keeps owning colors; this
+ * layer adds translucency, blur, specular edges, and depth so chrome and floating
+ * surfaces read as glass over the theme canvas and the ambient wash.
+ */
+
+html[data-look="liquid-glass"] {
+  --lg-strength: 46%;
+  --lg-strength-strong: 72%;
+  --lg-strength-heavy: 86%;
+  --lg-strength-composer: 58%;
+  --lg-tint: color-mix(in srgb, var(--v2-background-bg-base) var(--lg-strength), transparent);
+  --lg-tint-strong: color-mix(in srgb, var(--v2-background-bg-base) var(--lg-strength-strong), transparent);
+  --lg-tint-heavy: color-mix(in srgb, var(--v2-background-bg-base) var(--lg-strength-heavy), transparent);
+  --lg-blur: blur(24px) saturate(170%);
+  --lg-blur-strong: blur(40px) saturate(190%);
+  --lg-rim: inset 0 0 0 0.5px light-dark(rgba(28, 24, 20, 0.09), rgba(255, 255, 255, 0.095));
+  --lg-rim-strong: inset 0 0 0 0.5px light-dark(rgba(28, 24, 20, 0.12), rgba(255, 255, 255, 0.13));
+  --lg-sheen: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.07));
+  --lg-sheen-strong: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.1));
+  --lg-gloss: linear-gradient(
+    176deg,
+    light-dark(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.055)) 0%,
+    light-dark(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.015)) 34%,
+    rgba(255, 255, 255, 0) 62%
+  );
+  --lg-shadow-soft:
+    0 1px 2px light-dark(rgba(28, 24, 20, 0.06), rgba(0, 0, 0, 0.4)),
+    0 10px 28px -16px light-dark(rgba(28, 24, 20, 0.22), rgba(0, 0, 0, 0.55));
+  --lg-shadow-lifted:
+    0 2px 6px light-dark(rgba(28, 24, 20, 0.07), rgba(0, 0, 0, 0.45)),
+    0 28px 64px -24px light-dark(rgba(28, 24, 20, 0.3), rgba(0, 0, 0, 0.62));
+  --lg-radius-panel: 16px;
+  --lg-radius-card: 14px;
+  --lg-radius-control: 10px;
+}
+
+html[data-look="liquid-glass"][data-color-scheme="dark"] {
+  --lg-strength: 56%;
+  --lg-strength-strong: 74%;
+  --lg-strength-heavy: 88%;
+  --lg-strength-composer: 70%;
+}
+
+/*
+ * The app canvas wrappers ship an opaque `bg-v2-background-bg-deep` fill. In glass
+ * mode they become transparent so the wash below them feeds every translucent panel.
+ */
+html[data-look="liquid-glass"] .bg-v2-background-bg-deep {
+  background-color: transparent;
+}
+
+/*
+ * Ambient wash: gives the glass something to refract. Anchored to the viewport so
+ * edges of translucent panels pick up different hues instead of one flat tone.
+ */
+html[data-look="liquid-glass"] body {
+  background-image:
+    radial-gradient(58% 42% at 6% -10%, color-mix(in srgb, var(--v2-blue-500) 46%, transparent), transparent 68%),
+    radial-gradient(42% 34% at 102% 0%, color-mix(in srgb, var(--v2-cyan-500) 32%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 88% 96%, color-mix(in srgb, var(--v2-blue-700) 28%, transparent), transparent 72%),
+    radial-gradient(46% 40% at 34% 108%, color-mix(in srgb, var(--v2-blue-400) 30%, transparent), transparent 74%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+html[data-look="liquid-glass"][data-color-scheme="dark"] body {
+  background-image:
+    radial-gradient(58% 42% at 6% -10%, color-mix(in srgb, var(--v2-blue-700) 68%, transparent), transparent 68%),
+    radial-gradient(42% 34% at 102% 0%, color-mix(in srgb, var(--v2-cyan-900) 52%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 88% 96%, color-mix(in srgb, var(--v2-blue-1000) 62%, transparent), transparent 72%),
+    radial-gradient(46% 40% at 34% 108%, color-mix(in srgb, var(--v2-blue-900) 56%, transparent), transparent 74%);
+}
+
+/* Titlebar: chrome sits above the canvas as a translucent strip. */
+html[data-look="liquid-glass"] [data-slot="titlebar-v2"] {
+  background-color: var(--lg-tint);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: inset 0 -0.5px 0 var(--v2-border-border-muted);
+}
+
+html[data-look="liquid-glass"] [data-slot="titlebar-tab-item"] {
+  background-color: transparent;
+  transition: background-color 120ms ease;
+}
+
+html[data-look="liquid-glass"] [data-slot="titlebar-tab-item"]:hover {
+  background-color: color-mix(in srgb, var(--v2-background-bg-layer-02) 55%, transparent);
+}
+
+html[data-look="liquid-glass"] [data-slot="titlebar-tab-item"][data-active="true"] {
+  background-color: var(--lg-tint-strong);
+  background-image: var(--lg-gloss);
+  box-shadow:
+    var(--lg-rim),
+    var(--lg-sheen-strong),
+    0 1px 1px light-dark(rgba(28, 24, 20, 0.05), rgba(0, 0, 0, 0.3));
+}
+
+/* Sidebar rail: edge-to-edge glass column with a hairline seam. */
+html[data-look="liquid-glass"] [data-component="sidebar-rail"] {
+  background-color: color-mix(in srgb, var(--v2-background-bg-base) 44%, transparent);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: inset -0.5px 0 0 var(--v2-border-border-muted);
+}
+
+/* Composer: the dock strip goes transparent so the composer floats as a glass capsule. */
+html[data-look="liquid-glass"] [data-component="session-prompt-dock"] {
+  background-color: transparent;
+}
+
+html[data-look="liquid-glass"] [data-component="prompt-input-v2"] {
+  border-radius: 20px;
+  background-color: color-mix(in srgb, var(--v2-background-bg-base) var(--lg-strength-composer), transparent);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-rim-strong), var(--lg-sheen-strong), var(--lg-shadow-soft);
+}
+
+/* Dock trays (todo, goal, follow-up, question, revert, permission). */
+html[data-look="liquid-glass"] [data-component="session-todo-dock"],
+html[data-look="liquid-glass"] [data-component="session-goal-dock"],
+html[data-look="liquid-glass"] [data-component="session-followup-dock"],
+html[data-look="liquid-glass"] [data-component="session-question-dock"],
+html[data-look="liquid-glass"] [data-component="session-revert-dock"],
+html[data-look="liquid-glass"] [data-component="session-permission-dock"] {
+  border-radius: var(--lg-radius-card);
+  background-color: var(--lg-tint-strong);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-rim), var(--lg-sheen), var(--lg-shadow-soft);
+}
+
+/* Dialogs, command palette, and menus: heavier tint, deep blur, lifted shadow. */
+html[data-look="liquid-glass"] [data-component="dialog-v2"] [data-slot="dialog-container"] {
+  border-radius: var(--lg-radius-panel);
+  background-color: var(--lg-tint-heavy);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur-strong);
+  box-shadow: var(--lg-rim-strong), var(--lg-sheen-strong), var(--lg-shadow-lifted);
+}
+
+html[data-look="liquid-glass"] [data-component="menu-v2-content"],
+html[data-look="liquid-glass"] [data-component="popover-content"],
+html[data-look="liquid-glass"] [data-component="dropdown-menu-content"],
+html[data-look="liquid-glass"] [data-component="dropdown-menu-sub-content"] {
+  border-radius: 12px;
+  background-color: var(--lg-tint-strong);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-rim), var(--lg-sheen), var(--lg-shadow-soft);
+}
+
+/* Side panels: file tree, review, and terminal frames float as glass sheets. */
+html[data-look="liquid-glass"] [data-component="session-panel"],
+html[data-look="liquid-glass"] [data-component="session-review-panel"],
+html[data-look="liquid-glass"] [data-component="terminal-panel"] {
+  border-radius: var(--lg-radius-card);
+  background-color: var(--lg-tint);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-rim), var(--lg-sheen), var(--lg-shadow-soft);
+}
+
+/* Session canvas card. */
+html[data-look="liquid-glass"] [data-component="session-new-design"] {
+  border-radius: var(--lg-radius-panel);
+  background-color: var(--lg-tint);
+  background-image: var(--lg-gloss);
+  backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-rim), var(--lg-sheen), var(--lg-shadow-soft);
+}

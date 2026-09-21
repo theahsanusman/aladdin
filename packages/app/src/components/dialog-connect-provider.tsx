@@ -56,6 +56,7 @@ export function useProviderConnectController(options: { onBack?: () => void } = 
 export const DialogConnectProvider: Component<{
   directory?: Accessor<string | undefined>
   controller?: ReturnType<typeof useProviderConnectController>
+  onConnected?: (provider: string) => Promise<void>
 }> = (props) => {
   const fallback = useProviderConnectController()
   const controller = props.controller ?? fallback
@@ -84,6 +85,7 @@ export const DialogConnectProvider: Component<{
               directory={props.directory}
               onBack={reset}
               setBack={(handler) => (back.current = handler)}
+              onConnected={props.onConnected}
             />
           )}
         </Match>
@@ -381,6 +383,7 @@ function ProviderConnection(props: {
   directory?: Accessor<string | undefined>
   onBack: () => void
   setBack: (handler: () => void) => void
+  onConnected?: (provider: string) => Promise<void>
 }) {
   const dialog = useDialog()
   const serverSync = useServerSync()
@@ -719,6 +722,7 @@ function ProviderConnection(props: {
     await serverSync()
       .refreshProviders()
       .catch(() => undefined)
+    if (props.onConnected) await props.onConnected(props.provider)
     dialog.close()
     showToast({
       variant: "success",

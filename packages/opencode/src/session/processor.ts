@@ -5,6 +5,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { Cause, Deferred, Effect, Exit, Layer, Context, Scope, Schema } from "effect"
 import * as Stream from "effect/Stream"
 import { Agent } from "@/agent/agent"
+import { Budget } from "@/automation/budget"
 import { Config } from "@/config/config"
 import { Permission } from "@/permission"
 import { Plugin } from "@/plugin"
@@ -369,13 +370,16 @@ const layer = Layer.effect(
             }
 
             const agent = yield* agents.get(ctx.assistantMessage.agent)
+            const current = yield* session.get(ctx.assistantMessage.sessionID).pipe(Effect.orElseSucceed(() => undefined))
             yield* permission.ask({
               permission: "doom_loop",
               patterns: [value.name],
               sessionID: ctx.assistantMessage.sessionID,
               metadata: { tool: value.name, input },
               always: [value.name],
-              ruleset: agent.permission,
+              // Session rules are appended after agent rules so an unattended
+              // automation profile (`doom_loop: allow`) wins the last match.
+              ruleset: Permission.merge(agent.permission, current?.permission ?? []),
             })
             return
           }
@@ -468,6 +472,17 @@ const layer = Layer.effect(
               cost: usage.cost,
             })
             yield* session.updateMessage(ctx.assistantMessage)
+            const budget = Budget.consume(ctx.sessionID, usage.tokens, usage.cost)
+            if (budget?.over && budget.scope && budget.limit !== undefined) {
+              return yield* Effect.die(
+                new Budget.BudgetExceededError({
+                  sessionID: ctx.sessionID,
+                  scope: budget.scope,
+                  limit: budget.limit,
+                  used: budget.used,
+                }),
+              )
+            }
             if (ctx.snapshot) {
               const patch = yield* snapshot.patch(ctx.snapshot)
               if (patch.files.length) {

@@ -15,6 +15,7 @@ import { useLayout } from "@/context/layout"
 import { useTabs } from "@/context/tabs"
 import { useServerSync } from "@/context/server-sync"
 import { SettingsAladdin } from "./aladdin"
+import { SettingsUsageV2 } from "./usage"
 
 export const DialogSettings: Component<{
   sessionID?: string
@@ -88,6 +89,10 @@ export const DialogSettings: Component<{
                       <Icon name="models" />
                       {language.t("settings.models.title")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="usage">
+                      <Icon name="chart" />
+                      {language.t("settings.tab.usage")}
+                    </TabsV2.Trigger>
                   </div>
                 </div>
               </div>
@@ -115,6 +120,9 @@ export const DialogSettings: Component<{
         </TabsV2.Content>
         <TabsV2.Content value="models" class="settings-v2-panel">
           <SettingsModelsV2 />
+        </TabsV2.Content>
+        <TabsV2.Content value="usage" class="settings-v2-panel">
+          <SettingsUsageV2 />
         </TabsV2.Content>
       </TabsV2>
     </Dialog>

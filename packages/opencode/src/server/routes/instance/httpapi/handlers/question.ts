@@ -3,7 +3,7 @@ import { QuestionID } from "@/question/schema"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
-import { QuestionNotFoundError } from "../errors"
+import { QuestionExpiredError, QuestionNotFoundError } from "../errors"
 
 export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question", (handlers) =>
   Effect.gen(function* () {
@@ -31,6 +31,14 @@ export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question"
               }),
             ),
           ),
+          Effect.catchTag("Question.ExpiredError", (error) =>
+            Effect.fail(
+              new QuestionExpiredError({
+                requestID: String(error.requestID),
+                message: `Question request already ended before this answer arrived: ${error.requestID}`,
+              }),
+            ),
+          ),
         )
       return true
     })
@@ -42,6 +50,14 @@ export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question"
             new QuestionNotFoundError({
               requestID: String(error.requestID),
               message: `Question request not found: ${error.requestID}`,
+            }),
+          ),
+        ),
+        Effect.catchTag("Question.ExpiredError", (error) =>
+          Effect.fail(
+            new QuestionExpiredError({
+              requestID: String(error.requestID),
+              message: `Question request already ended before this skip arrived: ${error.requestID}`,
             }),
           ),
         ),

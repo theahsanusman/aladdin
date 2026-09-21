@@ -6,6 +6,7 @@ import { SessionQuestionDock } from "@/pages/session/composer/session-question-d
 import { SessionFollowupDock } from "@/pages/session/composer/session-followup-dock"
 import { SessionRevertDock } from "@/pages/session/composer/session-revert-dock"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
+import { SessionGoalDock } from "@/pages/session/composer/session-goal-dock"
 import type { SessionComposerRegionController } from "./session-composer-region-controller"
 
 export function SessionComposerRegion(props: {
@@ -82,6 +83,12 @@ export function SessionComposerRegion(props: {
               </div>
             </div>
           </Show>
+          <SessionGoalDock
+            goal={controller.goal()}
+            todos={controller.state.todos()}
+            busy={controller.goalBusy()}
+            onAction={controller.onGoalAction}
+          />
           <Show
             when={controller.promptReady()}
             fallback={
@@ -137,6 +144,8 @@ export function SessionComposerRegion(props: {
                   sending={controller.followup()!.sending}
                   onSend={controller.followup()!.onSend}
                   onEdit={controller.followup()!.onEdit}
+                  onDelete={controller.followup()!.onDelete}
+                  onReorder={controller.followup()!.onReorder}
                 />
               </Show>
               <Show

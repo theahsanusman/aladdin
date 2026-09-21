@@ -13,6 +13,8 @@ import { TaskTool } from "./task"
 import { Database } from "@opencode-ai/core/database/database"
 import { TodoWriteTool } from "./todo"
 import { GoalTool } from "./goal"
+import { AutomationTool } from "./automation"
+import { Automation } from "@opencode-ai/core/automation"
 import { SessionGoal } from "@opencode-ai/core/session/goal"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -106,6 +108,7 @@ const layer = Layer.effect(
     const question = yield* QuestionTool
     const todo = yield* TodoWriteTool
     const goal = yield* GoalTool
+    const automationtool = yield* AutomationTool
     const lsptool = yield* LspTool
     const plan = yield* PlanExitTool
     const webfetch = yield* WebFetchTool
@@ -221,6 +224,7 @@ const layer = Layer.effect(
           fetch: Tool.init(webfetch),
           todo: Tool.init(todo),
           goal: Tool.init(goal),
+          automation: Tool.init(automationtool),
           search: Tool.init(websearch),
           skill: Tool.init(skilltool),
           patch: Tool.init(patchtool),
@@ -245,6 +249,7 @@ const layer = Layer.effect(
             tool.fetch,
             tool.todo,
             tool.goal,
+            tool.automation,
             tool.search,
             tool.skill,
             tool.patch,
@@ -438,6 +443,7 @@ export const node = LayerNode.make({
     Question.node,
     Todo.node,
     SessionGoal.node,
+    Automation.node,
     Agent.node,
     Skill.node,
     Session.node,

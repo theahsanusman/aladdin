@@ -7,6 +7,7 @@ import { InstanceState } from "@/effect/instance-state"
 import { Patch } from "../patch"
 import { createTwoFilesPatch, diffLines } from "diff"
 import { assertExternalDirectoryEffect } from "./external-directory"
+import { Claim } from "@/claim/registry"
 import { trimDiff } from "./edit"
 import { LSP } from "@/lsp/lsp"
 import { FSUtil } from "@opencode-ai/core/fs-util"
@@ -203,6 +204,14 @@ export const ApplyPatchTool = Tool.define(
 
       // Check permissions if needed
       const relativePaths = fileChanges.map((c) => path.relative(instance.worktree, c.filePath).replaceAll("\\", "/"))
+      const conflict = Claim.acquire({
+        sessionID: ctx.sessionID,
+        paths: fileChanges.flatMap((change) => [change.filePath, ...(change.movePath ? [change.movePath] : [])]),
+        callID: ctx.callID,
+      })
+      if (conflict) {
+        throw new Error(`File is being edited by another session (${conflict.owner}): ${conflict.path}`)
+      }
       yield* ctx.ask({
         permission: "edit",
         patterns: relativePaths,

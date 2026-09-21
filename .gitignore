@@ -36,4 +36,5 @@ tsconfig.tsbuildinfo
 # Aladdin local speech runtime and model weights
 packages/opencode/script/aladdin-speech/.venv/
 packages/opencode/script/aladdin-speech/.models/
+packages/opencode/script/aladdin-speech/__pycache__/
 packages/desktop/resources/aladdin-speech-home.txt

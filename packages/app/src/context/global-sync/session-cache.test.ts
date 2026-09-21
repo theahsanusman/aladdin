@@ -27,6 +27,7 @@ describe("app session cache", () => {
     const store: {
       session_status: Record<string, SessionStatus | undefined>
       session_diff: Record<string, FileDiffInfo[] | undefined>
+      session_goal: Record<string, undefined>
       todo: Record<string, Todo[] | undefined>
       message: Record<string, Message[] | undefined>
       session_message: Record<string, never[] | undefined>
@@ -38,6 +39,7 @@ describe("app session cache", () => {
       session_status: { ses_1: { type: "busy" } as SessionStatus },
       session_diff: { ses_1: [] },
       todo: { ses_1: [] as Todo[] },
+      session_goal: {},
       message: {},
       session_message: {},
       part: { msg_1: [part("prt_1", "ses_1", "msg_1")] },
@@ -63,6 +65,7 @@ describe("app session cache", () => {
     const store: {
       session_status: Record<string, SessionStatus | undefined>
       session_diff: Record<string, FileDiffInfo[] | undefined>
+      session_goal: Record<string, undefined>
       todo: Record<string, Todo[] | undefined>
       message: Record<string, Message[] | undefined>
       session_message: Record<string, never[] | undefined>
@@ -73,6 +76,7 @@ describe("app session cache", () => {
     } = {
       session_status: {},
       session_diff: {},
+      session_goal: {},
       todo: {},
       message: { ses_1: [m] },
       session_message: {},

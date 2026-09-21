@@ -4,6 +4,28 @@ import { client } from "./client.gen.js"
 import { buildClientParams, type Client, type Options as Options2, type TDataShape } from "./client/index.js"
 import type {
   AgentPartInput,
+  AladdinActivateOpenAiProfileErrors,
+  AladdinActivateOpenAiProfileResponses,
+  AladdinImageErrors,
+  AladdinImageResponses,
+  AladdinMobileDisableErrors,
+  AladdinMobileDisableResponses,
+  AladdinMobileEnableErrors,
+  AladdinMobileEnableResponses,
+  AladdinMobileStatusErrors,
+  AladdinMobileStatusResponses,
+  AladdinOpenAiProfilesErrors,
+  AladdinOpenAiProfilesResponses,
+  AladdinSaveOpenAiProfileErrors,
+  AladdinSaveOpenAiProfileResponses,
+  AladdinSpeakErrors,
+  AladdinSpeakResponses,
+  AladdinStatusErrors,
+  AladdinStatusResponses,
+  AladdinTranscribeErrors,
+  AladdinTranscribeResponses,
+  AladdinVoicesErrors,
+  AladdinVoicesResponses,
   AppAgentsErrors,
   AppAgentsResponses,
   AppLogErrors,
@@ -15,6 +37,20 @@ import type {
   AuthRemoveResponses,
   AuthSetErrors,
   AuthSetResponses,
+  AutomationCreateErrors,
+  AutomationCreateResponses,
+  AutomationListErrors,
+  AutomationListResponses,
+  AutomationReadErrors,
+  AutomationReadResponses,
+  AutomationRemoveErrors,
+  AutomationRemoveResponses,
+  AutomationRunErrors,
+  AutomationRunResponses,
+  AutomationRunsErrors,
+  AutomationRunsResponses,
+  AutomationUpdateErrors,
+  AutomationUpdateResponses,
   CommandListErrors,
   CommandListResponses,
   Config as Config3,
@@ -193,6 +229,16 @@ import type {
   SessionForkResponses,
   SessionGetErrors,
   SessionGetResponses,
+  SessionGoalClearErrors,
+  SessionGoalClearResponses,
+  SessionGoalCompleteErrors,
+  SessionGoalCompleteResponses,
+  SessionGoalErrors,
+  SessionGoalPauseErrors,
+  SessionGoalPauseResponses,
+  SessionGoalResponses,
+  SessionGoalResumeErrors,
+  SessionGoalResumeResponses,
   SessionInitErrors,
   SessionInitResponses,
   SessionListErrors,
@@ -263,6 +309,8 @@ import type {
   TuiShowToastResponses,
   TuiSubmitPromptErrors,
   TuiSubmitPromptResponses,
+  UsageSummaryErrors,
+  UsageSummaryResponses,
   V2AgentListErrors,
   V2AgentListResponses,
   V2CommandListErrors,
@@ -385,6 +433,8 @@ import type {
   V2SessionWaitResponses,
   V2SkillListErrors,
   V2SkillListResponses,
+  V2UsageSummaryErrors,
+  V2UsageSummaryResponses,
   VcsApplyErrors,
   VcsApplyResponses,
   VcsDiffErrors,
@@ -448,6 +498,195 @@ class HeyApiRegistry<T> {
 
   set(value: T, key?: string): void {
     this.instances.set(key ?? this.defaultKey, value)
+  }
+}
+
+export class Aladdin extends HeyApiClient {
+  public status<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<AladdinStatusResponses, AladdinStatusErrors, ThrowOnError>({
+      url: "/aladdin/status",
+      ...options,
+    })
+  }
+
+  public transcribe<ThrowOnError extends boolean = false>(
+    parameters?: {
+      audio?: string
+      mime?: string
+      model?: "qwen3-asr-1.7b"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "audio" },
+            { in: "body", key: "mime" },
+            { in: "body", key: "model" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AladdinTranscribeResponses, AladdinTranscribeErrors, ThrowOnError>({
+      url: "/aladdin/voice/transcribe",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public speak<ThrowOnError extends boolean = false>(
+    parameters?: {
+      text?: string
+      model?: "qwen3-tts-1.7b"
+      voice?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "text" },
+            { in: "body", key: "model" },
+            { in: "body", key: "voice" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AladdinSpeakResponses, AladdinSpeakErrors, ThrowOnError>({
+      url: "/aladdin/voice/speak",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public voices<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<AladdinVoicesResponses, AladdinVoicesErrors, ThrowOnError>({
+      url: "/aladdin/voice/voices",
+      ...options,
+    })
+  }
+
+  public openAiProfiles<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<
+      AladdinOpenAiProfilesResponses,
+      AladdinOpenAiProfilesErrors,
+      ThrowOnError
+    >({ url: "/aladdin/auth/openai/profiles", ...options })
+  }
+
+  public saveOpenAiProfile<ThrowOnError extends boolean = false>(
+    parameters?: {
+      profile?: "personal" | "company"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "body", key: "profile" }] }])
+    return (options?.client ?? this.client).post<
+      AladdinSaveOpenAiProfileResponses,
+      AladdinSaveOpenAiProfileErrors,
+      ThrowOnError
+    >({
+      url: "/aladdin/auth/openai/profiles/save",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public activateOpenAiProfile<ThrowOnError extends boolean = false>(
+    parameters?: {
+      profile?: "personal" | "company"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "body", key: "profile" }] }])
+    return (options?.client ?? this.client).post<
+      AladdinActivateOpenAiProfileResponses,
+      AladdinActivateOpenAiProfileErrors,
+      ThrowOnError
+    >({
+      url: "/aladdin/auth/openai/profiles/activate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public image<ThrowOnError extends boolean = false>(
+    parameters?: {
+      provider?: "openai" | "gemini" | "openrouter" | "draw-things"
+      model?: string
+      prompt?: string
+      size?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "provider" },
+            { in: "body", key: "model" },
+            { in: "body", key: "prompt" },
+            { in: "body", key: "size" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AladdinImageResponses, AladdinImageErrors, ThrowOnError>({
+      url: "/aladdin/image/generate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public mobileStatus<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<AladdinMobileStatusResponses, AladdinMobileStatusErrors, ThrowOnError>({
+      url: "/aladdin/mobile/status",
+      ...options,
+    })
+  }
+
+  public mobileEnable<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).post<AladdinMobileEnableResponses, AladdinMobileEnableErrors, ThrowOnError>(
+      { url: "/aladdin/mobile/enable", ...options },
+    )
+  }
+
+  public mobileDisable<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).post<
+      AladdinMobileDisableResponses,
+      AladdinMobileDisableErrors,
+      ThrowOnError
+    >({ url: "/aladdin/mobile/disable", ...options })
   }
 }
 
@@ -1408,6 +1647,288 @@ export class Event extends HeyApiClient {
     )
     return (options?.client ?? this.client).sse.get<EventSubscribeResponses, unknown, ThrowOnError>({
       url: "/event",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Automation extends HeyApiClient {
+  /**
+   * List automations
+   *
+   * List automations with their latest runs for the current project directory.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AutomationListResponses, AutomationListErrors, ThrowOnError>({
+      url: "/automation",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create automation
+   *
+   * Create a scheduled automation for the current project directory.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      prompt?: string
+      schedule?: string
+      kind?: "standalone" | "thread"
+      targetSessionID?: string
+      agent?: string
+      model?: string
+      profile?: "read-only" | "workspace-write" | "full"
+      budgetPerRunTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      budgetPerDayTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      verification?: Array<string>
+      timeoutMinutes?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "prompt" },
+            { in: "body", key: "schedule" },
+            { in: "body", key: "kind" },
+            { in: "body", key: "targetSessionID" },
+            { in: "body", key: "agent" },
+            { in: "body", key: "model" },
+            { in: "body", key: "profile" },
+            { in: "body", key: "budgetPerRunTokens" },
+            { in: "body", key: "budgetPerDayTokens" },
+            { in: "body", key: "verification" },
+            { in: "body", key: "timeoutMinutes" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AutomationCreateResponses, AutomationCreateErrors, ThrowOnError>({
+      url: "/automation",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete automation
+   *
+   * Delete an automation and its runs.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<AutomationRemoveResponses, AutomationRemoveErrors, ThrowOnError>({
+      url: "/automation/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update automation
+   *
+   * Update an automation's prompt, schedule, profile, budgets, or status.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      name?: string
+      prompt?: string
+      schedule?: string
+      kind?: "standalone" | "thread"
+      targetSessionID?: string
+      agent?: string
+      model?: string
+      profile?: "read-only" | "workspace-write" | "full"
+      budgetPerRunTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      budgetPerDayTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      verification?: Array<string>
+      timeoutMinutes?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+      status?: "active" | "paused"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "prompt" },
+            { in: "body", key: "schedule" },
+            { in: "body", key: "kind" },
+            { in: "body", key: "targetSessionID" },
+            { in: "body", key: "agent" },
+            { in: "body", key: "model" },
+            { in: "body", key: "profile" },
+            { in: "body", key: "budgetPerRunTokens" },
+            { in: "body", key: "budgetPerDayTokens" },
+            { in: "body", key: "verification" },
+            { in: "body", key: "timeoutMinutes" },
+            { in: "body", key: "status" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<AutomationUpdateResponses, AutomationUpdateErrors, ThrowOnError>({
+      url: "/automation/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Run automation now
+   *
+   * Trigger a manual run of the automation immediately.
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AutomationRunResponses, AutomationRunErrors, ThrowOnError>({
+      url: "/automation/{id}/run",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List automation runs
+   *
+   * List the most recent runs for one automation.
+   */
+  public runs<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      limit?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AutomationRunsResponses, AutomationRunsErrors, ThrowOnError>({
+      url: "/automation/{id}/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Mark runs read
+   *
+   * Mark all automatic runs for the current project directory as read.
+   */
+  public read<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AutomationReadResponses, AutomationReadErrors, ThrowOnError>({
+      url: "/automation/runs/read",
       ...options,
       ...params,
     })
@@ -3359,6 +3880,145 @@ export class Provider extends HeyApiClient {
   }
 }
 
+export class Goal extends HeyApiClient {
+  /**
+   * Pause session goal
+   *
+   * Pause the session goal so the agent stops advancing it until it is resumed.
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGoalPauseResponses, SessionGoalPauseErrors, ThrowOnError>({
+      url: "/session/{sessionID}/goal/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume session goal
+   *
+   * Resume a paused session goal.
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGoalResumeResponses, SessionGoalResumeErrors, ThrowOnError>({
+      url: "/session/{sessionID}/goal/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Complete session goal
+   *
+   * Mark the session goal completed and record the evidence that proves it.
+   */
+  public complete<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      evidence?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "evidence" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGoalCompleteResponses, SessionGoalCompleteErrors, ThrowOnError>(
+      {
+        url: "/session/{sessionID}/goal/complete",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Clear session goal
+   *
+   * Remove the session goal entirely.
+   */
+  public clear<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionGoalClearResponses, SessionGoalClearErrors, ThrowOnError>({
+      url: "/session/{sessionID}/goal/clear",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Session2 extends HeyApiClient {
   /**
    * List sessions
@@ -3659,6 +4319,38 @@ export class Session2 extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<SessionTodoResponses, SessionTodoErrors, ThrowOnError>({
       url: "/session/{sessionID}/todo",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session goal
+   *
+   * Retrieve the durable goal tracked for a specific session, when one is active.
+   */
+  public goal<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionGoalResponses, SessionGoalErrors, ThrowOnError>({
+      url: "/session/{sessionID}/goal",
       ...options,
       ...params,
     })
@@ -4324,6 +5016,11 @@ export class Session2 extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _goal?: Goal
+  get goal2(): Goal {
+    return (this._goal ??= new Goal({ client: this.client }))
   }
 }
 
@@ -5018,6 +5715,42 @@ export class Tui extends HeyApiClient {
   private _control?: Control
   get control(): Control {
     return (this._control ??= new Control({ client: this.client }))
+  }
+}
+
+export class Usage extends HeyApiClient {
+  /**
+   * Summarize token and cost usage
+   *
+   * Aggregate recorded assistant usage by local calendar day, provider, and model. Unset range covers all recorded usage.
+   */
+  public summary<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      from?: string
+      to?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "from" },
+            { in: "query", key: "to" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<UsageSummaryResponses, UsageSummaryErrors, ThrowOnError>({
+      url: "/usage/summary",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -6987,6 +7720,38 @@ export class ProjectCopy2 extends HeyApiClient {
   }
 }
 
+export class Usage2 extends HeyApiClient {
+  /**
+   * Summarize token and cost usage
+   *
+   * Aggregate recorded assistant usage by local calendar day, provider, and model. Unset range covers all recorded usage.
+   */
+  public summary<ThrowOnError extends boolean = false>(
+    parameters?: {
+      from?: string
+      to?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "from" },
+            { in: "query", key: "to" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<V2UsageSummaryResponses, V2UsageSummaryErrors, ThrowOnError>({
+      url: "/api/usage/summary",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class V2 extends HeyApiClient {
   private _health?: Health
   get health(): Health {
@@ -7072,6 +7837,11 @@ export class V2 extends HeyApiClient {
   get projectCopy(): ProjectCopy2 {
     return (this._projectCopy ??= new ProjectCopy2({ client: this.client }))
   }
+
+  private _usage?: Usage2
+  get usage(): Usage2 {
+    return (this._usage ??= new Usage2({ client: this.client }))
+  }
 }
 
 export class OpencodeClient extends HeyApiClient {
@@ -7080,6 +7850,11 @@ export class OpencodeClient extends HeyApiClient {
   constructor(args?: { client?: Client; key?: string }) {
     super(args)
     OpencodeClient.__registry.set(this, args?.key)
+  }
+
+  private _aladdin?: Aladdin
+  get aladdin(): Aladdin {
+    return (this._aladdin ??= new Aladdin({ client: this.client }))
   }
 
   private _auth?: Auth
@@ -7105,6 +7880,11 @@ export class OpencodeClient extends HeyApiClient {
   private _event?: Event
   get event(): Event {
     return (this._event ??= new Event({ client: this.client }))
+  }
+
+  private _automation?: Automation
+  get automation(): Automation {
+    return (this._automation ??= new Automation({ client: this.client }))
   }
 
   private _config?: Config2
@@ -7210,6 +7990,11 @@ export class OpencodeClient extends HeyApiClient {
   private _tui?: Tui
   get tui(): Tui {
     return (this._tui ??= new Tui({ client: this.client }))
+  }
+
+  private _usage?: Usage
+  get usage(): Usage {
+    return (this._usage ??= new Usage({ client: this.client }))
   }
 
   private _v2?: V2

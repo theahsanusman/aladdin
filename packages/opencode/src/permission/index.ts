@@ -1,6 +1,7 @@
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { ConfigPermissionV1 } from "@opencode-ai/core/v1/config/permission"
 import { InstanceState } from "@/effect/instance-state"
+import { Unattended } from "@/automation/unattended"
 import { Wildcard } from "@opencode-ai/core/util/wildcard"
 import { Deferred, Effect, Layer, Context } from "effect"
 import os from "os"
@@ -82,6 +83,19 @@ const layer = Layer.effect(
       }
 
       if (!needsAsk) return
+
+      // Unattended runs (scheduled automations) can never receive an answer:
+      // convert any surviving ask into a deny instead of hanging forever.
+      if (Unattended.isUnattended(request.sessionID)) {
+        yield* Effect.logInfo("denied unattended request", {
+          sessionID: request.sessionID,
+          permission: request.permission,
+          patterns: request.patterns,
+        })
+        return yield* new PermissionV1.DeniedError({
+          ruleset: ruleset.filter((rule) => Wildcard.match(request.permission, rule.permission)),
+        })
+      }
 
       const id = request.id ?? PermissionV1.ID.ascending()
       const info: PermissionV1.Request = {

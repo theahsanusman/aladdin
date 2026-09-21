@@ -66,11 +66,18 @@ describe("GoalTool", () => {
       expect(yield* executeTool(registry, call({ action: "start", objective: "Ship Aladdin" }))).toMatchObject({
         type: "text",
       })
-      expect(yield* goals.get(sessionID)).toEqual({ objective: "Ship Aladdin", status: "active", evidence: null })
+      expect(yield* goals.get(sessionID)).toEqual({
+        objective: "Ship Aladdin",
+        status: "active",
+        evidence: null,
+        started: expect.any(Number),
+      })
       expect(yield* executeTool(registry, call({ action: "get" }, "call-get"))).toMatchObject({ type: "text" })
       expect(yield* executeTool(registry, call({ action: "complete", evidence: "Verified test" }, "call-done"))).toMatchObject({ type: "text" })
       expect(yield* goals.get(sessionID)).toMatchObject({ status: "completed", evidence: "Verified test" })
-      expect(approvals.map((item) => item.action)).toEqual(["goal", "goal"])
+      expect(yield* executeTool(registry, call({ action: "clear" }, "call-clear"))).toMatchObject({ type: "text" })
+      expect(yield* goals.get(sessionID)).toBeUndefined()
+      expect(approvals.map((item) => item.action)).toEqual(["goal", "goal", "goal"])
     }),
   )
 })

@@ -3,7 +3,7 @@ export * as QuestionV1 from "./question"
 import { Schema } from "effect"
 import { define, inventory } from "../event"
 import { ascending } from "../identifier"
-import { statics } from "../schema"
+import { NonNegativeInt, statics } from "../schema"
 import { SessionID } from "../session-id"
 import { SessionV1 } from "./session"
 
@@ -37,6 +37,13 @@ export const Request = Schema.Struct({
   sessionID: SessionID,
   questions: Schema.Array(Info).annotate({ description: "Questions to ask" }),
   tool: Schema.optional(Tool),
+  timeoutSeconds: Schema.optional(NonNegativeInt).annotate({
+    description:
+      "Seconds to wait for an answer before the runtime proceeds on the user's behalf. Unset means the configured default.",
+  }),
+  expiresAt: Schema.optional(Schema.Number).annotate({
+    description: "Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.",
+  }),
 }).annotate({ identifier: "QuestionRequest" })
 export const Answer = Schema.Array(Schema.String).annotate({ identifier: "QuestionAnswer" })
 export const Reply = Schema.Struct({
@@ -48,6 +55,10 @@ export const Replied = Schema.Struct({
   sessionID: SessionID,
   requestID: ID,
   answers: Schema.Array(Answer),
+  source: Schema.optional(Schema.Literals(["user", "timeout", "unattended"])).annotate({
+    description:
+      "What resolved the request: an explicit user reply, the deadline assuming the first option, or unattended auto-resolution.",
+  }),
 }).annotate({
   identifier: "QuestionReplied",
 })

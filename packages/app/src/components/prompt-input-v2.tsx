@@ -7,14 +7,16 @@ import { Icon } from "@opencode-ai/ui/v2/icon"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { DialogSelectModelUnpaidV2 } from "@/components/dialog-select-model-unpaid-v2"
 import type { PromptInputProps } from "@/components/prompt-input/contracts"
 import { normalizePromptHistoryEntry, promptLength, type PromptHistoryComment } from "@/components/prompt-input/history"
 import { createPersistedPromptInputHistory } from "@/components/prompt-input/history-store"
 import { promptDesignPlaceholder, promptPlaceholder } from "@/components/prompt-input/placeholder"
-import { encodeAudio, recordingMime } from "@/components/prompt-input/voice"
+import { encodeAudio } from "@/components/prompt-input/voice"
+import { createVoiceCallEngine } from "@/components/prompt-input/voice-call-engine"
+import { voiceControls, type VoicePhase } from "@/components/prompt-input/voice-call"
 import { createPromptSubmit } from "@/components/prompt-input/submit"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/context/file"
 import { useComments } from "@/context/comments"
@@ -45,6 +47,13 @@ export type PromptInputV2ComposerProps = {
 export type PromptInputV2ControllerProps = Omit<PromptInputProps, "class" | "submission">
 export type PromptInputV2ComposerController = PromptInputV2Interaction & {
   readonly model: PromptInputProps["controls"]["model"]
+  readonly call: {
+    submit: () => void
+    interrupt: () => Promise<void>
+    working: () => boolean
+    latestAnswer: () => { id: string; text: string } | undefined
+    latestAnswerId: () => string | undefined
+  }
 }
 
 export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
@@ -53,20 +62,38 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
   const language = useLanguage()
   const sdk = useSDK()
   const settings = useSettings()
-  const [voiceState, setVoiceState] = createSignal<"idle" | "recording" | "transcribing">("idle")
-  let recorder: MediaRecorder | undefined
-  let stream: MediaStream | undefined
-  let cancelled = false
+  const [voiceState, setVoiceState] = createSignal<VoicePhase>("idle")
+  const [callActive, setCallActive] = createSignal(false)
+  const [voiceLevel, setVoiceLevel] = createSignal(0)
 
-  const stopStream = () => {
-    stream?.getTracks().forEach((track) => track.stop())
-    stream = undefined
+  const reportVoiceError = (error: unknown) => {
+    showToast({
+      title: language.t("prompt.voice.error.title"),
+      description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
+      variant: "error",
+    })
   }
-  const transcribe = async (blob: Blob) => {
-    if (cancelled) return
-    setVoiceState("transcribing")
-    try {
-      if (!blob.size || blob.size > 30_000_000) throw new Error("Record a voice message shorter than 30 MB")
+  const engine = createVoiceCallEngine({
+    synthesize: async (text, signal) => {
+      const response = await sdk().request("/aladdin/voice/speak", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          text,
+          model: settings.aladdin.voice.outputModel(),
+          voice: settings.aladdin.voice.outputVoice(),
+        }),
+        signal,
+      })
+      if (!response.ok) throw new Error(language.t("prompt.voice.error.output", { status: String(response.status) }))
+      const result = (await response.json()) as { audio?: unknown; mime?: unknown }
+      if (typeof result.audio !== "string" || typeof result.mime !== "string") {
+        throw new Error(language.t("prompt.voice.error.outputInvalid"))
+      }
+      return { audio: result.audio, mime: result.mime }
+    },
+    transcribe: async (blob) => {
+      if (!blob?.size || blob.size > 30_000_000) throw new Error(language.t("prompt.voice.error.size"))
       const response = await sdk().request("/aladdin/voice/transcribe", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -76,61 +103,85 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
           model: settings.aladdin.voice.inputModel(),
         }),
       })
-      if (!response.ok) throw new Error(`Transcription failed (${response.status})`)
+      if (!response.ok) {
+        throw new Error(language.t("prompt.voice.error.transcription", { status: String(response.status) }))
+      }
       const result = (await response.json()) as { text?: unknown }
-      if (typeof result.text !== "string" || !result.text.trim()) throw new Error("No speech was detected")
-      if (cancelled) return
-      const content = `${props.controller.value().trim() ? " " : ""}${result.text.trim()}`
+      if (typeof result.text !== "string") return
+      const text = result.text.trim()
+      return text ? text : undefined
+    },
+    onUtterance: async (text) => {
+      const content = `${props.controller.value().trim() ? " " : ""}${text}`
       props.controller.addPart({ type: "text", content, start: 0, end: content.length })
-      props.controller.restoreFocus()
-    } catch (error) {
-      if (!cancelled)
-        showToast({
-          title: language.t("prompt.voice.error.title"),
-          description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
-          variant: "error",
-        })
-    } finally {
-      stopStream()
-      if (!cancelled) setVoiceState("idle")
-    }
+      props.controller.call.submit()
+    },
+    onError: reportVoiceError,
+    onPhase: setVoiceState,
+    onLevel: setVoiceLevel,
+    silenceMs: () => settings.aladdin.voice.callSilenceMs(),
+    answer: () => props.controller.call.latestAnswer(),
+    answerId: () => props.controller.call.latestAnswerId(),
+    working: () => props.controller.call.working(),
+    interrupt: () => props.controller.call.interrupt(),
+  })
+  const failVoice = (error: unknown) => {
+    engine.stopCall()
+    setCallActive(false)
+    reportVoiceError(error)
   }
+  const writeTranscript = (text: string) => {
+    const content = `${props.controller.value().trim() ? " " : ""}${text}`
+    props.controller.addPart({ type: "text", content, start: 0, end: content.length })
+    props.controller.restoreFocus()
+  }
+  const micControl = () => voiceControls({ control: "message", phase: voiceState(), callActive: callActive() })
+  const callControl = () => voiceControls({ control: "call", phase: voiceState(), callActive: callActive() })
   const toggleVoice = async () => {
-    if (voiceState() === "recording") {
-      setVoiceState("transcribing")
-      recorder?.stop()
+    const control = micControl()
+    if (control.disabled) return
+    if (control.action === "stopMessage") {
+      try {
+        const text = await engine.stopMessage()
+        if (text) writeTranscript(text)
+      } catch (error) {
+        failVoice(error)
+      }
       return
     }
-    if (voiceState() !== "idle") return
+    if (control.action !== "startMessage") return
     try {
-      cancelled = false
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      if (cancelled) return stopStream()
-      const mimeType = recordingMime()
-      const chunks: BlobPart[] = []
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data)
-      }
-      recorder.onstop = () => {
-        if (!cancelled) void transcribe(new Blob(chunks, { type: recorder?.mimeType }))
-      }
-      recorder.start()
-      setVoiceState("recording")
+      await engine.startMessage()
     } catch (error) {
-      stopStream()
-      showToast({
-        title: language.t("prompt.voice.error.title"),
-        description: error instanceof Error ? error.message : language.t("prompt.voice.error.description"),
-        variant: "error",
-      })
+      failVoice(error)
+    }
+  }
+  const toggleCall = async () => {
+    const control = callControl()
+    if (control.disabled) return
+    if (control.action === "stopCall") return engine.stopCall()
+    if (control.action !== "startCall") return
+    setCallActive(true)
+    try {
+      await engine.startCall()
+    } catch (error) {
+      failVoice(error)
+    } finally {
+      setCallActive(false)
     }
   }
   onCleanup(() => {
-    cancelled = true
-    if (recorder?.state === "recording") recorder.stop()
-    stopStream()
+    engine.stopCall()
   })
+  const recording = () => voiceState() === "recording"
+  const busy = () => voiceState() === "transcribing" || voiceState() === "waiting"
+  const callPhaseLabel = () => {
+    const phase = voiceState()
+    if (phase === "transcribing") return language.t("prompt.voice.phase.transcribing")
+    if (phase === "waiting") return language.t("prompt.voice.phase.waiting")
+    if (phase === "speaking") return language.t("prompt.voice.phase.speaking")
+    return language.t("prompt.voice.phase.listening")
+  }
 
   return (
     <div class="flex flex-col gap-3">
@@ -142,23 +193,55 @@ export function PromptInputV2Composer(props: PromptInputV2ComposerProps) {
         attachKeybind={command.keybindParts("file.attach")}
         attachShortcut={command.keybind("file.attach")}
         toolbarActions={
-          <button
-            data-action="prompt-voice"
-            type="button"
-            class="flex size-8 items-center justify-center rounded-md text-v2-text-text-base hover:bg-v2-background-bg-hover disabled:opacity-50"
-            disabled={voiceState() === "transcribing"}
-            onClick={() => void toggleVoice()}
-            aria-label={language.t(voiceState() === "recording" ? "prompt.voice.stop" : "prompt.voice.start")}
-            title={language.t(
-              voiceState() === "recording"
-                ? "prompt.voice.stop"
-                : voiceState() === "transcribing"
-                  ? "prompt.voice.transcribing"
-                  : "prompt.voice.start",
-            )}
-          >
-            <LegacyIcon name={voiceState() === "recording" ? "stop" : "microphone"} class="size-5" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              data-action="prompt-voice"
+              type="button"
+              class="relative flex size-8 items-center justify-center rounded-md text-v2-text-text-base transition-colors hover:bg-v2-background-bg-hover disabled:opacity-40"
+              classList={{ "bg-v2-state-bg-danger text-v2-state-fg-danger": recording() && !callActive() }}
+              disabled={micControl().disabled}
+              onClick={() => void toggleVoice()}
+              aria-pressed={recording() && !callActive()}
+              aria-label={language.t(recording() ? "prompt.voice.stop" : "prompt.voice.start")}
+              title={language.t(recording() ? "prompt.voice.stop" : "prompt.voice.start")}
+            >
+              <LegacyIcon name={recording() ? "stop" : "microphone"} class="size-5" />
+              <Show when={recording() && !callActive()}>
+                <span class="sr-only">{Math.round(voiceLevel() * 100)}%</span>
+                <span class="pointer-events-none absolute inset-x-1 bottom-0 flex h-3 items-end justify-center gap-px" aria-hidden="true">
+                  <For each={[0, 1, 2, 3, 4, 5, 6]}>
+                    {(index) => <span class="w-0.5 rounded-full bg-v2-state-fg-danger transition-[height] duration-75" style={{ height: `${3 + Math.max(0, voiceLevel() - index * 0.08) * 9}px` }} />}
+                  </For>
+                </span>
+              </Show>
+            </button>
+            <button
+              data-action="prompt-call"
+              type="button"
+              class="relative flex size-8 items-center justify-center rounded-md text-v2-text-text-base transition-colors hover:bg-v2-background-bg-hover disabled:opacity-40"
+              classList={{
+                "bg-v2-state-bg-danger text-v2-state-fg-danger": callActive() && recording(),
+                "bg-v2-background-bg-hover text-v2-text-text-accent": callActive() && !recording(),
+              }}
+              disabled={callControl().disabled}
+              onClick={() => void toggleCall()}
+              aria-pressed={callActive()}
+              aria-label={language.t(callActive() ? "prompt.voice.call.stop" : "prompt.voice.call.start")}
+              title={callActive() ? language.t("prompt.voice.call.stopPhase", { phase: callPhaseLabel() }) : language.t("prompt.voice.call.start")}
+            >
+              <LegacyIcon name={callActive() ? "stop" : "waveform"} class="size-5" />
+              <Show when={callActive()}>
+                <span class="sr-only">{callPhaseLabel()}</span>
+                <Show when={recording() || busy()}>
+                  <span class="pointer-events-none absolute inset-x-1 bottom-0 flex h-3 items-end justify-center gap-px" aria-hidden="true">
+                    <For each={[0, 1, 2, 3, 4, 5, 6]}>
+                      {(index) => <span class="w-0.5 rounded-full bg-current transition-[height] duration-75" style={{ height: `${3 + Math.max(0, voiceLevel() - index * 0.08) * 9}px` }} />}
+                    </For>
+                  </span>
+                </Show>
+              </Show>
+            </button>
+          </div>
         }
         modelControl={
           <PromptInputV2ModelControl
@@ -511,6 +594,34 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
     },
   })
   Object.defineProperty(controller, "model", { get: () => props.controls.model })
+  Object.defineProperty(controller, "call", {
+    value: {
+      // Call utterances are a live conversation: they must steer immediately, never wait in the followup queue.
+      submit: () => void submission.handleSubmit(new Event("submit"), { steer: true }),
+      interrupt: () => submission.abort(),
+      working,
+      latestAnswer: () => {
+        const id = props.controls.session.id
+        if (!id) return
+        const messages = sync().data.message[id] ?? []
+        const assistant = [...messages].reverse().find((message) => message.role === "assistant" && message.time.completed)
+        if (!assistant) return
+        return {
+          id: assistant.id,
+          text: (sync().data.part[assistant.id] ?? [])
+            .flatMap((part) => (part.type === "text" && !part.ignored ? [part.text] : []))
+            .join("\n")
+            .trim(),
+        }
+      },
+      latestAnswerId: () => {
+        const id = props.controls.session.id
+        if (!id) return
+        const messages = sync().data.message[id] ?? []
+        return [...messages].reverse().find((message) => message.role === "assistant")?.id
+      },
+    },
+  })
 
   command.register("prompt-input", () => [
     {

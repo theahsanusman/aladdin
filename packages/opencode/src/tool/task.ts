@@ -12,8 +12,10 @@ import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
 import { Effect, Exit, Schema, Scope } from "effect"
 import { EffectBridge } from "@/effect/bridge"
+import { InstanceState } from "@/effect/instance-state"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@opencode-ai/core/database/database"
+import { Unattended } from "@/automation/unattended"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -88,6 +90,13 @@ export const TaskTool = Tool.define(
     const scope = yield* Scope.Scope
     const flags = yield* RuntimeFlags.Service
     const database = yield* Database.Service
+    // Credits are the user's money: subagent launches are counted per request so
+    // one conversation turn cannot fan out unlimited agents.
+    const budget = yield* InstanceState.make<Map<SessionID, { turn: string; count: number }>>(
+      Effect.fn("TaskTool.budget")(function* () {
+        return new Map<SessionID, { turn: string; count: number }>()
+      }),
+    )
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -116,6 +125,14 @@ export const TaskTool = Tool.define(
         )
       }
 
+      const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
+        Effect.provideService(Database.Service, database),
+        Effect.orDie,
+      )
+      if (msg.info.role !== "assistant") return yield* Effect.fail(new Error("Not an assistant message"))
+      const variant = msg.info.variant
+      const requestID = msg.info.parentID
+
       if (!ctx.extra?.bypassAgentCheck) {
         yield* ctx.ask({
           permission: id,
@@ -136,6 +153,29 @@ export const TaskTool = Tool.define(
       const session = params.task_id
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
+
+      const limit = cfg.subagent_limit
+      if (limit !== undefined && !session) {
+        const launches = yield* InstanceState.get(budget)
+        const allowed = yield* Effect.sync(() => {
+          const entry = launches.get(ctx.sessionID)
+          const turn = requestID
+          const count = entry && entry.turn === turn ? entry.count : 0
+          if (count >= limit) return false
+          launches.set(ctx.sessionID, { turn, count: count + 1 })
+          return true
+        })
+        if (!allowed) {
+          return yield* Effect.fail(
+            new Error(
+              limit === 0
+                ? `Subagents are disabled ("subagent_limit" is 0). Complete the work directly instead of delegating.`
+                : `Subagent limit reached (${limit} per request). Complete the remaining work directly, or resume an existing subagent with task_id. Subagents run their own context and cost extra credits, so raise "subagent_limit" in config only when the work truly needs more.`,
+            ),
+          )
+        }
+      }
+
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
@@ -171,12 +211,9 @@ export const TaskTool = Tool.define(
           ],
         }))
 
-      const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
-        Effect.provideService(Database.Service, database),
-        Effect.orDie,
-      )
-      if (msg.info.role !== "assistant") return yield* Effect.fail(new Error("Not an assistant message"))
-      const variant = msg.info.variant
+      // Subagent sessions of an unattended automation inherit unattended status so
+      // their permission asks are denied instead of waiting for a human.
+      if (Unattended.isUnattended(ctx.sessionID)) Unattended.mark(nextSession.id)
 
       const model = next.model ?? {
         modelID: msg.info.modelID,

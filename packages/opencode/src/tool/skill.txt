@@ -2,4 +2,6 @@ Load a specialized skill when the task at hand matches one of the skills listed 
 
 Use this tool to inject the skill's instructions and resources into current conversation. The output may contain detailed workflow guidance as well as references to scripts, files, etc in the same directory as the skill.
 
+Load every skill that matches the task before doing the work, and follow its stages, gates, and stopping conditions. Skills encode structured procedure that beats improvised raw model output, so treat them as the source of truth for repeatable work and do not substitute your own process for a loaded skill. Use model judgment only for the parts no installed skill covers.
+
 The skill name must match one of the skills listed in your system prompt.

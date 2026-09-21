@@ -33,6 +33,23 @@ const Speech = Schema.Struct({
   mime: Schema.String,
 })
 
+const Voices = Schema.Struct({
+  voices: Schema.Array(Schema.String),
+  english: Schema.Array(Schema.String),
+})
+
+export const OpenAIProfileInput = Schema.Struct({
+  profile: Schema.Union([Schema.Literal("personal"), Schema.Literal("company")]),
+})
+
+const OpenAIProfiles = Schema.Struct({
+  personal: Schema.Boolean,
+  company: Schema.Boolean,
+  personalIdentity: Schema.optional(Schema.String),
+  companyIdentity: Schema.optional(Schema.String),
+  active: Schema.optional(Schema.Union([Schema.Literal("personal"), Schema.Literal("company")])),
+})
+
 export const ImageInput = Schema.Struct({
   provider: Schema.Union([
     Schema.Literal("openai"),
@@ -48,6 +65,24 @@ export const ImageInput = Schema.Struct({
 const Image = Schema.Struct({
   image: Schema.String,
   mime: Schema.String,
+})
+
+const MobileStatus = Schema.Struct({
+  enabled: Schema.Boolean,
+  available: Schema.Boolean,
+  reason: Schema.optional(Schema.Literal("password-required")),
+  url: Schema.optional(Schema.String),
+  connectUrl: Schema.optional(Schema.String),
+  host: Schema.String,
+  port: Schema.optional(Schema.Number),
+  addresses: Schema.Array(Schema.String),
+  certificateAuthority: Schema.optional(Schema.String),
+  certificate: Schema.optional(
+    Schema.Struct({
+      names: Schema.String,
+      dates: Schema.String,
+    }),
+  ),
 })
 
 export const AladdinApi = HttpApi.make("aladdin").add(
@@ -66,10 +101,37 @@ export const AladdinApi = HttpApi.make("aladdin").add(
         success: described(Speech, "Local speech audio"),
         error: HttpApiError.BadRequest,
       }),
+      HttpApiEndpoint.get("voices", "/aladdin/voice/voices", {
+        success: described(Voices, "Voices supported by the local speech service"),
+        error: HttpApiError.BadRequest,
+      }),
+      HttpApiEndpoint.get("openAIProfiles", "/aladdin/auth/openai/profiles", {
+        success: described(OpenAIProfiles, "Saved OpenAI account profiles"),
+      }),
+      HttpApiEndpoint.post("saveOpenAIProfile", "/aladdin/auth/openai/profiles/save", {
+        payload: OpenAIProfileInput,
+        success: described(OpenAIProfiles, "Saved OpenAI account profile"),
+        error: HttpApiError.BadRequest,
+      }),
+      HttpApiEndpoint.post("activateOpenAIProfile", "/aladdin/auth/openai/profiles/activate", {
+        payload: OpenAIProfileInput,
+        success: described(OpenAIProfiles, "Activated OpenAI account profile"),
+        error: HttpApiError.BadRequest,
+      }),
       HttpApiEndpoint.post("image", "/aladdin/image/generate", {
         payload: ImageInput,
         success: described(Image, "Generated image"),
         error: [HttpApiError.BadRequest, AladdinProviderError],
+      }),
+      HttpApiEndpoint.get("mobileStatus", "/aladdin/mobile/status", {
+        success: described(MobileStatus, "Same-network mobile access status"),
+      }),
+      HttpApiEndpoint.post("mobileEnable", "/aladdin/mobile/enable", {
+        success: described(MobileStatus, "Same-network mobile access status"),
+        error: HttpApiError.BadRequest,
+      }),
+      HttpApiEndpoint.post("mobileDisable", "/aladdin/mobile/disable", {
+        success: described(MobileStatus, "Same-network mobile access status"),
       }),
     )
     .annotateMerge(OpenApi.annotations({ title: "Aladdin", description: "Local Aladdin media services." })),

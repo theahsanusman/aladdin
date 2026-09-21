@@ -1262,6 +1262,22 @@ function cloudflareGatewayNpm(providerID: string, modelID: string) {
   return undefined
 }
 
+// Reasoning efforts in canonical order. Used to keep variants ordered when config
+// variants are merged onto provider-generated ones, which otherwise appends new
+// levels (e.g. `xhigh`) after `max` instead of between `high` and `max`.
+const VARIANT_EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+
+function orderVariants<T>(variants: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(variants).sort(([a], [b]) => {
+      const ai = VARIANT_EFFORT_ORDER.indexOf(a)
+      const bi = VARIANT_EFFORT_ORDER.indexOf(b)
+      if (ai === -1) return bi === -1 ? 0 : 1
+      return bi === -1 ? -1 : ai - bi
+    }),
+  )
+}
+
 function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
   const base: Model = {
     id: ModelV2.ID.make(model.id),
@@ -1710,6 +1726,8 @@ const layer = Layer.effect(
                 (v) => omit(v, ["disabled"]),
               )
             }
+
+            if (model.variants) model.variants = orderVariants(model.variants)
           }
 
           if (Object.keys(provider.models).length === 0) {

@@ -1805,6 +1805,43 @@ it.instance(
 )
 
 it.instance(
+  "config variants keep canonical effort order when generated variants add max",
+  Effect.gen(function* () {
+    const providers = yield* list
+    const model = providers[ProviderV2.ID.make("ordered-variants")].models["deepseek/deepseek-v4.1-flash"]
+    // generated variants add `max`; config adds `xhigh`, which must sort between high and max
+    expect(Object.keys(model.variants ?? {})).toEqual(["low", "medium", "high", "xhigh", "max"])
+  }),
+  {
+    config: {
+      provider: {
+        "ordered-variants": {
+          name: "Ordered Variants",
+          npm: "@ai-sdk/openai-compatible",
+          env: [],
+          models: {
+            "deepseek/deepseek-v4.1-flash": {
+              name: "DeepSeek V4.1 Flash",
+              reasoning: true,
+              tool_call: true,
+              limit: { context: 262144, output: 32768 },
+              variants: {
+                low: { reasoningEffort: "low" },
+                medium: { reasoningEffort: "medium" },
+                high: { reasoningEffort: "high" },
+                xhigh: { reasoningEffort: "xhigh" },
+                max: { reasoningEffort: "max" },
+              },
+            },
+          },
+          options: { apiKey: "test-key" },
+        },
+      },
+    },
+  },
+)
+
+it.instance(
   "Google Vertex: retains baseURL for custom proxy",
   Effect.gen(function* () {
     yield* set("GOOGLE_APPLICATION_CREDENTIALS", "test-creds")

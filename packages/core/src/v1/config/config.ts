@@ -84,6 +84,22 @@ export const Info = Schema.Struct({
   subagent_depth: Schema.optional(NonNegativeInt).annotate({
     description: "Maximum subagent nesting depth. Defaults to 1, which prevents subagents from launching subagents.",
   }),
+  subagent_limit: Schema.optional(NonNegativeInt).annotate({
+    description:
+      "Maximum number of subagents a single request may launch. Unset means unlimited. Set to 0 to disable subagents.",
+  }),
+  question: Schema.optional(
+    Schema.Struct({
+      timeout_seconds: Schema.optional(NonNegativeInt).annotate({
+        description:
+          "Seconds to wait for an answer before the runtime proceeds on the user's behalf. Defaults to 300; 0 resolves immediately.",
+      }),
+      on_timeout: Schema.optional(Schema.Literals(["assume", "skip"])).annotate({
+        description:
+          'What happens when a question reaches its deadline: "assume" the first (recommended) option, or "skip" the question. Defaults to "assume".',
+      }),
+    }),
+  ).annotate({ description: "How the runtime asks questions mid-run and what it does when answers do not arrive." }),
   username: Schema.optional(Schema.String).annotate({
     description: "Custom username to display in conversations instead of system username",
   }),

@@ -68,6 +68,7 @@ const jsCallStackFeature = "DocumentPolicyIncludeJSCallStacksInCrashReports"
 let logger: ReturnType<typeof initLogging>
 let server: SidecarListener | null = null
 let speech: ChildProcess | undefined
+let speechOutput: ChildProcess | undefined
 
 const pendingDeepLinks: string[] = []
 
@@ -103,11 +104,13 @@ async function startLocalSpeech() {
   const home = readFileSync(marker, "utf8").trim()
   const python = join(home, ".venv/bin/python")
   const model = join(home, ".models/Qwen3-ASR-1.7B-8bit")
-  if (!existsSync(python) || !existsSync(join(model, "model.safetensors"))) {
+  const outputModel = join(home, ".models/Qwen3-TTS-12Hz-1.7B-CustomVoice-4bit")
+  if (!existsSync(python) || !existsSync(join(model, "model.safetensors")) || !existsSync(join(outputModel, "model.safetensors"))) {
     logger.error("Qwen speech runtime or model is missing", { home })
     return
   }
   process.env.ALADDIN_ASR_MODEL = model
+  process.env.ALADDIN_TTS_MODEL = outputModel
   const endpoint = "http://127.0.0.1:43121"
   const running = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(500) }).then(
     (response) => response.ok,
@@ -134,11 +137,38 @@ async function startLocalSpeech() {
         (response) => logger.log("Qwen speech model warmed", { ready: response.ok }),
         (error) => logger.error("Qwen speech model failed to warm", { error: String(error) }),
       )
+      break
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay))
+  }
+  const outputEndpoint = "http://127.0.0.1:43122"
+  const outputRunning = await fetch(`${outputEndpoint}/health`, { signal: AbortSignal.timeout(500) }).then(
+    (response) => response.ok,
+    () => false,
+  )
+  if (!outputRunning) {
+    speechOutput = spawn(python, ["-m", "uvicorn", "tts_server:app", "--host", "127.0.0.1", "--port", "43122"], {
+      cwd: home,
+      stdio: "ignore",
+      env: process.env,
+    })
+    speechOutput.on("error", (error) => logger.error("Qwen TTS process failed", { error: error.message }))
+  }
+  for (const delay of [250, 500, 1000, 2000, 4000, 8000]) {
+    const ready = await fetch(`${outputEndpoint}/health`, { signal: AbortSignal.timeout(500) }).then(
+      (response) => response.ok,
+      () => false,
+    )
+    if (ready) {
+      await fetch(`${outputEndpoint}/warm`, { method: "POST", signal: AbortSignal.timeout(120_000) }).then(
+        (response) => logger.log("Qwen TTS model warmed", { ready: response.ok }),
+        (error) => logger.error("Qwen TTS model failed to warm", { error: String(error) }),
+      )
       return
     }
     await new Promise((resolve) => setTimeout(resolve, delay))
   }
-  logger.error("Qwen speech server did not become ready")
+  logger.error("Qwen TTS server did not become ready")
 }
 
 function ensureLoopbackNoProxy() {
@@ -273,6 +303,7 @@ const main = Effect.gen(function* () {
   app.on("before-quit", () => {
     setAppQuitting()
     speech?.kill()
+    speechOutput?.kill()
     void stopSidecars()
   })
 

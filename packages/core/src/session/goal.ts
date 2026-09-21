@@ -6,11 +6,14 @@ import { Database } from "../database/database"
 import { makeLocationNode } from "../effect/app-node"
 import { SessionSchema } from "./schema"
 import { SessionTable, TodoTable } from "./sql"
+import { EventV2 } from "../event"
+import { SessionGoal as SessionGoalSchema } from "@opencode-ai/schema/session-goal"
 
 export type Info = {
   objective: string
   status: "active" | "paused" | "completed"
   evidence: string | null
+  started: number | null
 }
 
 export function prompt(goal: Info | undefined, todos: ReadonlyArray<{ content: string; status: string }>) {
@@ -33,6 +36,7 @@ export interface Interface {
   readonly pause: (sessionID: SessionSchema.ID) => Effect.Effect<Info, Error>
   readonly resume: (sessionID: SessionSchema.ID) => Effect.Effect<Info, Error>
   readonly complete: (input: { sessionID: SessionSchema.ID; evidence: string }) => Effect.Effect<Info, Error>
+  readonly clear: (sessionID: SessionSchema.ID) => Effect.Effect<void, Error>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/v2/SessionGoal") {}
@@ -41,30 +45,39 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const { db } = yield* Database.Service
+    const events = yield* EventV2.Service
 
     const get = Effect.fn("SessionGoal.get")(function* (sessionID: SessionSchema.ID) {
       const row = yield* db
-        .select({ objective: SessionTable.goal_objective, status: SessionTable.goal_status, evidence: SessionTable.goal_evidence })
+        .select({
+          objective: SessionTable.goal_objective,
+          status: SessionTable.goal_status,
+          evidence: SessionTable.goal_evidence,
+          started: SessionTable.goal_started,
+        })
         .from(SessionTable)
         .where(eq(SessionTable.id, sessionID))
         .get()
         .pipe(Effect.orDie)
       if (!row?.objective || !row.status) return
-      return { objective: row.objective, status: row.status, evidence: row.evidence }
+      return { objective: row.objective, status: row.status, evidence: row.evidence, started: row.started }
     })
 
     const start = Effect.fn("SessionGoal.start")(function* (input: { sessionID: SessionSchema.ID; objective: string }) {
       const objective = input.objective.trim()
       if (!objective || objective.length > 20_000) return yield* Effect.fail(new Error("A goal objective must be 1 to 20,000 characters"))
+      const started = Date.now()
       const rows = yield* db
         .update(SessionTable)
-        .set({ goal_objective: objective, goal_status: "active", goal_evidence: null })
+        .set({ goal_objective: objective, goal_status: "active", goal_evidence: null, goal_started: started })
         .where(eq(SessionTable.id, input.sessionID))
         .returning({ id: SessionTable.id })
         .all()
         .pipe(Effect.orDie)
       if (rows.length === 0) return yield* Effect.fail(new Error("Session does not exist"))
-      return { objective, status: "active" as const, evidence: null }
+      const goal = { objective, status: "active" as const, evidence: null, started }
+      yield* events.publish(SessionGoalSchema.Event.Updated, { sessionID: input.sessionID, goal })
+      return goal
     })
 
     const change = Effect.fn("SessionGoal.change")(function* (
@@ -75,7 +88,11 @@ const layer = Layer.effect(
       return yield* db.transaction((tx) =>
         Effect.gen(function* () {
           const row = yield* tx
-            .select({ objective: SessionTable.goal_objective, status: SessionTable.goal_status })
+            .select({
+              objective: SessionTable.goal_objective,
+              status: SessionTable.goal_status,
+              started: SessionTable.goal_started,
+            })
             .from(SessionTable)
             .where(eq(SessionTable.id, sessionID))
             .get()
@@ -99,9 +116,23 @@ const layer = Layer.effect(
             .set({ goal_status: status, goal_evidence: evidence?.trim() ?? null })
             .where(eq(SessionTable.id, sessionID))
             .run()
-          return { objective: row.objective, status, evidence: evidence?.trim() ?? null }
+          const goal = { objective: row.objective, status, evidence: evidence?.trim() ?? null, started: row.started }
+          yield* events.publish(SessionGoalSchema.Event.Updated, { sessionID, goal })
+          return goal
         }),
       ).pipe(Effect.mapError((error) => error instanceof Error ? error : new Error(String(error))))
+    })
+
+    const clear = Effect.fn("SessionGoal.clear")(function* (sessionID: SessionSchema.ID) {
+      const rows = yield* db
+        .update(SessionTable)
+        .set({ goal_objective: null, goal_status: null, goal_evidence: null, goal_started: null })
+        .where(eq(SessionTable.id, sessionID))
+        .returning({ id: SessionTable.id })
+        .all()
+        .pipe(Effect.orDie)
+      if (rows.length === 0) return yield* Effect.fail(new Error("Session does not exist"))
+      yield* events.publish(SessionGoalSchema.Event.Updated, { sessionID, goal: null })
     })
 
     return Service.of({
@@ -110,8 +141,9 @@ const layer = Layer.effect(
       pause: (sessionID) => change(sessionID, "paused"),
       resume: (sessionID) => change(sessionID, "active"),
       complete: (input) => change(input.sessionID, "completed", input.evidence),
+      clear,
     })
   }),
 )
 
-export const node = makeLocationNode({ service: Service, layer, deps: [Database.node] })
+export const node = makeLocationNode({ service: Service, layer, deps: [Database.node, EventV2.node] })

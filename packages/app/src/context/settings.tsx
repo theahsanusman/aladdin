@@ -4,6 +4,7 @@ import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
 import { defaultAladdinSettings, type AladdinSettings, normalizeModelList } from "@/context/aladdin-settings"
+import { appLook, defaultAppLook, type AppLook } from "@/context/app-look"
 
 export interface NotificationSettings {
   agent: boolean
@@ -25,6 +26,7 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     followup: "queue" | "steer"
+    followupQueueDefaultApplied?: boolean
     showFileTree: boolean
     showNavigation: boolean
     showSearch: boolean
@@ -43,6 +45,7 @@ export interface Settings {
   }
   appearance: {
     fontSize: number
+    look: AppLook
     mono: string
     sans: string
     terminal: string
@@ -186,7 +189,7 @@ const defaultSettings: Settings = {
   general: {
     autoSave: true,
     releaseNotes: true,
-    followup: "steer",
+    followup: "queue",
     showFileTree: false,
     showNavigation: false,
     showSearch: false,
@@ -200,6 +203,7 @@ const defaultSettings: Settings = {
   },
   appearance: {
     fontSize: 14,
+    look: defaultAppLook,
     mono: "",
     sans: "",
     terminal: "",
@@ -351,11 +355,18 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       const root = document.documentElement
       root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
       root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
+      root.dataset.look = appLook(store.appearance?.look)
     })
 
+    // Older builds coerced the followup mode to "steer", so any stored value is untrustworthy.
+    // Queueing is the default again; this runs once and leaves later user choices alone.
     createEffect(() => {
-      if (store.general?.followup !== "queue") return
-      setStore("general", "followup", "steer")
+      if (!ready()) return
+      if (store.general?.followupQueueDefaultApplied === true) return
+      batch(() => {
+        if (store.general?.followup !== "queue") setStore("general", "followup", "queue")
+        setStore("general", "followupQueueDefaultApplied", true)
+      })
     })
 
     return {
@@ -372,12 +383,9 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setReleaseNotes(value: boolean) {
           setStore("general", "releaseNotes", value)
         },
-        followup: withFallback(
-          () => (store.general?.followup === "queue" ? "steer" : store.general?.followup),
-          defaultSettings.general.followup,
-        ),
+        followup: withFallback(() => store.general?.followup, defaultSettings.general.followup),
         setFollowup(value: "queue" | "steer") {
-          setStore("general", "followup", value === "queue" ? "steer" : value)
+          setStore("general", "followup", value)
         },
         showFileTree,
         setShowFileTree(value: boolean) {
@@ -466,6 +474,10 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setFontSize(value: number) {
           setStore("appearance", "fontSize", value)
         },
+        look: withFallback(() => appLook(store.appearance?.look), defaultAppLook),
+        setLook(value: AppLook) {
+          setStore("appearance", "look", value)
+        },
         font: withFallback(() => store.appearance?.mono, defaultSettings.appearance.mono),
         setFont(value: string) {
           setStore("appearance", "mono", value.trim() ? value : "")
@@ -548,14 +560,14 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       aladdin: {
         voice: {
           inputModel: withFallback(
-            () => store.aladdin?.voice?.inputModel === "qwen3-asr-1.7b" ? "qwen3-asr-1.7b" : undefined,
+            () => (store.aladdin?.voice?.inputModel === "qwen3-asr-1.7b" ? "qwen3-asr-1.7b" : undefined),
             defaultAladdinSettings.voice.inputModel,
           ),
           setInputModel(value: AladdinSettings["voice"]["inputModel"]) {
             setStore("aladdin", "voice", "inputModel", value)
           },
           outputModel: withFallback(
-            () => store.aladdin?.voice?.outputModel === "qwen3-tts-1.7b" ? "qwen3-tts-1.7b" : undefined,
+            () => (store.aladdin?.voice?.outputModel === "qwen3-tts-1.7b" ? "qwen3-tts-1.7b" : undefined),
             defaultAladdinSettings.voice.outputModel,
           ),
           setOutputModel(value: AladdinSettings["voice"]["outputModel"]) {
@@ -565,9 +577,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
           setOutputVoice(value: string) {
             setStore("aladdin", "voice", "outputVoice", value.trim())
           },
-          callMode: withFallback(() => store.aladdin?.voice?.callMode, defaultAladdinSettings.voice.callMode),
-          setCallMode(value: boolean) {
-            setStore("aladdin", "voice", "callMode", value)
+          callSilenceMs: withFallback(() => {
+            const value = store.aladdin?.voice?.callSilenceMs
+            return typeof value === "number" && Number.isFinite(value) ? value : undefined
+          }, defaultAladdinSettings.voice.callSilenceMs),
+          setCallSilenceMs(value: number) {
+            setStore("aladdin", "voice", "callSilenceMs", value)
           },
         },
         image: {

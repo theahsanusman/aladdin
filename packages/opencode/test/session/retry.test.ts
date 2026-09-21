@@ -164,6 +164,19 @@ describe("session.retry.retryable", () => {
     expect(SessionRetry.retryable(wrap(message), retryProvider)).toEqual({ message })
   })
 
+  test("offers manual account switching when OpenAI reaches a usage limit", () => {
+    const result = SessionRetry.retryable(wrap("rate limit exceeded"), "openai")
+    expect(result?.action).toMatchObject({
+      reason: "account_rate_limit",
+      provider: "openai",
+      label: "switch account",
+    })
+  })
+
+  test("does not mistake an OpenAI network retry for account exhaustion", () => {
+    expect(SessionRetry.retryable(wrap("network error"), "openai")).toEqual({ message: "network error" })
+  })
+
   test("does not retry unknown json messages", () => {
     const error = wrap(JSON.stringify({ error: { message: "no_kv_space" } }))
     expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()

@@ -44,14 +44,18 @@ export function DialogGenerateImage(props: { onGenerated: (file: File) => unknow
       if (!response.ok) {
         const error = await response.json().catch(() => undefined)
         const message = error && typeof error === "object" && "message" in error ? error.message : undefined
-        throw new Error(typeof message === "string" ? message : `Image generation failed (${response.status})`)
+        throw new Error(
+          typeof message === "string"
+            ? message
+            : language.t("prompt.image.error.failed", { status: String(response.status) }),
+        )
       }
       const result = (await response.json()) as { image?: unknown; mime?: unknown }
       if (typeof result.image !== "string" || typeof result.mime !== "string") {
-        throw new Error("The image provider returned an invalid response")
+        throw new Error(language.t("prompt.image.error.invalid"))
       }
       const attached = await props.onGenerated(generatedImageFile({ image: result.image, mime: result.mime }))
-      if (attached === false) throw new Error("The generated image could not be attached to the message")
+      if (attached === false) throw new Error(language.t("prompt.image.error.attach"))
       dialog.close()
     } catch (error) {
       showToast({

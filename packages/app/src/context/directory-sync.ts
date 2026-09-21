@@ -11,6 +11,7 @@ const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const sessionFields = new Set([
   "session_status",
   "session_working",
+  "session_goal",
   "session_diff",
   "todo",
   "permission",

@@ -33,6 +33,7 @@ export const groupNames = {
   "server.event": "events",
   "server.pty": "ptys",
   "server.question": "questions",
+  "server.usage": "usage",
   "server.reference": "references",
   "server.projectCopy": "projectCopies",
 } as const
@@ -48,6 +49,7 @@ export const endpointNames = {
   "permission.saved.list": "listSaved",
   "permission.saved.remove": "removeSaved",
   "question.request.list": "listRequests",
+  "usage.summary": "summary",
 } as const
 
 export const omitEndpoints = new Set(["fs.read", "pty.connect", "pty.connectToken"])

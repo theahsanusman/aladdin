@@ -17,6 +17,15 @@
   document.documentElement.dataset.colorScheme = mode
   document.documentElement.style.backgroundColor = isDark ? "#080808" : "#fafafa"
 
+  // Look must be applied before first paint so the glass layer does not flash in.
+  var look = "liquid-glass"
+  try {
+    var stored = JSON.parse(localStorage.getItem("settings.v3") || "null")
+    var value = stored && stored.appearance ? stored.appearance.look : undefined
+    if (value === "classic" || value === "liquid-glass") look = value
+  } catch (error) {}
+  document.documentElement.dataset.look = look
+
   // Update theme-color meta tag to match app color scheme
   var metas = document.querySelectorAll("meta[name='theme-color']")
   if (metas.length > 0) metas[0].setAttribute("content", isDark ? "#080808" : "#fafafa")

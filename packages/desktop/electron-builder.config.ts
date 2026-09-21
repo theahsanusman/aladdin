@@ -132,6 +132,12 @@ function getConfig() {
         ...base,
         appId,
         productName: "Aladdin",
+        mac: {
+          ...base.mac,
+          identity: null,
+          notarize: false,
+          target: ["dir"],
+        },
         deb: { fpm: [metainfoFpm(appId)] },
         rpm: { packageName: "opencode-dev", fpm: [metainfoFpm(appId)] },
       }

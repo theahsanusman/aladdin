@@ -7,7 +7,7 @@ export interface AladdinSettings {
     inputModel: SpeechInputModel
     outputModel: SpeechOutputModel
     outputVoice: string
-    callMode: boolean
+    callSilenceMs: number
   }
   image: {
     provider: ImageProvider
@@ -25,7 +25,7 @@ export const defaultAladdinSettings: AladdinSettings = {
     inputModel: "qwen3-asr-1.7b",
     outputModel: "qwen3-tts-1.7b",
     outputVoice: "Ryan",
-    callMode: false,
+    callSilenceMs: 3_000,
   },
   image: {
     provider: "draw-things",

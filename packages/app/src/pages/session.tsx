@@ -70,6 +70,7 @@ import {
   createSessionComposerRegionController,
   SessionComposerRegion,
 } from "@/pages/session/composer"
+import { moveFollowup } from "@/pages/session/composer/followup-order"
 import { createOpenReviewFile, createSessionTabs, createSizing, shouldShowFileTree } from "@/pages/session/helpers"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
@@ -337,6 +338,7 @@ function SessionRouteFrame(props: ParentProps<{ padded?: boolean }>) {
 function SessionPanelFrame(props: ParentProps<{ newLayout: boolean; raised?: boolean }>) {
   return (
     <div
+      data-component="session-panel"
       classList={{
         "flex-1 min-h-0 flex flex-col": true,
         "bg-v2-background-bg-base": props.newLayout,
@@ -1349,7 +1351,10 @@ export default function Page() {
   const reviewPanelV2Rendered = createMemo<boolean>((prev) => prev || !store.deferRender, false)
 
   const reviewPanelV2 = () => (
-    <div class="flex flex-col h-full overflow-hidden bg-v2-background-bg-base contain-strict">
+    <div
+      data-component="session-review-panel"
+      class="flex flex-col h-full overflow-hidden bg-v2-background-bg-base contain-strict"
+    >
       <Show when={reviewPanelV2Rendered()}>
         <ReviewPanelV2 {...reviewPanelV2Props()} />
       </Show>
@@ -1728,6 +1733,7 @@ export default function Page() {
         sync: sync(),
         serverSync: serverSync(),
         draft: item,
+        delivery: input.manual ? "steer" : undefined,
         optimisticBusy: item.sessionDirectory === sdk().directory,
       }).catch((err) => {
         setFollowup("failed", input.sessionID, input.id)
@@ -1808,6 +1814,25 @@ export default function Page() {
       id: item.id,
       prompt: item.prompt,
       context: item.context,
+    })
+  }
+
+  const removeFollowup = (id: string) => {
+    const sessionID = params.id
+    if (!sessionID) return
+    setFollowup("items", sessionID, (items) => (items ?? []).filter((entry) => entry.id !== id))
+    setFollowup("failed", sessionID, (value) => (value === id ? undefined : value))
+    setFollowup("edit", sessionID, (value) => (value?.id === id ? undefined : value))
+  }
+
+  const reorderFollowup = (id: string, toIndex: number) => {
+    const sessionID = params.id
+    if (!sessionID) return
+    setFollowup("items", sessionID, (items) => {
+      const list = items ?? []
+      const from = list.findIndex((entry) => entry.id === id)
+      if (from === -1) return list
+      return moveFollowup(list, from, toIndex)
     })
   }
 
@@ -2141,6 +2166,9 @@ export default function Page() {
               collapsed: () => view().todoCollapsed.get(),
               onToggle: () => view().todoCollapsed.set(!view().todoCollapsed.get()),
             },
+            goal: composer.goal,
+            goalBusy: composer.goalBusy,
+            onGoalAction: composer.goalAction,
             followup: () =>
               params.id && !isChildSession()
                 ? {
@@ -2148,6 +2176,8 @@ export default function Page() {
                     sending: sendingFollowup(),
                     onSend: (id) => void sendFollowup(params.id!, id, { manual: true }),
                     onEdit: editFollowup,
+                    onDelete: removeFollowup,
+                    onReorder: reorderFollowup,
                   }
                 : undefined,
             revert: () =>

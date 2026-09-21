@@ -196,6 +196,10 @@ export function createServerSession(
   const [data, setData] = createStore({
     info: {} as Record<string, Session | undefined>,
     session_status: {} as Record<string, SessionStatus>,
+    session_goal: {} as Record<
+      string,
+      { objective: string; status: "active" | "paused" | "completed"; evidence: string | null; started: number | null } | undefined
+    >,
     session_diff: {} as Record<string, FileDiffInfo[]>,
     todo: {} as Record<string, Todo[]>,
     permission: {} as Record<string, PermissionRequest[]>,
@@ -211,6 +215,7 @@ export function createServerSession(
   const requests = new Map<string, Promise<Session>>()
   const inflight = new Map<string, Promise<void>>()
   const inflightTodo = new Map<string, Promise<void>>()
+  const inflightGoal = new Map<string, Promise<void>>()
   const optimistic = new Map<string, Map<string, OptimisticItem>>()
   const v2 = createV2SessionReducer()
   const messageLoads = new Map<string, MessageLoadState>()
@@ -267,6 +272,7 @@ export function createServerSession(
         ...requests.keys(),
         ...inflight.keys(),
         ...inflightTodo.keys(),
+        ...inflightGoal.keys(),
         ...messageLoads.keys(),
         ...optimistic.keys(),
         ...Object.entries(data.permission)
@@ -326,7 +332,8 @@ export function createServerSession(
         !requests.has(sessionID) &&
         !messageLoads.has(sessionID) &&
         !inflight.has(sessionID) &&
-        !inflightTodo.has(sessionID)
+        !inflightTodo.has(sessionID) &&
+        !inflightGoal.has(sessionID)
       )
         generations.delete(sessionID)
     }
@@ -486,6 +493,7 @@ export function createServerSession(
       requests.delete(sessionID)
       inflight.delete(sessionID)
       inflightTodo.delete(sessionID)
+      inflightGoal.delete(sessionID)
       messageLoads.delete(sessionID)
       v2.clear(sessionID)
       pendingParts.delete(sessionID)
@@ -516,6 +524,7 @@ export function createServerSession(
       ...requests.keys(),
       ...inflight.keys(),
       ...inflightTodo.keys(),
+      ...inflightGoal.keys(),
       ...messageLoads.keys(),
       ...optimistic.keys(),
       ...Object.entries(data.permission)
@@ -1005,6 +1014,16 @@ export function createServerSession(
         if (info.time.archived) evict([info.id])
         return
       }
+      case "session.goal.updated": {
+        const props = event.properties as {
+          sessionID: string
+          goal:
+            | { objective: string; status: "active" | "paused" | "completed"; evidence: string | null; started: number | null }
+            | undefined
+        }
+        setData("session_goal", props.sessionID, reconcile(props.goal))
+        return
+      }
       case "session.deleted": {
         const properties = event.properties as { sessionID?: string; info?: Session }
         const sessionID = properties.info?.id ?? properties.sessionID
@@ -1389,6 +1408,17 @@ export function createServerSession(
         return (options?.retry ?? retry)(() => client.session.todo({ sessionID })).then((result) => {
           if (generations.get(sessionID) !== active) return
           setData("todo", sessionID, reconcile(result.data ?? [], { key: "id" }))
+        })
+      })
+    },
+    async goal(sessionID: string) {
+      touch(sessionID)
+      if ((await options?.protocol) === "v2") return
+      return runInflight(inflightGoal, sessionID, () => {
+        const active = generation(sessionID)
+        return (options?.retry ?? retry)(() => client.session.goal({ sessionID })).then((result) => {
+          if (generations.get(sessionID) !== active) return
+          setData("session_goal", sessionID, result.data ? reconcile(result.data) : undefined)
         })
       })
     },

@@ -11,12 +11,14 @@ import { closeHomeProject, errorMessage, homeProjectDirectories } from "@/pages/
 import { Persist, persisted } from "@/utils/persist"
 import { showToast } from "@/utils/toast"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useNavigate } from "@solidjs/router"
 import { createResource } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { HomeController } from "./home-controller"
 
 export function createHomeProjectsController(home: HomeController) {
   const platform = usePlatform()
+  const navigate = useNavigate()
   const pickDirectory = useDirectoryPicker()
   const dialog = useDialog()
   const language = useLanguage()
@@ -121,6 +123,7 @@ export function createHomeProjectsController(home: HomeController) {
     utility: {
       settings: openSettings,
       help: () => platform.openExternal("https://opencode.ai/desktop-feedback"),
+      automations: () => navigate("/automations"),
     },
   }
 }

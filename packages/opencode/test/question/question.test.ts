@@ -10,6 +10,7 @@ import { SessionID } from "../../src/session/schema"
 import { testEffect } from "../lib/effect"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
+import { Unattended } from "../../src/automation/unattended"
 
 const questionLayer = LayerNode.compile(LayerNode.group([Question.node, EventV2Bridge.node, CrossSpawnSpawner.node]))
 const it = testEffect(questionLayer)
@@ -19,6 +20,7 @@ const askEffect = Effect.fn("QuestionTest.ask")(function* (input: {
   sessionID: SessionID
   questions: ReadonlyArray<Question.Info>
   tool?: Question.Tool
+  timeoutSeconds?: number
 }) {
   const question = yield* Question.Service
   return yield* question.ask(input)
@@ -43,7 +45,7 @@ afterEach(async () => {
   await disposeAllInstances()
 })
 
-/** Reject all pending questions so dangling Deferred fibers don't hang the test. */
+/** Settle all pending questions as skips so dangling Deferred fibers don't hang the test. */
 const rejectAll = Effect.gen(function* () {
   yield* Effect.forEach(yield* listEffect, (req) => rejectEffect(req.id), { discard: true })
 })
@@ -85,7 +87,7 @@ it.instance(
 
       expect(yield* waitForPending(1)).toHaveLength(1)
       yield* rejectAll
-      expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [], source: "skipped" })
     }),
   { git: true },
 )
@@ -114,7 +116,7 @@ it.instance(
       expect(pending.length).toBe(1)
       expect(pending[0].questions).toEqual(questions)
       yield* rejectAll
-      expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [], source: "skipped" })
     }),
   { git: true },
 )
@@ -149,7 +151,7 @@ it.instance(
         answers: [["Option 1"]],
       })
 
-      expect(yield* Fiber.join(fiber)).toEqual([["Option 1"]])
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [["Option 1"]], source: "user" })
     }),
   { git: true },
 )
@@ -206,7 +208,7 @@ it.instance(
 // reject tests
 
 it.instance(
-  "reject - throws RejectedError",
+  "reject - resolves as a skip instead of failing the turn",
   () =>
     Effect.gen(function* () {
       const fiber = yield* askEffect({
@@ -226,9 +228,7 @@ it.instance(
       const pending = yield* waitForPending(1)
       yield* rejectEffect(pending[0].id)
 
-      const exit = yield* Fiber.await(fiber)
-      expect(exit._tag).toBe("Failure")
-      if (exit._tag === "Failure") expect(exit.cause.toString()).toContain("QuestionRejectedError")
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [], source: "skipped" })
     }),
   { git: true },
 )
@@ -255,7 +255,7 @@ it.instance(
       expect(pending.length).toBe(1)
 
       yield* rejectEffect(pending[0].id)
-      expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [], source: "skipped" })
 
       const after = yield* listEffect
       expect(after.length).toBe(0)
@@ -272,6 +272,151 @@ it.instance(
       if (Exit.isFailure(exit)) {
         expect(Cause.squash(exit.cause)).toMatchObject({ _tag: "Question.NotFoundError", requestID: "que_unknown" })
       }
+    }),
+  { git: true },
+)
+
+// deadline, skip and unattended tests
+
+const binaryQuestion = {
+  question: "What would you like to do?",
+  header: "Action",
+  options: [
+    { label: "Option 1", description: "First option" },
+    { label: "Option 2", description: "Second option" },
+  ],
+}
+
+it.instance(
+  "ask - resolves immediately when timeoutSeconds is 0",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        timeoutSeconds: 0,
+        questions: [binaryQuestion],
+      })
+
+      expect(result).toEqual({ answers: [["Option 1"]], source: "timeout" })
+      expect(yield* listEffect).toHaveLength(0)
+    }),
+  { git: true },
+)
+
+it.instance(
+  "ask - assumes the first option for every question at the deadline",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        questions: [
+          binaryQuestion,
+          { question: "Which runner?", header: "Runner", options: [{ label: "Bun", description: "Fast" }] },
+        ],
+      })
+
+      expect(result).toEqual({ answers: [["Option 1"], ["Bun"]], source: "timeout" })
+      expect(yield* listEffect).toHaveLength(0)
+    }),
+  { git: true, config: { question: { timeout_seconds: 1 } } },
+)
+
+it.instance(
+  "ask - skips instead of assuming when question.on_timeout is skip",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        questions: [binaryQuestion],
+      })
+
+      expect(result).toEqual({ answers: [], source: "skipped" })
+      expect(yield* listEffect).toHaveLength(0)
+    }),
+  { git: true, config: { question: { timeout_seconds: 1, on_timeout: "skip" } } },
+)
+
+it.instance(
+  "ask - resolves immediately in unattended sessions",
+  () =>
+    Effect.gen(function* () {
+      const sessionID = SessionID.make("ses_unattended")
+      Unattended.mark(sessionID)
+      yield* Effect.addFinalizer(() => Effect.sync(() => Unattended.unmark(sessionID)))
+
+      const result = yield* askEffect({ sessionID, questions: [binaryQuestion] })
+
+      expect(result).toEqual({ answers: [["Option 1"]], source: "unattended" })
+      expect(yield* listEffect).toHaveLength(0)
+    }),
+  { git: true },
+)
+
+it.instance(
+  "reply - fails with ExpiredError once the deadline has passed",
+  () =>
+    Effect.gen(function* () {
+      const fiber = yield* askEffect({ sessionID: SessionID.make("ses_test"), questions: [binaryQuestion] }).pipe(
+        Effect.forkScoped,
+      )
+
+      const pending = yield* waitForPending(1)
+      expect((yield* Fiber.join(fiber)).source).toBe("timeout")
+
+      const exit = yield* replyEffect({ requestID: pending[0].id, answers: [["Option 1"]] }).pipe(Effect.exit)
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(Cause.squash(exit.cause)).toMatchObject({
+          _tag: "Question.ExpiredError",
+          requestID: pending[0].id,
+        })
+      }
+    }),
+  { git: true, config: { question: { timeout_seconds: 1 } } },
+)
+
+it.instance(
+  "reply - fails with ExpiredError after the question was skipped",
+  () =>
+    Effect.gen(function* () {
+      const fiber = yield* askEffect({ sessionID: SessionID.make("ses_test"), questions: [binaryQuestion] }).pipe(
+        Effect.forkScoped,
+      )
+
+      const pending = yield* waitForPending(1)
+      yield* rejectEffect(pending[0].id)
+      expect((yield* Fiber.join(fiber)).source).toBe("skipped")
+
+      const exit = yield* replyEffect({ requestID: pending[0].id, answers: [["Option 1"]] }).pipe(Effect.exit)
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(Cause.squash(exit.cause)).toMatchObject({ _tag: "Question.ExpiredError" })
+      }
+    }),
+  { git: true },
+)
+
+it.instance(
+  "ask - publishes the assumption source on the replied event",
+  () =>
+    Effect.gen(function* () {
+      const events = yield* EventV2Bridge.Service
+      const replies = yield* Queue.unbounded<unknown>()
+      const off = yield* events.listen((event) => {
+        if (event.type === Question.Event.Replied.type) Queue.offerUnsafe(replies, event.data)
+        return Effect.void
+      })
+      yield* Effect.addFinalizer(() => off)
+
+      const result = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        timeoutSeconds: 0,
+        questions: [binaryQuestion],
+      })
+      expect(result.source).toBe("timeout")
+
+      const event = yield* Queue.take(replies).pipe(Effect.timeout("2 seconds"))
+      expect(event).toMatchObject({ source: "timeout", answers: [["Option 1"]] })
     }),
   { git: true },
 )
@@ -313,7 +458,7 @@ it.instance(
         answers: [["Build"], ["Dev"]],
       })
 
-      expect(yield* Fiber.join(fiber)).toEqual([["Build"], ["Dev"]])
+      expect(yield* Fiber.join(fiber)).toEqual({ answers: [["Build"], ["Dev"]], source: "user" })
     }),
   { git: true },
 )
@@ -349,8 +494,8 @@ it.instance(
       const pending = yield* waitForPending(2)
       expect(pending.length).toBe(2)
       yield* rejectAll
-      expect((yield* Fiber.await(fiber1))._tag).toBe("Failure")
-      expect((yield* Fiber.await(fiber2))._tag).toBe("Failure")
+      expect(yield* Fiber.join(fiber1)).toEqual({ answers: [], source: "skipped" })
+      expect(yield* Fiber.join(fiber2)).toEqual({ answers: [], source: "skipped" })
     }),
   { git: true },
 )
@@ -403,8 +548,8 @@ lifecycle.live("questions stay isolated by directory", () =>
     yield* rejectEffect(onePending[0].id).pipe(provideInstance(one))
     yield* rejectEffect(twoPending[0].id).pipe(provideInstance(two))
 
-    expect((yield* Fiber.await(fiber1))._tag).toBe("Failure")
-    expect((yield* Fiber.await(fiber2))._tag).toBe("Failure")
+    expect(yield* Fiber.join(fiber1)).toEqual({ answers: [], source: "skipped" })
+    expect(yield* Fiber.join(fiber2)).toEqual({ answers: [], source: "skipped" })
   }),
 )
 

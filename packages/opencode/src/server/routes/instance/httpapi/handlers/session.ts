@@ -14,6 +14,7 @@ import { SessionRunState } from "@/session/run-state"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
 import { Todo } from "@/session/todo"
+import { SessionGoal } from "@opencode-ai/core/session/goal"
 import { MessageID, PartID, SessionID } from "@/session/schema"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { Cause, Effect, Option, Schema, Scope } from "effect"
@@ -26,6 +27,7 @@ import {
   CommandPayload,
   DiffQuery,
   ForkPayload,
+  GoalCompletePayload,
   InitPayload,
   ListQuery,
   MessagesQuery,
@@ -57,6 +59,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const permissionSvc = yield* Permission.Service
     const statusSvc = yield* SessionStatus.Service
     const todoSvc = yield* Todo.Service
+    const goalSvc = yield* SessionGoal.Service
     const summary = yield* SessionSummary.Service
     const events = yield* EventV2Bridge.Service
     const scope = yield* Scope.Scope
@@ -94,6 +97,43 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
     const todo = Effect.fn("SessionHttpApi.todo")(function* (ctx: { params: { sessionID: SessionID } }) {
       yield* requireSession(ctx.params.sessionID)
       return yield* todoSvc.get(ctx.params.sessionID)
+    })
+
+    const goal = Effect.fn("SessionHttpApi.goal")(function* (ctx: { params: { sessionID: SessionID } }) {
+      yield* requireSession(ctx.params.sessionID)
+      return (yield* goalSvc.get(ctx.params.sessionID)) ?? null
+    })
+
+    const goalChange = Effect.fn("SessionHttpApi.goalChange")(function* (
+      run: (sessionID: SessionID) => Effect.Effect<SessionGoal.Info | undefined, Error>,
+      sessionID: SessionID,
+    ) {
+      yield* requireSession(sessionID)
+      return (yield* run(sessionID).pipe(Effect.mapError(() => new HttpApiError.BadRequest({})))) ?? null
+    })
+
+    const goalPause = Effect.fn("SessionHttpApi.goalPause")(function* (ctx: { params: { sessionID: SessionID } }) {
+      return yield* goalChange((sessionID) => goalSvc.pause(sessionID), ctx.params.sessionID)
+    })
+
+    const goalResume = Effect.fn("SessionHttpApi.goalResume")(function* (ctx: { params: { sessionID: SessionID } }) {
+      return yield* goalChange((sessionID) => goalSvc.resume(sessionID), ctx.params.sessionID)
+    })
+
+    const goalComplete = Effect.fn("SessionHttpApi.goalComplete")(function* (ctx: {
+      params: { sessionID: SessionID }
+      payload: typeof GoalCompletePayload.Type
+    }) {
+      return yield* goalChange(
+        (sessionID) => goalSvc.complete({ sessionID, evidence: ctx.payload.evidence }),
+        ctx.params.sessionID,
+      )
+    })
+
+    const goalClear = Effect.fn("SessionHttpApi.goalClear")(function* (ctx: { params: { sessionID: SessionID } }) {
+      yield* requireSession(ctx.params.sessionID)
+      yield* goalSvc.clear(ctx.params.sessionID).pipe(Effect.mapError(() => new HttpApiError.BadRequest({})))
+      return null
     })
 
     const diff = Effect.fn("SessionHttpApi.diff")(function* (ctx: {
@@ -416,6 +456,11 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("get", get)
       .handle("children", children)
       .handle("todo", todo)
+      .handle("goal", goal)
+      .handle("goalPause", goalPause)
+      .handle("goalResume", goalResume)
+      .handle("goalComplete", goalComplete)
+      .handle("goalClear", goalClear)
       .handle("diff", diff)
       .handle("messages", messages)
       .handle("message", message)

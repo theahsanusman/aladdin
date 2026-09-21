@@ -99,11 +99,28 @@ export type QuestionReplied = {
   sessionID: string
   requestID: string
   answers: Array<QuestionAnswer>
+  source?: "user" | "timeout" | "unattended"
 }
 
 export type QuestionRejected = {
   sessionID: string
   requestID: string
+}
+
+export type InvalidRequestError = {
+  _tag: "InvalidRequestError"
+  message: string
+  kind?: string
+  field?: string
+}
+
+export type EffectHttpApiErrorBadRequest = {
+  _tag: "BadRequest"
+}
+
+export type AladdinProviderError = {
+  _tag: "AladdinProviderError"
+  message: string
 }
 
 export type OAuth = {
@@ -112,6 +129,7 @@ export type OAuth = {
   access: string
   expires: number
   accountId?: string
+  email?: string
   enterpriseUrl?: string
 }
 
@@ -130,17 +148,6 @@ export type WellKnownAuth = {
 }
 
 export type Auth = OAuth | ApiAuth | WellKnownAuth
-
-export type EffectHttpApiErrorBadRequest = {
-  _tag: "BadRequest"
-}
-
-export type InvalidRequestError = {
-  _tag: "InvalidRequestError"
-  message: string
-  kind?: string
-  field?: string
-}
 
 export type MoveSessionError = {
   name: "MoveSessionError"
@@ -1339,6 +1346,8 @@ export type GlobalEvent = {
            */
           questions: Array<QuestionV2Info>
           tool?: QuestionV2Tool
+          timeoutSeconds?: number
+          expiresAt?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
         }
       }
     | {
@@ -1348,6 +1357,7 @@ export type GlobalEvent = {
           sessionID: string
           requestID: string
           answers: Array<QuestionV2Answer>
+          source?: "user" | "timeout"
         }
       }
     | {
@@ -1516,6 +1526,11 @@ export type GlobalEvent = {
            */
           questions: Array<QuestionInfo>
           tool?: QuestionTool
+          timeoutSeconds?: number
+          /**
+           * Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.
+           */
+          expiresAt?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
         }
       }
     | {
@@ -1525,6 +1540,7 @@ export type GlobalEvent = {
           sessionID: string
           requestID: string
           answers: Array<QuestionAnswer>
+          source?: "user" | "timeout" | "unattended"
         }
       }
     | {
@@ -1936,6 +1952,11 @@ export type Config = {
   small_model?: string
   default_agent?: string
   subagent_depth?: number
+  subagent_limit?: number
+  question?: {
+    timeout_seconds?: number
+    on_timeout?: "assume" | "skip"
+  }
   username?: string
   mode?: {
     build?: AgentConfig
@@ -2029,6 +2050,13 @@ export type Config = {
     continue_loop_on_deny?: boolean
     mcp_timeout?: number
     policies?: Array<ConfigV2ExperimentalPolicy>
+  }
+}
+
+export type NotFoundError = {
+  name: "NotFoundError"
+  data: {
+    message: string
   }
 }
 
@@ -2460,10 +2488,21 @@ export type QuestionRequest = {
    */
   questions: Array<QuestionInfo>
   tool?: QuestionTool
+  timeoutSeconds?: number
+  /**
+   * Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.
+   */
+  expiresAt?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
 }
 
 export type QuestionNotFoundError = {
   _tag: "QuestionNotFoundError"
+  requestID: string
+  message: string
+}
+
+export type QuestionExpiredError = {
+  _tag: "QuestionExpiredError"
   requestID: string
   message: string
 }
@@ -2540,13 +2579,6 @@ export type ProviderAuthError1 = {
     field?: string
     message?: string
     kind?: string
-  }
-}
-
-export type NotFoundError = {
-  name: "NotFoundError"
-  data: {
-    message: string
   }
 }
 
@@ -2834,6 +2866,7 @@ export type QuestionReplied2 = {
     sessionID: string
     requestID: string
     answers: Array<QuestionAnswer>
+    source?: "user" | "timeout" | "unattended"
   }
 }
 
@@ -3847,6 +3880,96 @@ export type ConfigV2ExperimentalPolicy = {
   resource: string
 }
 
+export type AutomationSchedule =
+  | {
+      type: "interval"
+      minutes: number
+    }
+  | {
+      type: "daily"
+      time: string
+    }
+  | {
+      type: "weekly"
+      weekday: number
+      time: string
+    }
+  | {
+      type: "monthly"
+      day: number
+      time: string
+    }
+  | {
+      type: "cron"
+      expression: string
+    }
+
+export type AutomationCheck = {
+  command: string
+  timeoutSeconds?: number
+}
+
+export type AutomationInfo = {
+  id: string
+  projectID: string
+  directory: string
+  name: string
+  prompt: string
+  kind: "standalone" | "thread"
+  targetSessionID?: string
+  agent?: string
+  model?: ModelRef
+  profile: "read-only" | "workspace-write" | "full"
+  schedule: AutomationSchedule
+  verification: Array<AutomationCheck>
+  budgetPerRunTokens?: number
+  budgetPerDayTokens?: number
+  timeoutMinutes: number
+  status: "active" | "paused"
+  nextRunAt?: number
+  lastRunAt?: number
+  time: {
+    created: number
+    updated: number
+  }
+}
+
+export type AutomationRun = {
+  id: string
+  automationID: string
+  sessionID?: string
+  status: "queued" | "running" | "done" | "failed" | "skipped"
+  outcome?:
+    | "verified"
+    | "reported"
+    | "verification_failed"
+    | "budget_exceeded"
+    | "budget_exhausted"
+    | "timed_out"
+    | "provider_error"
+    | "project_unavailable"
+    | "session_unavailable"
+    | "previous_run_active"
+    | "cancelled"
+  summary?: string
+  evidence?: string
+  tokensTotal: number
+  cost: number
+  unread: boolean
+  trigger: "schedule" | "manual"
+  scheduledFor?: number
+  time: {
+    created: number
+    started?: number
+    finished?: number
+  }
+}
+
+export type AutomationOverview = {
+  automations: Array<AutomationInfo>
+  runs: Array<AutomationRun>
+}
+
 export type ProjectDirectories = Array<{
   directory: string
   strategy?: string
@@ -3855,6 +3978,56 @@ export type ProjectDirectories = Array<{
 export type PtyTicketConnectToken = {
   ticket: string
   expires_in: number
+}
+
+export type SessionGoalInfo = {
+  objective: string
+  status: "active" | "paused" | "completed"
+  evidence: string
+  started: number
+}
+
+export type UsageTokens = {
+  /**
+   * Uncached input tokens
+   */
+  input: number
+  /**
+   * Output tokens
+   */
+  output: number
+  /**
+   * Reasoning tokens
+   */
+  reasoning: number
+  cache: {
+    /**
+     * Tokens read from the provider cache
+     */
+    read: number
+    /**
+     * Tokens written to the provider cache
+     */
+    write: number
+  }
+}
+
+export type UsageSummaryRow = {
+  /**
+   * Local calendar date (YYYY-MM-DD) the usage was recorded
+   */
+  date: string
+  providerID: string
+  modelID: string
+  /**
+   * Number of assistant responses recorded
+   */
+  messages: number
+  /**
+   * Provider-reported cost in USD
+   */
+  cost: number
+  tokens: UsageTokens
 }
 
 export type WorkspaceEventConnectionStatus = {
@@ -5621,6 +5794,8 @@ export type QuestionV2Asked = {
      */
     questions: Array<QuestionV2Info>
     tool?: QuestionV2Tool
+    timeoutSeconds?: number
+    expiresAt?: number | "NaN" | "Infinity" | "-Infinity"
   }
 }
 
@@ -5640,6 +5815,7 @@ export type QuestionV2Replied = {
     sessionID: string
     requestID: string
     answers: Array<QuestionV2Answer>
+    source?: "user" | "timeout"
   }
 }
 
@@ -5950,6 +6126,11 @@ export type QuestionAsked = {
      */
     questions: Array<QuestionInfo>
     tool?: QuestionTool
+    timeoutSeconds?: number
+    /**
+     * Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.
+     */
+    expiresAt?: number | "NaN" | "Infinity" | "-Infinity"
   }
 }
 
@@ -6116,6 +6297,8 @@ export type QuestionV2Request = {
    */
   questions: Array<QuestionV2Info>
   tool?: QuestionV2Tool
+  timeoutSeconds?: number
+  expiresAt?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
 }
 
 export type QuestionV2Reply = {
@@ -6820,6 +7003,8 @@ export type EventQuestionV2Asked = {
      */
     questions: Array<QuestionV2Info>
     tool?: QuestionV2Tool
+    timeoutSeconds?: number
+    expiresAt?: number | "NaN" | "Infinity" | "-Infinity"
   }
 }
 
@@ -6830,6 +7015,7 @@ export type EventQuestionV2Replied = {
     sessionID: string
     requestID: string
     answers: Array<QuestionV2Answer>
+    source?: "user" | "timeout"
   }
 }
 
@@ -6959,6 +7145,11 @@ export type EventQuestionAsked = {
      */
     questions: Array<QuestionInfo>
     tool?: QuestionTool
+    timeoutSeconds?: number
+    /**
+     * Unix epoch milliseconds when the request deadline expires. Unset when no deadline applies.
+     */
+    expiresAt?: number | "NaN" | "Infinity" | "-Infinity"
   }
 }
 
@@ -6969,6 +7160,7 @@ export type EventQuestionReplied = {
     sessionID: string
     requestID: string
     answers: Array<QuestionAnswer>
+    source?: "user" | "timeout" | "unattended"
   }
 }
 
@@ -7096,6 +7288,386 @@ export type BadRequestError = {
     kind?: "Params" | "Headers" | "Query" | "Body" | "Payload"
   }
 }
+
+export type AladdinStatusData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/status"
+}
+
+export type AladdinStatusErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AladdinStatusError = AladdinStatusErrors[keyof AladdinStatusErrors]
+
+export type AladdinStatusResponses = {
+  /**
+   * Aladdin local media status
+   */
+  200: {
+    speechInput: {
+      available: boolean
+      endpoint: string
+    }
+    speechOutput: {
+      available: boolean
+      endpoint: string
+    }
+    drawThingsModels: Array<string>
+  }
+}
+
+export type AladdinStatusResponse = AladdinStatusResponses[keyof AladdinStatusResponses]
+
+export type AladdinTranscribeData = {
+  body?: {
+    audio: string
+    mime: string
+    model: "qwen3-asr-1.7b"
+  }
+  path?: never
+  query?: never
+  url: "/aladdin/voice/transcribe"
+}
+
+export type AladdinTranscribeErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinTranscribeError = AladdinTranscribeErrors[keyof AladdinTranscribeErrors]
+
+export type AladdinTranscribeResponses = {
+  /**
+   * Local transcription
+   */
+  200: {
+    text: string
+  }
+}
+
+export type AladdinTranscribeResponse = AladdinTranscribeResponses[keyof AladdinTranscribeResponses]
+
+export type AladdinSpeakData = {
+  body?: {
+    text: string
+    model: "qwen3-tts-1.7b"
+    voice: string
+  }
+  path?: never
+  query?: never
+  url: "/aladdin/voice/speak"
+}
+
+export type AladdinSpeakErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinSpeakError = AladdinSpeakErrors[keyof AladdinSpeakErrors]
+
+export type AladdinSpeakResponses = {
+  /**
+   * Local speech audio
+   */
+  200: {
+    audio: string
+    mime: string
+  }
+}
+
+export type AladdinSpeakResponse = AladdinSpeakResponses[keyof AladdinSpeakResponses]
+
+export type AladdinVoicesData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/voice/voices"
+}
+
+export type AladdinVoicesErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinVoicesError = AladdinVoicesErrors[keyof AladdinVoicesErrors]
+
+export type AladdinVoicesResponses = {
+  /**
+   * Voices supported by the local speech service
+   */
+  200: {
+    voices: Array<string>
+    english: Array<string>
+  }
+}
+
+export type AladdinVoicesResponse = AladdinVoicesResponses[keyof AladdinVoicesResponses]
+
+export type AladdinOpenAiProfilesData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/auth/openai/profiles"
+}
+
+export type AladdinOpenAiProfilesErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AladdinOpenAiProfilesError = AladdinOpenAiProfilesErrors[keyof AladdinOpenAiProfilesErrors]
+
+export type AladdinOpenAiProfilesResponses = {
+  /**
+   * Saved OpenAI account profiles
+   */
+  200: {
+    personal: boolean
+    company: boolean
+    personalIdentity?: string
+    companyIdentity?: string
+    active?: "personal" | "company"
+  }
+}
+
+export type AladdinOpenAiProfilesResponse = AladdinOpenAiProfilesResponses[keyof AladdinOpenAiProfilesResponses]
+
+export type AladdinSaveOpenAiProfileData = {
+  body?: {
+    profile: "personal" | "company"
+  }
+  path?: never
+  query?: never
+  url: "/aladdin/auth/openai/profiles/save"
+}
+
+export type AladdinSaveOpenAiProfileErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinSaveOpenAiProfileError = AladdinSaveOpenAiProfileErrors[keyof AladdinSaveOpenAiProfileErrors]
+
+export type AladdinSaveOpenAiProfileResponses = {
+  /**
+   * Saved OpenAI account profile
+   */
+  200: {
+    personal: boolean
+    company: boolean
+    personalIdentity?: string
+    companyIdentity?: string
+    active?: "personal" | "company"
+  }
+}
+
+export type AladdinSaveOpenAiProfileResponse =
+  AladdinSaveOpenAiProfileResponses[keyof AladdinSaveOpenAiProfileResponses]
+
+export type AladdinActivateOpenAiProfileData = {
+  body?: {
+    profile: "personal" | "company"
+  }
+  path?: never
+  query?: never
+  url: "/aladdin/auth/openai/profiles/activate"
+}
+
+export type AladdinActivateOpenAiProfileErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinActivateOpenAiProfileError =
+  AladdinActivateOpenAiProfileErrors[keyof AladdinActivateOpenAiProfileErrors]
+
+export type AladdinActivateOpenAiProfileResponses = {
+  /**
+   * Activated OpenAI account profile
+   */
+  200: {
+    personal: boolean
+    company: boolean
+    personalIdentity?: string
+    companyIdentity?: string
+    active?: "personal" | "company"
+  }
+}
+
+export type AladdinActivateOpenAiProfileResponse =
+  AladdinActivateOpenAiProfileResponses[keyof AladdinActivateOpenAiProfileResponses]
+
+export type AladdinImageData = {
+  body?: {
+    provider: "openai" | "gemini" | "openrouter" | "draw-things"
+    model: string
+    prompt: string
+    size?: string
+  }
+  path?: never
+  query?: never
+  url: "/aladdin/image/generate"
+}
+
+export type AladdinImageErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * AladdinProviderError
+   */
+  502: AladdinProviderError
+}
+
+export type AladdinImageError = AladdinImageErrors[keyof AladdinImageErrors]
+
+export type AladdinImageResponses = {
+  /**
+   * Generated image
+   */
+  200: {
+    image: string
+    mime: string
+  }
+}
+
+export type AladdinImageResponse = AladdinImageResponses[keyof AladdinImageResponses]
+
+export type AladdinMobileStatusData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/mobile/status"
+}
+
+export type AladdinMobileStatusErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AladdinMobileStatusError = AladdinMobileStatusErrors[keyof AladdinMobileStatusErrors]
+
+export type AladdinMobileStatusResponses = {
+  /**
+   * Same-network mobile access status
+   */
+  200: {
+    enabled: boolean
+    available: boolean
+    reason?: "password-required"
+    url?: string
+    connectUrl?: string
+    host: string
+    port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    addresses: Array<string>
+    certificateAuthority?: string
+    certificate?: {
+      names: string
+      dates: string
+    }
+  }
+}
+
+export type AladdinMobileStatusResponse = AladdinMobileStatusResponses[keyof AladdinMobileStatusResponses]
+
+export type AladdinMobileEnableData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/mobile/enable"
+}
+
+export type AladdinMobileEnableErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinMobileEnableError = AladdinMobileEnableErrors[keyof AladdinMobileEnableErrors]
+
+export type AladdinMobileEnableResponses = {
+  /**
+   * Same-network mobile access status
+   */
+  200: {
+    enabled: boolean
+    available: boolean
+    reason?: "password-required"
+    url?: string
+    connectUrl?: string
+    host: string
+    port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    addresses: Array<string>
+    certificateAuthority?: string
+    certificate?: {
+      names: string
+      dates: string
+    }
+  }
+}
+
+export type AladdinMobileEnableResponse = AladdinMobileEnableResponses[keyof AladdinMobileEnableResponses]
+
+export type AladdinMobileDisableData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/mobile/disable"
+}
+
+export type AladdinMobileDisableErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AladdinMobileDisableError = AladdinMobileDisableErrors[keyof AladdinMobileDisableErrors]
+
+export type AladdinMobileDisableResponses = {
+  /**
+   * Same-network mobile access status
+   */
+  200: {
+    enabled: boolean
+    available: boolean
+    reason?: "password-required"
+    url?: string
+    connectUrl?: string
+    host: string
+    port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    addresses: Array<string>
+    certificateAuthority?: string
+    certificate?: {
+      names: string
+      dates: string
+    }
+  }
+}
+
+export type AladdinMobileDisableResponse = AladdinMobileDisableResponses[keyof AladdinMobileDisableResponses]
 
 export type AuthRemoveData = {
   body?: never
@@ -7407,6 +7979,260 @@ export type EventSubscribeResponses = {
 }
 
 export type EventSubscribeResponse = EventSubscribeResponses[keyof EventSubscribeResponses]
+
+export type AutomationListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation"
+}
+
+export type AutomationListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AutomationListError = AutomationListErrors[keyof AutomationListErrors]
+
+export type AutomationListResponses = {
+  /**
+   * Automations and their latest runs for the request directory
+   */
+  200: AutomationOverview
+}
+
+export type AutomationListResponse = AutomationListResponses[keyof AutomationListResponses]
+
+export type AutomationCreateData = {
+  body?: {
+    name?: string
+    prompt: string
+    /**
+     * Human schedule text, for example "every 30 minutes", "daily at 08:00", or "cron 0 9 * * 1-5"
+     */
+    schedule: string
+    kind?: "standalone" | "thread"
+    targetSessionID?: string
+    agent?: string
+    /**
+     * Model as provider/model
+     */
+    model?: string
+    profile?: "read-only" | "workspace-write" | "full"
+    budgetPerRunTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    budgetPerDayTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    verification?: Array<string>
+    timeoutMinutes?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation"
+}
+
+export type AutomationCreateErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+}
+
+export type AutomationCreateError = AutomationCreateErrors[keyof AutomationCreateErrors]
+
+export type AutomationCreateResponses = {
+  /**
+   * Created automation
+   */
+  200: AutomationInfo
+}
+
+export type AutomationCreateResponse = AutomationCreateResponses[keyof AutomationCreateResponses]
+
+export type AutomationRemoveData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation/{id}"
+}
+
+export type AutomationRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type AutomationRemoveError = AutomationRemoveErrors[keyof AutomationRemoveErrors]
+
+export type AutomationRemoveResponses = {
+  /**
+   * Automation removed
+   */
+  200: boolean
+}
+
+export type AutomationRemoveResponse = AutomationRemoveResponses[keyof AutomationRemoveResponses]
+
+export type AutomationUpdateData = {
+  body?: {
+    name?: string
+    prompt?: string
+    schedule?: string
+    kind?: "standalone" | "thread"
+    targetSessionID?: string
+    agent?: string
+    model?: string
+    profile?: "read-only" | "workspace-write" | "full"
+    budgetPerRunTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    budgetPerDayTokens?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    verification?: Array<string>
+    timeoutMinutes?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    status?: "active" | "paused"
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation/{id}"
+}
+
+export type AutomationUpdateErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type AutomationUpdateError = AutomationUpdateErrors[keyof AutomationUpdateErrors]
+
+export type AutomationUpdateResponses = {
+  /**
+   * Updated automation
+   */
+  200: AutomationInfo
+}
+
+export type AutomationUpdateResponse = AutomationUpdateResponses[keyof AutomationUpdateResponses]
+
+export type AutomationRunData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation/{id}/run"
+}
+
+export type AutomationRunErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type AutomationRunError = AutomationRunErrors[keyof AutomationRunErrors]
+
+export type AutomationRunResponses = {
+  /**
+   * Started run
+   */
+  200: AutomationRun
+}
+
+export type AutomationRunResponse = AutomationRunResponses[keyof AutomationRunResponses]
+
+export type AutomationRunsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: string
+  }
+  url: "/automation/{id}/runs"
+}
+
+export type AutomationRunsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type AutomationRunsError = AutomationRunsErrors[keyof AutomationRunsErrors]
+
+export type AutomationRunsResponses = {
+  /**
+   * Recent runs
+   */
+  200: Array<AutomationRun>
+}
+
+export type AutomationRunsResponse = AutomationRunsResponses[keyof AutomationRunsResponses]
+
+export type AutomationReadData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/automation/runs/read"
+}
+
+export type AutomationReadErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AutomationReadError = AutomationReadErrors[keyof AutomationReadErrors]
+
+export type AutomationReadResponses = {
+  /**
+   * Runs marked as read
+   */
+  200: boolean
+}
+
+export type AutomationReadResponse = AutomationReadResponses[keyof AutomationReadResponses]
 
 export type ConfigGetData = {
   body?: never
@@ -9189,6 +10015,10 @@ export type QuestionReplyErrors = {
    * QuestionNotFoundError
    */
   404: QuestionNotFoundError
+  /**
+   * QuestionExpiredError
+   */
+  409: QuestionExpiredError
 }
 
 export type QuestionReplyError = QuestionReplyErrors[keyof QuestionReplyErrors]
@@ -9223,6 +10053,10 @@ export type QuestionRejectErrors = {
    * QuestionNotFoundError
    */
   404: QuestionNotFoundError
+  /**
+   * QuestionExpiredError
+   */
+  409: QuestionExpiredError
 }
 
 export type QuestionRejectError = QuestionRejectErrors[keyof QuestionRejectErrors]
@@ -9723,6 +10557,178 @@ export type SessionTodoResponses = {
 }
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
+
+export type SessionGoalData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal"
+}
+
+export type SessionGoalErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalError = SessionGoalErrors[keyof SessionGoalErrors]
+
+export type SessionGoalResponses = {
+  /**
+   * Session goal
+   */
+  200: SessionGoalInfo
+}
+
+export type SessionGoalResponse = SessionGoalResponses[keyof SessionGoalResponses]
+
+export type SessionGoalPauseData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal/pause"
+}
+
+export type SessionGoalPauseErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalPauseError = SessionGoalPauseErrors[keyof SessionGoalPauseErrors]
+
+export type SessionGoalPauseResponses = {
+  /**
+   * Paused goal
+   */
+  200: SessionGoalInfo
+}
+
+export type SessionGoalPauseResponse = SessionGoalPauseResponses[keyof SessionGoalPauseResponses]
+
+export type SessionGoalResumeData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal/resume"
+}
+
+export type SessionGoalResumeErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalResumeError = SessionGoalResumeErrors[keyof SessionGoalResumeErrors]
+
+export type SessionGoalResumeResponses = {
+  /**
+   * Resumed goal
+   */
+  200: SessionGoalInfo
+}
+
+export type SessionGoalResumeResponse = SessionGoalResumeResponses[keyof SessionGoalResumeResponses]
+
+export type SessionGoalCompleteData = {
+  body?: {
+    evidence: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal/complete"
+}
+
+export type SessionGoalCompleteErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalCompleteError = SessionGoalCompleteErrors[keyof SessionGoalCompleteErrors]
+
+export type SessionGoalCompleteResponses = {
+  /**
+   * Completed goal
+   */
+  200: SessionGoalInfo
+}
+
+export type SessionGoalCompleteResponse = SessionGoalCompleteResponses[keyof SessionGoalCompleteResponses]
+
+export type SessionGoalClearData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/goal/clear"
+}
+
+export type SessionGoalClearErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionGoalClearError = SessionGoalClearErrors[keyof SessionGoalClearErrors]
+
+export type SessionGoalClearResponses = {
+  /**
+   * Cleared goal
+   */
+  200: SessionGoalInfo
+}
+
+export type SessionGoalClearResponse = SessionGoalClearResponses[keyof SessionGoalClearResponses]
 
 export type SessionDiffData = {
   body?: never
@@ -11002,6 +12008,36 @@ export type TuiControlResponseResponses = {
 }
 
 export type TuiControlResponseResponse = TuiControlResponseResponses[keyof TuiControlResponseResponses]
+
+export type UsageSummaryData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    from?: string
+    to?: string
+  }
+  url: "/usage/summary"
+}
+
+export type UsageSummaryErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type UsageSummaryError = UsageSummaryErrors[keyof UsageSummaryErrors]
+
+export type UsageSummaryResponses = {
+  /**
+   * Usage grouped by local day, provider, and model
+   */
+  200: Array<UsageSummaryRow>
+}
+
+export type UsageSummaryResponse = UsageSummaryResponses[keyof UsageSummaryResponses]
 
 export type ExperimentalWorkspaceAdapterListData = {
   body?: never
@@ -13587,6 +14623,38 @@ export type V2ProjectCopyRefreshResponses = {
 }
 
 export type V2ProjectCopyRefreshResponse = V2ProjectCopyRefreshResponses[keyof V2ProjectCopyRefreshResponses]
+
+export type V2UsageSummaryData = {
+  body?: never
+  path?: never
+  query?: {
+    from?: string
+    to?: string
+  }
+  url: "/api/usage/summary"
+}
+
+export type V2UsageSummaryErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+}
+
+export type V2UsageSummaryError = V2UsageSummaryErrors[keyof V2UsageSummaryErrors]
+
+export type V2UsageSummaryResponses = {
+  /**
+   * Success
+   */
+  200: Array<UsageSummaryRow>
+}
+
+export type V2UsageSummaryResponse = V2UsageSummaryResponses[keyof V2UsageSummaryResponses]
 
 export type PtyConnectData = {
   body?: never
