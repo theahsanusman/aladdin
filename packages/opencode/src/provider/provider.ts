@@ -31,6 +31,7 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
+import { CommandCode } from "./command-code"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
 
@@ -1836,8 +1837,12 @@ const layer = Layer.effect(
           const combined = signals.length === 0 ? null : signals.length === 1 ? signals[0] : AbortSignal.any(signals)
           if (combined) opts.signal = combined
 
+          const request =
+            model.providerID === "commandcode" && model.api.npm === "@ai-sdk/openai"
+              ? CommandCode.commandCodeResponsesRequest(input, opts)
+              : opts
           const res = await fetchFn(input, {
-            ...opts,
+            ...request,
             // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
             timeout: false,
           }).finally(() => headerTimeoutCtl?.clear())

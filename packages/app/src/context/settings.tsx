@@ -615,6 +615,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
             setStore("aladdin", "mobile", "enabled", value)
           },
         },
+        chat: {
+          model: withFallback(() => store.aladdin?.chat?.model, defaultAladdinSettings.chat.model),
+          setModel(value: string) {
+            setStore("aladdin", "chat", "model", value)
+          },
+        },
       },
     }
   },

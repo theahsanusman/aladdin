@@ -52,6 +52,7 @@ export type HomeSessionsViewProps = {
   titleOpacity: (id: HomeSessionGroup["id"]) => number
   isOpenTab: (record: HomeSessionRecord) => boolean
   onCreateSession: () => void
+  onCreateChat: () => void
   onOpenSession: (session: Session, options?: OpenSessionOptions) => void
   onArchiveSession: (session: Session) => Promise<void>
   onSetHoverTarget: (element: HTMLElement) => void
@@ -81,17 +82,29 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
       <div class="sticky top-0 z-30 shrink-0 bg-v2-background-bg-base pb-3 pt-6 lg:pt-12" onWheel={props.onWheel}>
         <HomeSessionSearch {...props} />
         <Suspense>
-          <Show when={props.groups().length > 0 && props.canCreateSession()}>
-            <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex lg:top-[108px]">
+          <Show when={props.groups().length > 0}>
+            <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex gap-1 lg:top-[108px]">
+              <Show when={props.canCreateSession()}>
+                <ButtonV2
+                  data-action="home-new-session"
+                  variant="ghost-muted"
+                  size="normal"
+                  icon="edit"
+                  class="pointer-events-auto h-7 px-2 [font-weight:530]"
+                  onClick={props.onCreateSession}
+                >
+                  {props.language.t("command.session.new")}
+                </ButtonV2>
+              </Show>
               <ButtonV2
-                data-action="home-new-session"
+                data-action="home-new-chat"
                 variant="ghost-muted"
                 size="normal"
-                icon="edit"
+                icon="plus"
                 class="pointer-events-auto h-7 px-2 [font-weight:530]"
-                onClick={props.onCreateSession}
+                onClick={props.onCreateChat}
               >
-                {props.language.t("command.session.new")}
+                {props.language.t("home.new.chat")}
               </ButtonV2>
             </div>
           </Show>
@@ -117,6 +130,7 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
             fallback={
               <HomeSessionsEmpty
                 onNewSession={props.canCreateSession() ? props.onCreateSession : undefined}
+                onCreateChat={props.onCreateChat}
                 language={props.language}
               />
             }
@@ -506,7 +520,7 @@ function HomeSessionProjectName(props: { name: string; search?: boolean }) {
   )
 }
 
-function HomeSessionsEmpty(props: { onNewSession?: () => void; language: ReturnType<typeof useLanguage> }) {
+function HomeSessionsEmpty(props: { onNewSession?: () => void; onCreateChat: () => void; language: ReturnType<typeof useLanguage> }) {
   return (
     <div class="flex min-h-full flex-col items-center gap-4 px-6 pt-[52px] text-center">
       <div
@@ -525,13 +539,18 @@ function HomeSessionsEmpty(props: { onNewSession?: () => void; language: ReturnT
       >
         {props.language.t("home.sessions.empty.description")}
       </p>
-      <Show when={props.onNewSession}>
-        {(onNewSession) => (
-          <ButtonV2 data-action="home-new-session" variant="neutral" size="normal" icon="edit" onClick={onNewSession()}>
-            {props.language.t("command.session.new")}
-          </ButtonV2>
-        )}
-      </Show>
+      <div class="flex items-center gap-2">
+        <ButtonV2 data-action="home-new-chat" variant="neutral" size="normal" icon="plus" onClick={props.onCreateChat}>
+          {props.language.t("home.new.chat")}
+        </ButtonV2>
+        <Show when={props.onNewSession}>
+          {(onNewSession) => (
+            <ButtonV2 data-action="home-new-session" variant="ghost-muted" size="normal" icon="edit" onClick={onNewSession()}>
+              {props.language.t("command.session.new")}
+            </ButtonV2>
+          )}
+        </Show>
+      </div>
     </div>
   )
 }

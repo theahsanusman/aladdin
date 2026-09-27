@@ -67,6 +67,10 @@ const Image = Schema.Struct({
   mime: Schema.String,
 })
 
+const ChatWorkspace = Schema.Struct({
+  directory: Schema.String,
+})
+
 const MobileStatus = Schema.Struct({
   enabled: Schema.Boolean,
   available: Schema.Boolean,
@@ -122,6 +126,10 @@ export const AladdinApi = HttpApi.make("aladdin").add(
         payload: ImageInput,
         success: described(Image, "Generated image"),
         error: [HttpApiError.BadRequest, AladdinProviderError],
+      }),
+      HttpApiEndpoint.post("chatWorkspace", "/aladdin/chats/ensure", {
+        success: described(ChatWorkspace, "Folder-less chat workspace directory"),
+        error: HttpApiError.BadRequest,
       }),
       HttpApiEndpoint.get("mobileStatus", "/aladdin/mobile/status", {
         success: described(MobileStatus, "Same-network mobile access status"),

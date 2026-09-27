@@ -6,7 +6,7 @@
 // offline and drop into any transport (`res.end(...)`, Effect `response.end`,
 // etc.).
 //
-// The visual language mirrors the OpenCode app: the design tokens are a curated
+// The visual language mirrors the Aladdin app: the design tokens are a curated
 // subset of the OC-2 semantic tokens in `packages/ui/src/styles/theme.css`, and
 // the wordmark is the same geometry as `packages/ui/src/components/logo.tsx`.
 // Keep this file in sync with those sources when the brand changes.
@@ -25,7 +25,7 @@ export function success(options?: CallbackPageOptions) {
     body: renderCard({
       status: "success",
       headline: "Authorization successful",
-      message: provider ? `OpenCode is now connected to ${escapeHtml(provider)}.` : "OpenCode is now authorized.",
+      message: provider ? `Aladdin is now connected to ${escapeHtml(provider)}.` : "Aladdin is now authorized.",
       footnote: "You can close this window.",
     }),
     script: options?.autoClose === false ? undefined : AUTO_CLOSE_SCRIPT,
@@ -40,10 +40,10 @@ export function error(detail: string, options?: CallbackPageOptions) {
       status: "error",
       headline: "Authorization failed",
       message: provider
-        ? `OpenCode couldn't finish connecting to ${escapeHtml(provider)}.`
-        : "OpenCode couldn't complete authorization.",
+        ? `Aladdin couldn't finish connecting to ${escapeHtml(provider)}.`
+        : "Aladdin couldn't complete authorization.",
       detail,
-      footnote: "Close this window and try again from OpenCode.",
+      footnote: "Close this window and try again from Aladdin.",
     }),
   })
 }
@@ -100,7 +100,7 @@ function renderDocument(input: { title: string; body: string; script?: string })
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>${escapeHtml(input.title)} · OpenCode</title>
+    <title>${escapeHtml(input.title)} · Aladdin</title>
     <style>${STYLES}</style>
   </head>
   <body>
@@ -116,8 +116,8 @@ function bootstrapScript(options: BootstrapOptions) {
 var TOKEN_URL=new URL(${scriptString(options.tokenPath)},window.location.origin).href;
 (function(){
   var card=document.getElementById("oc-card"),headline=document.getElementById("oc-headline"),message=document.getElementById("oc-message"),detail=document.getElementById("oc-detail"),footnote=document.getElementById("oc-footnote");
-  function fail(text){card.dataset.status="error";headline.textContent="Authorization failed";message.textContent=PROVIDER?("OpenCode couldn't finish connecting to "+PROVIDER+"."):"OpenCode couldn't complete authorization.";if(text){detail.textContent=text;detail.hidden=false}footnote.textContent="Close this window and try again from OpenCode."}
-  function ok(){card.dataset.status="success";headline.textContent="Authorization successful";message.textContent=PROVIDER?("OpenCode is now connected to "+PROVIDER+"."):"OpenCode is now authorized.";detail.hidden=true;footnote.textContent="You can close this window.";setTimeout(function(){try{window.close()}catch(e){}},2500)}
+  function fail(text){card.dataset.status="error";headline.textContent="Authorization failed";message.textContent=PROVIDER?("Aladdin couldn't finish connecting to "+PROVIDER+"."):"Aladdin couldn't complete authorization.";if(text){detail.textContent=text;detail.hidden=false}footnote.textContent="Close this window and try again from Aladdin."}
+  function ok(){card.dataset.status="success";headline.textContent="Authorization successful";message.textContent=PROVIDER?("Aladdin is now connected to "+PROVIDER+"."):"Aladdin is now authorized.";detail.hidden=true;footnote.textContent="You can close this window.";setTimeout(function(){try{window.close()}catch(e){}},2500)}
   try{
     var hash=new URLSearchParams((window.location.hash||"").slice(1));
     var search=new URLSearchParams(window.location.search||"");
@@ -249,24 +249,20 @@ const STYLES = `
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 `
 
-// OpenCode wordmark — same path geometry as packages/ui/src/components/logo.tsx (Logo).
-const WORDMARK = `<svg class="wordmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 234 42" fill="none" aria-label="OpenCode" role="img">
-        <path d="M18 30H6V18H18V30Z" fill="var(--oc-icon-weak)" />
-        <path d="M18 12H6V30H18V12ZM24 36H0V6H24V36Z" fill="var(--oc-icon-base)" />
-        <path d="M48 30H36V18H48V30Z" fill="var(--oc-icon-weak)" />
-        <path d="M36 30H48V12H36V30ZM54 36H36V42H30V6H54V36Z" fill="var(--oc-icon-base)" />
-        <path d="M84 24V30H66V24H84Z" fill="var(--oc-icon-weak)" />
-        <path d="M84 24H66V30H84V36H60V6H84V24ZM66 18H78V12H66V18Z" fill="var(--oc-icon-base)" />
-        <path d="M108 36H96V18H108V36Z" fill="var(--oc-icon-weak)" />
-        <path d="M108 12H96V36H90V6H108V12ZM114 36H108V12H114V36Z" fill="var(--oc-icon-base)" />
-        <path d="M144 30H126V18H144V30Z" fill="var(--oc-icon-weak)" />
-        <path d="M144 12H126V30H144V36H120V6H144V12Z" fill="var(--oc-icon-strong)" />
-        <path d="M168 30H156V18H168V30Z" fill="var(--oc-icon-weak)" />
-        <path d="M168 12H156V30H168V12ZM174 36H150V6H174V36Z" fill="var(--oc-icon-strong)" />
-        <path d="M198 30H186V18H198V30Z" fill="var(--oc-icon-weak)" />
-        <path d="M198 12H186V30H198V12ZM204 36H180V6H198V0H204V36Z" fill="var(--oc-icon-strong)" />
-        <path d="M234 24V30H216V24H234Z" fill="var(--oc-icon-weak)" />
-        <path d="M216 12V18H228V12H216ZM234 24H216V30H234V36H210V6H234V24Z" fill="var(--oc-icon-strong)" />
+// Aladdin wordmark — same path geometry as packages/ui/src/components/logo.tsx (Logo).
+const WORDMARK = `<svg class="wordmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 36" fill="none" aria-label="Aladdin" role="img">
+        <path d="M18 24H6V30H18V24Z" fill="var(--oc-icon-weak)" />
+        <path d="M24 6H0V12H24V6ZM24 12H18V18H24V12ZM24 18H0V24H24V18ZM6 24H0V30H6V24ZM24 24H18V30H24V24ZM24 30H0V36H24V30Z" fill="var(--oc-icon-base)" />
+        <path d="M36 0H30V36H36V0Z" fill="var(--oc-icon-base)" />
+        <path d="M60 24H48V30H60V24Z" fill="var(--oc-icon-weak)" />
+        <path d="M66 6H42V12H66V6ZM66 12H60V18H66V12ZM66 18H42V24H66V18ZM48 24H42V30H48V24ZM66 24H60V30H66V24ZM66 30H42V36H66V30Z" fill="var(--oc-icon-base)" />
+        <path d="M90 18H78V24H90V18ZM90 24H78V30H90V24Z" fill="var(--oc-icon-weak)" />
+        <path d="M96 0H90V6H96V0ZM96 6H72V12H96V6ZM78 12H72V30H78V12ZM96 12H90V30H96V12ZM96 30H72V36H96V30Z" fill="var(--oc-icon-strong)" />
+        <path d="M120 18H108V24H120V18ZM120 24H108V30H120V24Z" fill="var(--oc-icon-weak)" />
+        <path d="M126 0H120V6H126V0ZM126 6H102V12H126V6ZM108 12H102V30H108V12ZM126 12H120V30H126V12ZM126 30H102V36H126V30Z" fill="var(--oc-icon-strong)" />
+        <path d="M138 0H132V6H138V0ZM138 12H132V36H138V12Z" fill="var(--oc-icon-strong)" />
+        <path d="M162 18H150V24H162V18ZM162 24H150V30H162V24Z" fill="var(--oc-icon-weak)" />
+        <path d="M162 6H144V12H162V6ZM150 12H144V36H150V12ZM168 12H162V36H168V12Z" fill="var(--oc-icon-strong)" />
       </svg>`
 
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.4 2.4 4.6-5.4" /></svg>`

@@ -22,6 +22,7 @@ import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 
 import { LayoutRoute, useLayout } from "@/context/layout"
+import { isChatDirectory, useChat } from "@/context/chat"
 import { usePlatform } from "@/context/platform"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
@@ -63,6 +64,7 @@ export function useTitlebarRightMount() {
 
 export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visible: boolean; toggle: () => void } }) {
   const layout = useLayout()
+  const chat = useChat()
   const platform = usePlatform()
   const command = useCommand()
   const language = useLanguage()
@@ -292,14 +294,22 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                       .find((item) => item.worktree === selection.directory)
                   : undefined
                 if (conn && project) {
-                  tabs.newDraft({ server: ServerConnection.key(conn), directory: project.worktree }, "")
+                  tabs.newDraft(
+                    { server: ServerConnection.key(conn), directory: project.worktree },
+                    "",
+                    isChatDirectory(project.worktree) ? chat.model() : undefined,
+                  )
                   return
                 }
               }
 
               const current = layout.projects.list()[0]
               if (current) {
-                tabs.newDraft({ server: server.key, directory: current.worktree }, "")
+                tabs.newDraft(
+                  { server: server.key, directory: current.worktree },
+                  "",
+                  isChatDirectory(current.worktree) ? chat.model() : undefined,
+                )
                 return
               }
 
@@ -307,9 +317,19 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                 const project = global.ensureServerCtx(conn).projects.list()[0]
                 return project ? [{ server: ServerConnection.key(conn), project }] : []
               })[0]
-              if (!fallback) return
+              if (!fallback) {
+                const conn =
+                  global.servers.list().find((item) => ServerConnection.key(item) === server.key) ??
+                  global.servers.list()[0]
+                if (conn) void chat.start(conn)
+                return
+              }
 
-              tabs.newDraft({ server: fallback.server, directory: fallback.project.worktree }, "")
+              tabs.newDraft(
+                { server: fallback.server, directory: fallback.project.worktree },
+                "",
+                isChatDirectory(fallback.project.worktree) ? chat.model() : undefined,
+              )
             }
             const toggleHome = () => tabs.toggleHome({ home: layout.route().type === "home", current: currentTab() })
 

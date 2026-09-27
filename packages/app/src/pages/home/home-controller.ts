@@ -1,4 +1,5 @@
 import { useGlobal } from "@/context/global"
+import { isChatDirectory, useChat } from "@/context/chat"
 import { type HomeProjectSelection, useLayout } from "@/context/layout"
 import { ServerConnection, useServer } from "@/context/server"
 import { useServerSync } from "@/context/server-sync"
@@ -12,6 +13,7 @@ export function createHomeController() {
   const server = useServer()
   const global = useGlobal()
   const tabs = useTabs()
+  const chat = useChat()
   const selection = layout.home.selection
   const focusedServer = createMemo(
     () => global.servers.list().find((conn) => ServerConnection.key(conn) === selection().server) ?? server.current,
@@ -50,7 +52,7 @@ export function createHomeController() {
     const ctx = global.ensureServerCtx(conn)
     ctx.projects.open(directory)
     ctx.projects.touch(directory)
-    void tabs.newDraft({ server: ServerConnection.key(conn), directory })
+    void tabs.newDraft({ server: ServerConnection.key(conn), directory }, "", isChatDirectory(directory) ? chat.model() : undefined)
   }
 
   return {

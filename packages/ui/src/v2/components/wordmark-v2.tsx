@@ -7,7 +7,7 @@ export function WordmarkV2(props: Pick<ComponentProps<"svg">, "class">) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 720 129"
+      viewBox="0 0 516 110.5714"
       fill="none"
       classList={{ [props.class ?? ""]: !!props.class }}
     >
@@ -16,52 +16,43 @@ export function WordmarkV2(props: Pick<ComponentProps<"svg">, "class">) {
           <g opacity="0.16">
             <path
               opacity="0.7"
-              d="M55.3846 36.4286H18.4615V91.7143H55.3846V36.4286ZM73.8462 110.143H0V18H73.8462V110.143Z"
+              d="M73.7143 18.4286H0V36.8571H73.7143V18.4286ZM73.7143 36.8571H55.2857V55.2857H73.7143V36.8571ZM73.7143 55.2857H0V73.7143H73.7143V55.2857ZM18.4286 73.7143H0V92.1429H18.4286V73.7143ZM73.7143 73.7143H55.2857V92.1429H73.7143V73.7143ZM73.7143 92.1429H0V110.5714H73.7143V92.1429Z"
+              fill="currentColor"
+            />
+            <path opacity="0.7" d="M110.5714 0H92.1429V110.5714H110.5714V0Z" fill="currentColor" />
+            <path
+              opacity="0.7"
+              d="M202.7143 18.4286H129V36.8571H202.7143V18.4286ZM202.7143 36.8571H184.2857V55.2857H202.7143V36.8571ZM202.7143 55.2857H129V73.7143H202.7143V55.2857ZM147.4286 73.7143H129V92.1429H147.4286V73.7143ZM202.7143 73.7143H184.2857V92.1429H202.7143V73.7143ZM202.7143 92.1429H129V110.5714H202.7143V92.1429Z"
               fill="currentColor"
             />
             <path
               opacity="0.7"
-              d="M110.462 91.7143H147.385V36.4286H110.462V91.7143ZM165.846 110.143H110.462V128.571H92V18H165.846V110.143Z"
+              d="M294.8571 0H276.4286V18.4286H294.8571V0ZM294.8571 18.4286H221.1429V36.8571H294.8571V18.4286ZM239.5714 36.8571H221.1429V92.1429H239.5714V36.8571ZM294.8571 36.8571H276.4286V92.1429H294.8571V36.8571ZM294.8571 92.1429H221.1429V110.5714H294.8571V92.1429Z"
               fill="currentColor"
             />
             <path
               opacity="0.7"
-              d="M258.846 73.2857H203.462V91.7143H258.846V110.143H185V18H258.846V73.2857ZM203.462 54.8571H240.385V36.4286H203.462V54.8571Z"
+              d="M387 0H368.5714V18.4286H387V0ZM387 18.4286H313.2857V36.8571H387V18.4286ZM331.7143 36.8571H313.2857V92.1429H331.7143V36.8571ZM387 36.8571H368.5714V92.1429H387V36.8571ZM387 92.1429H313.2857V110.5714H387V92.1429Z"
               fill="currentColor"
             />
             <path
               opacity="0.7"
-              d="M332.385 36.4286H295.462V110.143H277V18H332.385V36.4286ZM350.846 110.143H332.385V36.4286H350.846V110.143Z"
+              d="M423.8571 0H405.4286V18.4286H423.8571V0ZM423.8571 36.8571H405.4286V110.5714H423.8571V36.8571Z"
               fill="currentColor"
             />
             <path
               opacity="0.7"
-              d="M442.846 36.4286H387.462V91.7143H442.846V110.143H369V18H442.846V36.4286Z"
-              fill="currentColor"
-            />
-            <path
-              opacity="0.7"
-              d="M517.385 36.4286H480.462V91.7143H517.385V36.4286ZM535.846 110.143H462V18H535.846V110.143Z"
-              fill="currentColor"
-            />
-            <path
-              opacity="0.7"
-              d="M609.385 36.8571H572.462V92.1429H609.385V36.8571ZM627.846 110.571H554V18.4286H609.385V0H627.846V110.571Z"
-              fill="currentColor"
-            />
-            <path
-              opacity="0.7"
-              d="M664.462 36.4286V54.8571H701.385V36.4286H664.462ZM719.846 73.2857H664.462V91.7143H719.846V110.143H646V18H719.846V73.2857Z"
+              d="M497.5714 18.4286H442.2857V36.8571H497.5714V18.4286ZM460.7143 36.8571H442.2857V110.5714H460.7143V36.8571ZM516 36.8571H497.5714V110.5714H516V36.8571Z"
               fill="currentColor"
             />
           </g>
         </g>
       </g>
       <defs>
-        <mask id={mask} style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="720" height="129">
-          <rect width="720" height="129" fill={`url(#${maskGradient})`} />
+        <mask id={mask} style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="516" height="110.5714">
+          <rect width="516" height="110.5714" fill={`url(#${maskGradient})`} />
         </mask>
-        <linearGradient id={maskGradient} x1="360" y1="68" x2="360" y2="129" gradientUnits="userSpaceOnUse">
+        <linearGradient id={maskGradient} x1="258" y1="58.5" x2="258" y2="110.5714" gradientUnits="userSpaceOnUse">
           <stop stop-color="white" stop-opacity="0.7" />
           <stop offset="1" stop-color="white" stop-opacity="0" />
         </linearGradient>

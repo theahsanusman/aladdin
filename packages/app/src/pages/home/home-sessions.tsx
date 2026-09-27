@@ -15,6 +15,7 @@ export function HomeSessions(props: {
       showProjectName={props.sessions.session.showProjectName}
       server={props.sessions.session.server}
       canCreateSession={props.sessions.session.canCreate}
+      onCreateChat={props.sessions.session.createChat}
       searchValue={props.search.query.value}
       searchPlaceholder={props.search.query.placeholder}
       searchOpen={props.search.query.open}

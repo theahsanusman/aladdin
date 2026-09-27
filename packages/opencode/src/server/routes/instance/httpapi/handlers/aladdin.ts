@@ -9,6 +9,7 @@ import { Auth } from "@/auth"
 import { Path } from "@opencode-ai/core/global"
 import { disableMobileAccess, enableMobileAccess, mobileAccessStatus } from "@/aladdin/mobile"
 import { generate } from "@/aladdin/image"
+import { ensureChatWorkspace } from "@/aladdin/chats"
 import { AladdinProviderError } from "../errors"
 import { Flag } from "@opencode-ai/core/flag/flag"
 
@@ -171,6 +172,10 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       return yield* auth.profiles("openai").pipe(Effect.mapError(mediaError))
     })
 
+    const chatWorkspace = Effect.fn("AladdinHttpApi.chatWorkspace")(function* () {
+      return yield* Effect.tryPromise({ try: () => ensureChatWorkspace(), catch: mediaError })
+    })
+
     const image = Effect.fn("AladdinHttpApi.image")(function* (ctx: { payload: typeof ImageInput.Type }) {
       if (!ctx.payload.prompt.trim() || ctx.payload.prompt.length > 20_000 || !ctx.payload.model.trim()) {
         return yield* Effect.fail(mediaError())
@@ -192,6 +197,7 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       .handle("saveOpenAIProfile", saveOpenAIProfile)
       .handle("activateOpenAIProfile", activateOpenAIProfile)
       .handle("image", image)
+      .handle("chatWorkspace", chatWorkspace)
       .handle("mobileStatus", mobileStatus)
       .handle("mobileEnable", mobileEnable)
       .handle("mobileDisable", mobileDisable)

@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test"
-import { Effect, FileSystem } from "effect"
+import { Effect, FileSystem, Layer, PlatformError } from "effect"
+import { NodeFileSystem } from "@effect/platform-node"
 import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { FSUtil } from "@opencode-ai/core/fs-util"
@@ -267,6 +268,42 @@ describe("FSUtil", () => {
         expect(result).toContain(path.join(tmp, "b.txt"))
       }),
     )
+
+    test("continues past a timed-out optional path", async () => {
+      const filesystem = Layer.effect(
+        FileSystem.FileSystem,
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem
+          return {
+            ...fs,
+            exists: (filepath: string) =>
+              filepath === "/cloud/project/opencode.jsonc"
+                ? Effect.fail(
+                    new PlatformError.PlatformError(
+                      new PlatformError.SystemError({
+                        _tag: "Unknown",
+                        module: "FileSystem",
+                        method: "access",
+                        cause: new Error("ETIMEDOUT"),
+                      }),
+                    ),
+                  )
+                : filepath === "/cloud/opencode.json"
+                  ? Effect.succeed(true)
+                  : fs.exists(filepath),
+          }
+        }),
+      ).pipe(Layer.provide(NodeFileSystem.layer))
+      const runtime = LayerNode.compile(LayerNode.group([FSUtil.node, LayerNodePlatform.filesystem]), [
+        [LayerNodePlatform.filesystem, filesystem],
+      ])
+      const found = await Effect.runPromise(
+        FSUtil.use.up({ targets: ["opencode.jsonc", "opencode.json"], start: "/cloud/project", stop: "/cloud" }).pipe(
+          Effect.provide(runtime),
+        ),
+      )
+      expect(found).toEqual(["/cloud/opencode.json"])
+    })
   })
 
   describe("glob", () => {

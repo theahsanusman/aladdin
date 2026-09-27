@@ -6,8 +6,9 @@ import { SelectV2 } from "@opencode-ai/ui/v2/select-v2"
 import { Switch } from "@opencode-ai/ui/v2/switch-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { useLanguage } from "@/context/language"
+import { useModels } from "@/context/models"
+import { parseChatModel, type ImageProvider, type SpeechInputModel, type SpeechOutputModel } from "@/context/aladdin-settings"
 import { useSettings } from "@/context/settings"
-import type { ImageProvider, SpeechInputModel, SpeechOutputModel } from "@/context/aladdin-settings"
 import { SettingsListV2 } from "./parts/list"
 import { SettingsRowV2 } from "./parts/row"
 import { useServerSDK } from "@/context/server-sdk"
@@ -23,7 +24,19 @@ export const SettingsAladdin = (props: { onOpenProviders: () => void }) => {
   const server = useServerSDK()
   const dialog = useDialog()
   const connectController = useProviderConnectController()
-  const [section, setSection] = createSignal<"accounts" | "voice" | "images" | "mobile">("accounts")
+  const models = useModels()
+  const [section, setSection] = createSignal<"accounts" | "voice" | "images" | "mobile" | "chats">("accounts")
+  const chatModelOptions = createMemo(() => {
+    const options = models.list().map((model) => `${model.provider.id}/${model.id}`)
+    const current = settings.aladdin.chat.model()
+    return options.includes(current) ? options : [current, ...options]
+  })
+  const chatModelLabel = (value: string) => {
+    const match = models.list().find((model) => `${model.provider.id}/${model.id}` === value)
+    if (match) return `${match.provider.name} / ${match.name}`
+    const parsed = parseChatModel(value)
+    return parsed ? `${parsed.providerID} / ${parsed.modelID}` : value
+  }
   const drawThingsModels = createMemo(() => settings.aladdin.image.drawThingsModels().join(", "))
   const [status, { refetch }] = createResource(async () => {
     const response = await server().request("/aladdin/status").catch(() => undefined)
@@ -232,6 +245,7 @@ export const SettingsAladdin = (props: { onOpenProviders: () => void }) => {
                 ["voice", "settings.aladdin.tab.voice"],
                 ["images", "settings.aladdin.tab.images"],
                 ["mobile", "settings.aladdin.tab.mobile"],
+                ["chats", "settings.aladdin.tab.chats"],
               ] as const
             }
           >
@@ -581,6 +595,25 @@ export const SettingsAladdin = (props: { onOpenProviders: () => void }) => {
             </Show>
           </SettingsListV2>
         </div>
+        </Show>
+        <Show when={section() === "chats"}>
+          <div class="settings-v2-section">
+            <h3 class="settings-v2-section-title">{language.t("settings.aladdin.chats.title")}</h3>
+            <SettingsListV2>
+              <SettingsRowV2
+                title={language.t("settings.aladdin.chats.model.title")}
+                description={language.t("settings.aladdin.chats.model.description")}
+              >
+                <SelectV2
+                  appearance="inline"
+                  options={chatModelOptions()}
+                  current={settings.aladdin.chat.model()}
+                  label={chatModelLabel}
+                  onSelect={(value) => value && settings.aladdin.chat.setModel(value)}
+                />
+              </SettingsRowV2>
+            </SettingsListV2>
+          </div>
         </Show>
       </div>
     </>

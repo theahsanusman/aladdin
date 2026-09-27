@@ -53,8 +53,8 @@ import { setNativeTranslations } from "./native-translations"
 
 const APP_NAMES: Record<string, string> = {
   dev: "Aladdin",
-  beta: "OpenCode Beta",
-  prod: "OpenCode",
+  beta: "Aladdin Beta",
+  prod: "Aladdin",
 }
 const APP_IDS: Record<string, string> = {
   dev: "ai.opencode.desktop.dev",
@@ -217,7 +217,7 @@ const main = Effect.gen(function* () {
     process.env.XDG_STATE_HOME = join(root, "state")
     return root
   })()
-  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "OpenCode Dev")
+  app.setName(app.isPackaged ? APP_NAMES[CHANNEL] : "Aladdin Dev")
   app.setAppUserModelId(appId)
   app.setPath(
     "userData",

@@ -18,6 +18,10 @@ export interface AladdinSettings {
   mobile: {
     enabled: boolean
   }
+  chat: {
+    /** "providerID/modelID" preference applied to new folder-less chats. */
+    model: string
+  }
 }
 
 export const defaultAladdinSettings: AladdinSettings = {
@@ -36,6 +40,16 @@ export const defaultAladdinSettings: AladdinSettings = {
   mobile: {
     enabled: false,
   },
+  chat: {
+    model: "commandcode/xiaomi/mimo-v2.6-flash",
+  },
+}
+
+export function parseChatModel(value: string | undefined) {
+  const [providerID, ...rest] = (value ?? "").split("/")
+  const modelID = rest.join("/")
+  if (!providerID || !modelID) return
+  return { providerID, modelID }
 }
 
 export function normalizeModelList(models: string[]) {

@@ -171,7 +171,16 @@ export namespace FSUtil {
         while (true) {
           for (const target of options.targets) {
             const search = join(current, target)
-            if (yield* fs.exists(search)) result.push(search)
+            // Cloud-backed folders can time out while checking an optional config file.
+            // Keep walking so global and parent configuration remain available.
+            const exists = yield* fs.exists(search).pipe(
+              Effect.catch((error) =>
+                Effect.logWarning("skipping inaccessible path during upward search", { path: search, error: String(error) }).pipe(
+                  Effect.as(false),
+                ),
+              ),
+            )
+            if (exists) result.push(search)
           }
           if (options.stop === current) break
           const parent = dirname(current)
