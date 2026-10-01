@@ -585,6 +585,27 @@ export function usePromptInputV2Controller(props: PromptInputV2ControllerProps):
         onSelect: (value) => props.controls.model.selection.variant.set(value === "default" ? undefined : value),
         keybind: () => command.keybindParts("model.variant.cycle"),
       },
+      get permissionMode() {
+        return {
+          options: () => [
+            { id: "ask", label: language.t("prompt.permission.mode.ask") },
+            { id: "auto", label: language.t("prompt.permission.mode.auto") },
+          ],
+          current: () => (accepting() ? "auto" : "ask"),
+          onSelect: (value: string) => {
+            const id = props.controls.session.id
+            const directory = sdk().directory
+            if (value === "auto") {
+              if (id) permission.enableAutoAccept(id, directory)
+              else if (!permission.isAutoAcceptingDirectory(directory)) permission.toggleAutoAcceptDirectory(directory)
+              return
+            }
+            if (id) permission.disableAutoAccept(id, directory)
+            else if (permission.isAutoAcceptingDirectory(directory)) permission.toggleAutoAcceptDirectory(directory)
+          },
+          keybind: () => command.keybindParts("permissions.autoaccept"),
+        }
+      },
       submit: {
         stopping,
         working,

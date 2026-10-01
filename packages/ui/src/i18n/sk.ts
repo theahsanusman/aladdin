@@ -1,4 +1,7 @@
 export const dict: Record<string, string> = {
+  "ui.promptInput.permissionMode": "Permission mode",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Zmeny v relácii",
   "ui.sessionReview.title.git": "Zmeny v Gite",
   "ui.sessionReview.title.branch": "Zmeny vo vetve",

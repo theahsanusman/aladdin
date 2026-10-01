@@ -4,6 +4,7 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { PermissionNotFoundError } from "../errors"
+import { HttpServerRequest } from "effect/unstable/http"
 
 export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permission", (handlers) =>
   Effect.gen(function* () {
@@ -17,11 +18,13 @@ export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permiss
       params: { requestID: PermissionV1.ID }
       payload: PermissionV1.ReplyBody
     }) {
+      const http = yield* HttpServerRequest.HttpServerRequest
       yield* svc
         .reply({
           requestID: ctx.params.requestID,
           reply: ctx.payload.reply,
           message: ctx.payload.message,
+          automatic: http.headers["x-opencode-auto-approved"] === "true",
         })
         .pipe(
           Effect.catchTag("Permission.NotFoundError", (error) =>

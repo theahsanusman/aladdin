@@ -1,7 +1,7 @@
 export * as PermissionV2 from "./permission"
 
 import { makeLocationNode } from "./effect/app-node"
-import { Context, Deferred, Effect as EffectRuntime, Layer, Schema } from "effect"
+import { Context, DateTime, Deferred, Duration, Effect as EffectRuntime, Layer, Schema, Scope } from "effect"
 import { Permission } from "@opencode-ai/schema/permission"
 import { EventV2 } from "./event"
 import { Location } from "./location"
@@ -10,6 +10,9 @@ import { SessionV2 } from "./session"
 import { SessionStore } from "./session/store"
 import { Wildcard } from "./util/wildcard"
 import { PermissionSaved } from "./permission/saved"
+import { PermissionAutoApproval } from "./permission/auto-approval"
+import { SessionMessage } from "./session/message"
+import { SessionEvent } from "./session/event"
 
 export { Effect, Rule, Ruleset } from "@opencode-ai/schema/permission"
 const missingAgentPermissions: Permission.Ruleset = [{ action: "*", resource: "*", effect: "deny" }]
@@ -46,6 +49,7 @@ export const ReplyInput = Schema.Struct({
   requestID: ID,
   reply: Reply,
   message: Schema.String.pipe(Schema.optional),
+  automatic: Schema.Boolean.pipe(Schema.optional),
 }).annotate({ identifier: "PermissionV2.ReplyInput" })
 export type ReplyInput = typeof ReplyInput.Type
 
@@ -89,6 +93,12 @@ export function merge(...rulesets: Permission.Ruleset[]): Permission.Ruleset {
   return rulesets.flat()
 }
 
+// An unanswered prompt must never hang a session: after the timeout the
+// request is auto-denied with feedback so the model can adapt instead of
+// retrying into another prompt. Overridable for tests.
+const TIMEOUT = () => Duration.millis(Number(process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS) || 5 * 60 * 1000)
+const TIMEOUT_FEEDBACK = "Permission request timed out without a response."
+
 export interface Interface {
   readonly ask: (input: AssertInput) => EffectRuntime.Effect<AskResult, SessionV2.NotFoundError>
   readonly assert: (input: AssertInput) => EffectRuntime.Effect<void, Error | SessionV2.NotFoundError>
@@ -114,7 +124,24 @@ const layer = Layer.effect(
     const agents = yield* AgentV2.Service
     const sessions = yield* SessionStore.Service
     const saved = yield* PermissionSaved.Service
+    const scope = yield* Scope.Scope
     const pending = new Map<ID, Pending>()
+
+    const recordApproval = EffectRuntime.fnUntraced(function* (input: AssertInput, reason: "rule" | "auto") {
+      if (!input.source) return
+      const stored = yield* sessions.message(SessionMessage.ID.make(input.source.messageID))
+      if (stored?.sessionID !== input.sessionID || stored.message.type !== "assistant") return
+      const tool = stored.message.content.find((item) => item.type === "tool" && item.id === input.source?.callID)
+      if (!tool || tool.type !== "tool" || tool.state.status !== "running") return
+      yield* events.publish(SessionEvent.Tool.Progress, {
+        sessionID: input.sessionID,
+        assistantMessageID: stored.message.id,
+        callID: tool.id,
+        timestamp: yield* DateTime.now,
+        structured: PermissionAutoApproval.append(tool.state.structured, { action: input.action, resources: input.resources, reason }),
+        content: tool.state.content,
+      })
+    })
 
     yield* EffectRuntime.addFinalizer(() =>
       EffectRuntime.forEach(pending.values(), (item) => Deferred.fail(item.deferred, new DeclinedError()), {
@@ -183,6 +210,29 @@ const layer = Layer.effect(
           yield* events
             .publish(Event.Asked, request)
             .pipe(EffectRuntime.onError(() => EffectRuntime.sync(() => pending.delete(request.id))))
+          yield* EffectRuntime.interruptible(
+            EffectRuntime.gen(function* () {
+              yield* EffectRuntime.sleep(TIMEOUT())
+              if (pending.get(request.id) !== item) return
+              pending.delete(request.id)
+              yield* events
+                .publish(Event.Replied, {
+                  sessionID: request.sessionID,
+                  requestID: request.id,
+                  reply: "reject",
+                })
+                .pipe(
+                  EffectRuntime.ensuring(
+                    Deferred.fail(item.deferred, new CorrectedError({ feedback: TIMEOUT_FEEDBACK })),
+                  ),
+                )
+            }),
+          ).pipe(
+            // Answering a prompt cancels its timer rather than retaining a
+            // sleeping fiber for five minutes. Reused IDs belong to new items.
+            EffectRuntime.race(Deferred.await(item.deferred).pipe(EffectRuntime.exit, EffectRuntime.asVoid)),
+            EffectRuntime.forkIn(scope),
+          )
           return item
         }),
       )
@@ -191,6 +241,7 @@ const layer = Layer.effect(
       const result = yield* evaluateInput(input)
       const value = request(input)
       if (result.effect === "ask") yield* create(value, input.agent)
+      if (result.effect === "allow") yield* recordApproval(input, "rule")
       return { id: value.id, effect: result.effect }
     })
 
@@ -203,7 +254,7 @@ const layer = Layer.effect(
               rules: relevant(input, result.rules),
             })
           }
-          if (result.effect === "allow") return
+          if (result.effect === "allow") return yield* recordApproval(input, "rule")
           const item = yield* create(request(input), input.agent)
           return yield* restore(Deferred.await(item.deferred)).pipe(
             EffectRuntime.catchTag("PermissionV2.DeclinedError", (error) => EffectRuntime.die(error)),
@@ -254,6 +305,7 @@ const layer = Layer.effect(
               resources: existing.request.save,
             })
           }
+          if (input.automatic) yield* recordApproval(existing.request, "auto")
           yield* Deferred.succeed(existing.deferred, undefined)
           pending.delete(input.requestID)
           if (input.reply !== "always" || !existing.request.save?.length) return
@@ -278,6 +330,7 @@ const layer = Layer.effect(
               requestID: item.request.id,
               reply: "always",
             })
+            yield* recordApproval(item.request, "rule")
             yield* Deferred.succeed(item.deferred, undefined)
             pending.delete(id)
           }

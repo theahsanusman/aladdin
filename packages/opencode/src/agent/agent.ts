@@ -15,6 +15,7 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import { Permission } from "@/permission"
+import { PermissionTrusted } from "@opencode-ai/core/permission/trusted"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@opencode-ai/core/global"
 import path from "path"
@@ -293,19 +294,26 @@ const layer = Layer.effect(
           item.permission = Permission.merge(item.permission, Permission.fromConfig(value.permission ?? {}))
         }
 
-        // Ensure Truncate.GLOB is allowed unless explicitly configured
+        // Product policy: Truncate output plus the system temp and Downloads
+        // directories stay available to every agent unless a rule explicitly
+        // denies one of these exact patterns. These rules are appended last so
+        // they also win over a blanket external_directory ask/deny from user
+        // config, mirroring the pre-existing Truncate.GLOB guarantee.
+        const trusted = [Truncate.GLOB, ...PermissionTrusted.directories()]
         for (const name in agents) {
           const agent = agents[name]
-          const explicit = agent.permission.some((r) => {
-            if (r.permission !== "external_directory") return false
-            if (r.action !== "deny") return false
-            return r.pattern === Truncate.GLOB
-          })
-          if (explicit) continue
-
-          agents[name].permission = Permission.merge(
-            agents[name].permission,
-            Permission.fromConfig({ external_directory: { [Truncate.GLOB]: "allow" } }),
+          const denied = new Set(
+            agent.permission
+              .filter((rule) => rule.permission === "external_directory" && rule.action === "deny")
+              .map((rule) => rule.pattern),
+          )
+          const rules = trusted.filter((pattern) => !denied.has(pattern))
+          if (rules.length === 0) continue
+          agent.permission = Permission.merge(
+            agent.permission,
+            Permission.fromConfig({
+              external_directory: Object.fromEntries(rules.map((pattern) => [pattern, "allow" as const])),
+            }),
           )
         }
 

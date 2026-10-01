@@ -1,4 +1,7 @@
 export const dict = {
+  "ui.promptInput.permissionMode": "Permission mode",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "세션 변경 사항",
   "ui.sessionReview.title.lastTurn": "마지막 턴 변경 사항",
   "ui.sessionReview.diffStyle.unified": "통합 보기",

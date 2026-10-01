@@ -32,6 +32,7 @@ import { CommandPlugin } from "./command"
 import { ModelsDevPlugin } from "./models-dev"
 import { ProviderPlugins } from "./provider"
 import { SkillPlugin } from "./skill"
+import { TrustedPathsPlugin } from "./trusted-paths"
 import { VariantPlugin } from "./variant"
 
 export type Requirements =
@@ -119,6 +120,9 @@ const layer = Layer.effectDiscard(
         yield* add(ConfigExternalPlugin.Plugin)
         yield* add(ConfigProviderPlugin.Plugin)
         yield* add(VariantPlugin.Plugin)
+        // Registered last so trusted path allows win over every other
+        // agent permission transform, including config rules.
+        yield* add(TrustedPathsPlugin.Plugin)
       }),
     ).pipe(Effect.withSpan("PluginInternal.boot"), Effect.forkScoped({ startImmediately: true }))
   }),

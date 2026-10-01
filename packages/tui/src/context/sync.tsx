@@ -32,6 +32,7 @@ import { batch, onMount } from "solid-js"
 import path from "path"
 import { useKV } from "./kv"
 import { usePermission } from "./permission"
+import { isDangerousPermission } from "@opencode-ai/core/permission/danger"
 
 const emptyConsoleState: ConsoleState = {
   consoleManagedProviders: [],
@@ -195,13 +196,15 @@ export const {
 
         case "permission.asked": {
           const request = event.properties
-          if (permission.mode === "auto") {
+          // Auto-approve covers safe work only; dangerous requests keep
+          // prompting (and the server auto-denies them after a timeout).
+          if (permission.mode === "auto" && !isDangerousPermission(request)) {
             void sdk.client.permission.reply({
               requestID: request.id,
               reply: "once",
               directory,
               workspace,
-            })
+            }, { headers: { "x-opencode-auto-approved": "true" } })
             break
           }
           const requests = store.permission[request.sessionID]

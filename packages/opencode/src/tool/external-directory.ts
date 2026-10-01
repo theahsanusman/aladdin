@@ -2,7 +2,7 @@ import path from "path"
 import { Effect } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import type * as Tool from "./tool"
-import { containsPath } from "../project/instance-context"
+import { containsPath, isWorkspaceMargin } from "../project/instance-context"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 
 type Kind = "file" | "directory"
@@ -24,6 +24,7 @@ export const assertExternalDirectoryEffect = Effect.fn("Tool.assertExternalDirec
   const ins = yield* InstanceState.context
   const full = process.platform === "win32" ? FSUtil.normalizePath(target) : target
   if (containsPath(full, ins)) return false
+  if (options?.kind === "directory" && isWorkspaceMargin(full, ins)) return false
 
   const kind = options?.kind ?? "file"
   const dir = kind === "directory" ? full : path.dirname(full)

@@ -5,6 +5,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import path from "path"
 import { BackgroundJob } from "@/background/job"
+import { PermissionAutoApproval } from "@opencode-ai/core/permission/auto-approval"
 import { Decimal } from "decimal.js"
 import type { ProviderMetadata, Usage } from "@opencode-ai/llm"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
@@ -634,6 +635,12 @@ const layer: Layer.Layer<
 
     const updatePart = <T extends SessionV1.Part>(part: T): Effect.Effect<T> =>
       Effect.gen(function* () {
+        if (part.type === "tool" && part.state.status !== "pending") {
+          const previous = yield* db.select().from(PartTable).where(and(eq(PartTable.id, part.id), eq(PartTable.session_id, part.sessionID))).get().pipe(Effect.orDie)
+          const parsed = previous && Option.getOrUndefined(Schema.decodeUnknownOption(SessionV1.Part)({ ...previous.data, id: previous.id, messageID: previous.message_id, sessionID: previous.session_id }))
+          if (parsed?.type === "tool" && parsed.state.status !== "pending")
+            part.state.metadata = PermissionAutoApproval.preserve(part.state.metadata ?? {}, parsed.state.metadata ?? {})
+        }
         yield* events.publish(SessionV1.Event.PartUpdated, {
           sessionID: part.sessionID,
           part: structuredClone(part),

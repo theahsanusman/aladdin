@@ -138,6 +138,13 @@ const table = sqliteTable("session", {
 })
 ```
 
+## Locales
+
+- Work in English only. `en.ts` dictionaries are the source of truth; do not spend time translating other locales.
+- Do not run `bun run translate:app` (or `script/translate-app.ts`) for locale work — it spawns an LLM session per locale and is not worth the time.
+- If the i18n parity test fails because a non-English locale is missing keys, backfill the missing keys with the English strings instead of translating.
+- Never change or remove keys, copy, or placeholders in `en.ts` translations as a workaround for other locales; English behavior comes first.
+
 ## Testing
 
 - Avoid mocks as much as possible, you shouldn't be using globalThis.\* at all unless it's the only option.

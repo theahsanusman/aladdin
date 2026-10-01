@@ -27,6 +27,7 @@ type PermissionRespondFn = (input: {
   permissionID: string
   response: "once" | "always" | "reject"
   directory?: string
+  automatic?: boolean
 }) => void
 
 function isNonAllowRule(rule: unknown) {
@@ -250,6 +251,7 @@ function createServerPermissionState(input: { sdk: ServerSDK; sync: ServerSync }
         sessionID: request.sessionID,
         requestID: request.permissionID,
         reply: request.response,
+        automatic: request.automatic,
         location: request.directory ? { directory: request.directory } : undefined,
       })
       .catch(() => {
@@ -277,6 +279,7 @@ function createServerPermissionState(input: { sdk: ServerSDK; sync: ServerSync }
       sessionID: permission.sessionID,
       permissionID: permission.id,
       response: "once",
+      automatic: true,
       directory,
     })
   }

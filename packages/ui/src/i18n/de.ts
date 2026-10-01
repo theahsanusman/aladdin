@@ -3,6 +3,9 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "ui.promptInput.permissionMode": "Permission mode",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sitzungsänderungen",
   "ui.sessionReview.title.git": "Git-Änderungen",
   "ui.sessionReview.title.branch": "Branch-Änderungen",

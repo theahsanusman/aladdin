@@ -3,16 +3,28 @@ import { ConfigPermissionV1 } from "@opencode-ai/core/v1/config/permission"
 import { InstanceState } from "@/effect/instance-state"
 import { Unattended } from "@/automation/unattended"
 import { Wildcard } from "@opencode-ai/core/util/wildcard"
-import { Deferred, Effect, Layer, Context } from "effect"
+import { Deferred, Duration, Effect, Layer, Context, Option, Schema } from "effect"
 import os from "os"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { EventV2Bridge } from "@/event-v2-bridge"
+import { Database } from "@opencode-ai/core/database/database"
+import { PartTable } from "@opencode-ai/core/session/sql"
+import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { PermissionAutoApproval } from "@opencode-ai/core/permission/auto-approval"
+import { and, eq } from "drizzle-orm"
+import { MessageID } from "@/session/schema"
 
 export const Event = PermissionV1.Event
 
+// An unanswered prompt must never hang a session: after the timeout the
+// request is auto-denied with feedback so the model can adapt instead of
+// retrying into another prompt. Overridable for tests.
+const TIMEOUT = () => Duration.millis(Number(process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS) || 5 * 60 * 1000)
+const TIMEOUT_FEEDBACK = "Permission request timed out without a response."
+
 export interface Interface {
   readonly ask: (input: PermissionV1.AskInput) => Effect.Effect<void, PermissionV1.Error>
-  readonly reply: (input: PermissionV1.ReplyInput) => Effect.Effect<void, PermissionV1.NotFoundError>
+  readonly reply: (input: PermissionV1.ReplyInput & { automatic?: boolean }) => Effect.Effect<void, PermissionV1.NotFoundError>
   readonly list: () => Effect.Effect<ReadonlyArray<PermissionV1.Request>>
 }
 
@@ -44,6 +56,18 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
+    const database = yield* Database.Service
+    const recordApproval = Effect.fnUntraced(function* (request: Omit<PermissionV1.Request, "id">, reason: "rule" | "auto") {
+      if (!request.tool) return
+      const rows = yield* database.db.select().from(PartTable).where(and(eq(PartTable.session_id, request.sessionID), eq(PartTable.message_id, MessageID.make(request.tool.messageID)))).all().pipe(Effect.orDie)
+      const part = rows.map((row) => Option.getOrUndefined(Schema.decodeUnknownOption(SessionV1.Part)({ ...row.data, id: row.id, messageID: row.message_id, sessionID: row.session_id }))).find((item) => item?.type === "tool" && item.callID === request.tool?.callID)
+      if (!part || part.type !== "tool" || part.state.status === "pending") return
+      yield* events.publish(SessionV1.Event.PartUpdated, {
+        sessionID: request.sessionID,
+        time: Date.now(),
+        part: { ...part, state: { ...part.state, metadata: PermissionAutoApproval.append(part.state.metadata ?? {}, { action: request.permission, resources: request.patterns, reason }) } },
+      })
+    })
     const state = yield* InstanceState.make<State>(
       Effect.fn("Permission.state")(function* (ctx) {
         void ctx
@@ -82,7 +106,7 @@ const layer = Layer.effect(
         needsAsk = true
       }
 
-      if (!needsAsk) return
+      if (!needsAsk) return yield* recordApproval(request, "rule")
 
       // Unattended runs (scheduled automations) can never receive an answer:
       // convert any surviving ask into a deny instead of hanging forever.
@@ -113,14 +137,27 @@ const layer = Layer.effect(
       pending.set(id, { info, deferred })
       yield* events.publish(Event.Asked, info)
       return yield* Effect.ensuring(
-        Deferred.await(deferred),
+        Deferred.await(deferred).pipe(
+          Effect.timeoutOrElse({
+            duration: TIMEOUT(),
+            orElse: () =>
+              Effect.gen(function* () {
+                yield* events.publish(Event.Replied, {
+                  sessionID: request.sessionID,
+                  requestID: id,
+                  reply: "reject",
+                })
+                return yield* new PermissionV1.CorrectedError({ feedback: TIMEOUT_FEEDBACK })
+              }),
+          }),
+        ),
         Effect.sync(() => {
           pending.delete(id)
         }),
       )
     })
 
-    const reply = Effect.fn("Permission.reply")(function* (input: PermissionV1.ReplyInput) {
+    const reply = Effect.fn("Permission.reply")(function* (input: PermissionV1.ReplyInput & { automatic?: boolean }) {
       const { approved, pending } = yield* InstanceState.get(state)
       const existing = pending.get(input.requestID)
       if (!existing) return yield* new PermissionV1.NotFoundError({ requestID: input.requestID })
@@ -153,6 +190,7 @@ const layer = Layer.effect(
         return
       }
 
+      if (input.automatic) yield* recordApproval(existing.info, "auto")
       yield* Deferred.succeed(existing.deferred, undefined)
       if (input.reply === "once") return
 
@@ -176,6 +214,7 @@ const layer = Layer.effect(
           requestID: item.info.id,
           reply: "always",
         })
+        yield* recordApproval(item.info, "rule")
         yield* Deferred.succeed(item.deferred, undefined)
       }
     })
@@ -232,6 +271,6 @@ export function visibleTools<T>(tools: Record<string, T>, ruleset: PermissionV1.
   return Object.fromEntries(Object.entries(tools).filter(([name]) => !hidden.has(name)))
 }
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node] })
+export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node, Database.node] })
 
 export * as Permission from "."

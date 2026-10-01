@@ -137,6 +137,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Choose agent",
   "ui.promptInput.chooseModel": "Choose model",
   "ui.promptInput.chooseVariant": "Choose model variant",
+  "ui.promptInput.permissionMode": "Permission mode",
   "ui.promptInput.send": "Send",
   "ui.promptInput.stop": "Stop",
 
@@ -169,6 +170,8 @@ export const dict: Record<string, string> = {
   "ui.tool.skill": "Skill",
 
   "ui.basicTool.called": "Called `{{tool}}`",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.toolErrorCard.failed": "Failed",
   "ui.toolErrorCard.copyError": "Copy error",
 

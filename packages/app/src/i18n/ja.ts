@@ -1,4 +1,6 @@
 export const dict = {
+  "prompt.permission.mode.ask": "Ask approval",
+  "prompt.permission.mode.auto": "Auto approve",
   "settings.aladdin.tab.chats": "Chats",
   "settings.aladdin.chats.title": "Chat model",
   "settings.aladdin.chats.model.title": "Default model",

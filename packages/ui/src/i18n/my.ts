@@ -1,4 +1,7 @@
 export const dict = {
+  "ui.promptInput.permissionMode": "Permission mode",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "စက်ရှင် အပြောင်းအလဲများ",
   "ui.sessionReview.title.git": "Git အပြောင်းအလဲများ",
   "ui.sessionReview.title.branch": "ဌာနခွဲအပြောင်းအလဲများ",

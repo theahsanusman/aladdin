@@ -6,6 +6,7 @@ import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { PermissionNotFoundError, SessionNotFoundError } from "@opencode-ai/protocol/errors"
 import { response } from "../location"
+import { HttpServerRequest } from "effect/unstable/http"
 
 function missingRequest(id: PermissionV2.ID) {
   return new PermissionNotFoundError({ requestID: id, message: `Permission request not found: ${id}` })
@@ -70,8 +71,9 @@ export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", 
           const permission = yield* PermissionV2.Service
           const request = yield* permission.get(ctx.params.requestID)
           if (!request || request.sessionID !== ctx.params.sessionID) return yield* missingRequest(ctx.params.requestID)
+          const http = yield* HttpServerRequest.HttpServerRequest
           yield* permission
-            .reply({ requestID: ctx.params.requestID, reply: ctx.payload.reply, message: ctx.payload.message })
+            .reply({ requestID: ctx.params.requestID, reply: ctx.payload.reply, message: ctx.payload.message, automatic: http.headers["x-opencode-auto-approved"] === "true" })
             .pipe(Effect.catchTag("PermissionV2.NotFoundError", () => missingRequest(ctx.params.requestID)))
           return HttpApiSchema.NoContent.make()
         }),

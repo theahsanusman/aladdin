@@ -9,16 +9,38 @@ import { InstanceBootstrap } from "../../src/project/bootstrap"
 import { InstanceStore } from "../../src/project/instance-store"
 import { TestInstance, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { MessageID, SessionID } from "../../src/session/schema"
+import { MessageID, PartID, SessionID } from "../../src/session/schema"
+import { Session } from "../../src/session/session"
+import { SessionProjector } from "@opencode-ai/core/session/projector"
+import { ModelV2 } from "@opencode-ai/core/model"
+import { ProviderV2 } from "@opencode-ai/core/provider"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 
 const noopBootstrap = Layer.succeed(InstanceBootstrap.Service, InstanceBootstrap.Service.of({ run: Effect.void }))
 const env = AppNodeBuilder.build(
-  LayerNode.group([Permission.node, EventV2Bridge.node, CrossSpawnSpawner.node, InstanceStore.node]),
+  LayerNode.group([Permission.node, Session.node, SessionProjector.node, EventV2Bridge.node, CrossSpawnSpawner.node, InstanceStore.node]),
   [[InstanceStore.bootstrapNode, noopBootstrap]],
 )
 const it = testEffect(env)
+
+it.instance("auto-approval notices survive later tool metadata and completion updates", () =>
+  Effect.gen(function* () {
+    const sessions = yield* Session.Service
+    const permission = yield* Permission.Service
+    const session = yield* sessions.create()
+    const messageID = MessageID.ascending()
+    const partID = PartID.ascending()
+    yield* sessions.updateMessage({ id: messageID, sessionID: session.id, role: "user", time: { created: Date.now() }, agent: "build", model: { providerID: ProviderV2.ID.make("test"), modelID: ModelV2.ID.make("test") } })
+    yield* sessions.updatePart({ id: partID, messageID, sessionID: session.id, type: "tool", callID: "call_test", tool: "read", state: { status: "running", input: {}, metadata: {}, time: { start: Date.now() } } })
+    yield* permission.ask({ sessionID: session.id, permission: "read", patterns: ["/tmp/test.txt"], always: [], metadata: {}, tool: { messageID, callID: "call_test" }, ruleset: [{ permission: "read", pattern: "*", action: "allow" }] })
+    const current = yield* sessions.getPart({ sessionID: session.id, messageID, partID })
+    if (!current || current.type !== "tool" || current.state.status !== "running") return yield* Effect.die("missing running tool")
+    yield* sessions.updatePart({ ...current, state: { status: "completed", input: {}, metadata: { output: true }, title: "test", output: "done", time: { start: current.state.time.start, end: Date.now() } } })
+    const persisted = yield* sessions.getPart({ sessionID: session.id, messageID, partID })
+    expect(persisted?.type === "tool" && persisted.state.status === "completed" && persisted.state.metadata.autoApprovals).toEqual([{ action: "read", resources: ["/tmp/test.txt"], reason: "rule" }])
+  }),
+)
 
 const rejectAll = (message?: string) =>
   Effect.gen(function* () {
@@ -690,6 +712,42 @@ it.instance(
 
       yield* rejectAll()
       yield* Fiber.await(fiber)
+    }),
+  { git: true },
+)
+
+it.instance(
+  "ask - auto-denies the request with feedback after the timeout",
+  () =>
+    Effect.gen(function* () {
+      process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS = "100"
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          delete process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS
+        }),
+      )
+
+      const events = yield* EventV2Bridge.Service
+      const seen = yield* Deferred.make<unknown>()
+      const unsub = yield* events.listen((event) => {
+        if (event.type === Permission.Event.Replied.type) Deferred.doneUnsafe(seen, Effect.succeed(event.data))
+        return Effect.void
+      })
+      yield* Effect.addFinalizer(() => unsub)
+
+      const err = yield* fail(
+        ask({
+          sessionID: SessionID.make("session_test"),
+          permission: "bash",
+          patterns: ["ls"],
+          metadata: {},
+          always: [],
+          ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+        }),
+      )
+      expect(err).toBeInstanceOf(PermissionV1.CorrectedError)
+      expect(yield* Deferred.await(seen)).toMatchObject({ reply: "reject" })
+      expect(yield* list()).toHaveLength(0)
     }),
   { git: true },
 )

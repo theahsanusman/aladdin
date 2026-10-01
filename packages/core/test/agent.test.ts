@@ -1,9 +1,13 @@
 import { describe, expect } from "bun:test"
 import { Effect, Exit, Scope } from "effect"
+import os from "os"
+import path from "path"
 import { AgentV2 } from "@opencode-ai/core/agent"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { Location } from "@opencode-ai/core/location"
 import { AgentPlugin } from "@opencode-ai/core/plugin/agent"
+import { TrustedPathsPlugin } from "@opencode-ai/core/plugin/trusted-paths"
+import { PermissionV2 } from "@opencode-ai/core/permission"
 import { AbsolutePath } from "@opencode-ai/core/schema"
 import { location } from "./fixture/location"
 import { testEffect } from "./lib/effect"
@@ -126,6 +130,46 @@ describe("AgentV2", () => {
       for (const item of agents) {
         expect(item.permissions.some((rule) => rule.action === "bash" && rule.effect !== "deny")).toBe(false)
       }
+    }),
+  )
+
+  it.effect("trusted paths win over blanket external_directory rules but respect exact denies", () =>
+    Effect.gen(function* () {
+      const agent = yield* AgentV2.Service
+      const ctx = host({ agent: agentHost(agent) })
+      // Simulate config-style rules landing before the trusted-path pass.
+      yield* agent.transform((editor) => {
+        editor.update(AgentV2.ID.make("probe"), (info) => {
+          info.permissions = [{ action: "external_directory", resource: "*", effect: "ask" }]
+        })
+        editor.update(AgentV2.ID.make("probe-denied"), (info) => {
+          info.permissions = [
+            { action: "external_directory", resource: "*", effect: "ask" },
+            { action: "external_directory", resource: "/tmp/*", effect: "deny" },
+          ]
+        })
+      })
+      yield* TrustedPathsPlugin.Plugin.effect(ctx)
+
+      const probe = (yield* agent.get(AgentV2.ID.make("probe")))?.permissions ?? []
+      expect(PermissionV2.evaluate("external_directory", "/tmp/scratch", probe).effect).toBe("allow")
+      expect(
+        PermissionV2.evaluate(
+          "external_directory",
+          path.join(os.homedir(), ".agents", "skills", "testing", "SKILL.md"),
+          probe,
+        ).effect,
+      ).toBe("allow")
+      expect(
+        PermissionV2.evaluate("external_directory", path.join(os.homedir(), "Downloads", "file.txt"), probe).effect,
+      ).toBe("allow")
+      expect(PermissionV2.evaluate("external_directory", "/some/other/path", probe).effect).toBe("ask")
+
+      const denied = (yield* agent.get(AgentV2.ID.make("probe-denied")))?.permissions ?? []
+      expect(PermissionV2.evaluate("external_directory", "/tmp/scratch", denied).effect).toBe("deny")
+      expect(
+        PermissionV2.evaluate("external_directory", path.join(os.homedir(), "Downloads", "file.txt"), denied).effect,
+      ).toBe("allow")
     }),
   )
 })

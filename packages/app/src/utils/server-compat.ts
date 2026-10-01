@@ -32,7 +32,7 @@ type CompatibleSessionApi = Omit<
 }
 type CompatiblePermissionApi = Omit<ServerApi["permission"], "reply"> & {
   reply: (
-    input: Parameters<ServerApi["permission"]["reply"]>[0] & { location?: { directory?: string } },
+    input: Parameters<ServerApi["permission"]["reply"]>[0] & { location?: { directory?: string }; automatic?: boolean },
   ) => ReturnType<ServerApi["permission"]["reply"]>
 }
 export type CompatibleApi = Omit<ServerApi, "session" | "permission"> & {
@@ -85,9 +85,18 @@ function sessionInfo(session: Session): SessionInfo {
 
 export function createCompatibleApi(input: CompatibleInput): CompatibleApi {
   const v1 = createV1Api(input)
+  const current = {
+    ...input.current,
+    permission: {
+      ...input.current.permission,
+      reply(value: Parameters<CompatiblePermissionApi["reply"]>[0]) {
+        return input.current.permission.reply(value, value.automatic ? { headers: { "x-opencode-auto-approved": "true" } } : undefined)
+      },
+    },
+  }
   return lazyApi(
-    input.protocol.then((protocol) => (protocol === "v1" ? v1 : input.current)),
-    input.current,
+    input.protocol.then((protocol) => (protocol === "v1" ? v1 : current)),
+    current,
   )
 }
 
@@ -493,13 +502,13 @@ function createV1Api(input: CompatibleInput): CompatibleApi {
     },
     permission: {
       ...input.current.permission,
-      async reply(value: Parameters<ServerApi["permission"]["reply"]>[0] & { location?: { directory?: string } }) {
+      async reply(value: Parameters<CompatiblePermissionApi["reply"]>[0]) {
         await legacy(value.location).permission.respond({
           sessionID: value.sessionID,
           permissionID: value.requestID,
           response: value.reply,
           directory: directory(value.location),
-        })
+        }, value.automatic ? { headers: { "x-opencode-auto-approved": "true" } } : undefined)
       },
     },
     question: {

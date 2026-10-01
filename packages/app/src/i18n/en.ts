@@ -308,6 +308,9 @@ export const dict = {
   "prompt.action.send": "Send",
   "prompt.action.stop": "Stop",
 
+  "prompt.permission.mode.ask": "Ask approval",
+  "prompt.permission.mode.auto": "Auto approve",
+
   "prompt.toast.pasteUnsupported.title": "Unsupported attachment",
   "prompt.toast.pasteUnsupported.description": "Only images, PDFs, or text files can be attached here.",
   "prompt.toast.attachmentDuplicate.title": "This file has already been uploaded",

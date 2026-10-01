@@ -1,6 +1,7 @@
 import { afterEach, expect } from "bun:test"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer } from "effect"
+import os from "os"
 import path from "path"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
@@ -567,6 +568,60 @@ it.instance(
           permission: {
             external_directory: "deny",
           },
+        },
+      },
+    },
+  },
+)
+
+it.instance(
+  "system temp and Downloads stay available when external_directory is denied wholesale",
+  () =>
+    Effect.gen(function* () {
+      const build = yield* load((svc) => svc.get("build"))
+      expect(Permission.evaluate("external_directory", "/tmp/scratch", build!.permission).action).toBe("allow")
+      expect(
+        Permission.evaluate(
+          "external_directory",
+          path.join(os.homedir(), ".agents", "skills", "testing", "SKILL.md"),
+          build!.permission,
+        ).action,
+      ).toBe("allow")
+      expect(
+        Permission.evaluate("external_directory", path.join(os.homedir(), "Downloads", "file.txt"), build!.permission)
+          .action,
+      ).toBe("allow")
+      // chrome-devtools-mcp scratch dirs (raw and realpath forms) stay usable.
+      const mcp = "/var/folders/qf/0ntdsh450vdcty6qk9m12spm0000gn/T/chrome-devtools-mcp-YdDIWe/profile/Default"
+      expect(Permission.evaluate("external_directory", mcp, build!.permission).action).toBe("allow")
+      expect(Permission.evaluate("external_directory", `/private${mcp}`, build!.permission).action).toBe("allow")
+      expect(Permission.evaluate("external_directory", "/some/other/path", build!.permission).action).toBe("deny")
+    }),
+  {
+    config: {
+      permission: {
+        external_directory: "deny",
+      },
+    },
+  },
+)
+
+it.instance(
+  "an explicit deny on a trusted pattern is respected as the escape hatch",
+  () =>
+    Effect.gen(function* () {
+      const build = yield* load((svc) => svc.get("build"))
+      expect(Permission.evaluate("external_directory", "/tmp/scratch", build!.permission).action).toBe("deny")
+      expect(
+        Permission.evaluate("external_directory", path.join(os.homedir(), "Downloads", "file.txt"), build!.permission)
+          .action,
+      ).toBe("allow")
+    }),
+  {
+    config: {
+      permission: {
+        external_directory: {
+          "/tmp/*": "deny",
         },
       },
     },

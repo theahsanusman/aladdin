@@ -7,6 +7,8 @@ import { resolve } from "node:path"
 import { downloadCliToResources, resolveChannel } from "./utils"
 
 const channel = resolveChannel()
+// The backend must use the desktop's data channel, not infer one from the Git branch.
+process.env.OPENCODE_CHANNEL = channel
 if (channel === "dev") await writeFile("resources/aladdin-speech-home.txt", resolve("../opencode/script/aladdin-speech"))
 await $`bun ./scripts/copy-icons.ts ${channel}`
 await $`bun ./scripts/copy-metainfo.ts ${channel}`

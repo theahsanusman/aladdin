@@ -254,6 +254,11 @@ export function PromptInputV2(props: PromptInputV2Props) {
                 </Show>
               )}
             </Show>
+            <Show when={view.permissionMode} keyed>
+              {(control) => (
+                <PromptInputV2ConfiguredSelect title={i18n.t("ui.promptInput.permissionMode")} control={control} />
+              )}
+            </Show>
           </div>
           {props.toolbarActions}
           <PromptInputV2SubmitButton

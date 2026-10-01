@@ -1,5 +1,6 @@
 import { describe, expect } from "bun:test"
-import { Cause, Deferred, Effect, Fiber, Layer } from "effect"
+import { Cause, DateTime, Deferred, Effect, Fiber, Layer } from "effect"
+import { adjust } from "effect/testing/TestClock"
 import { AgentV2 } from "@opencode-ai/core/agent"
 import { Database } from "@opencode-ai/core/database/database"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
@@ -15,6 +16,11 @@ import { AbsolutePath } from "@opencode-ai/core/schema"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionTable } from "@opencode-ai/core/session/sql"
 import { SessionStore } from "@opencode-ai/core/session/store"
+import { SessionEvent } from "@opencode-ai/core/session/event"
+import { SessionMessage } from "@opencode-ai/core/session/message"
+import { SessionProjector } from "@opencode-ai/core/session/projector"
+import { ModelV2 } from "@opencode-ai/core/model"
+import { ProviderV2 } from "@opencode-ai/core/provider"
 import { eq } from "drizzle-orm"
 import { location } from "./fixture/location"
 import { testEffect } from "./lib/effect"
@@ -29,6 +35,7 @@ const it = testEffect(
       Database.node,
       EventV2.node,
       SessionStore.node,
+      SessionProjector.node,
       PermissionSaved.node,
       AgentV2.node,
       PermissionV2.node,
@@ -103,6 +110,25 @@ function waitForRequest() {
 }
 
 describe("PermissionV2", () => {
+  it.effect("records actual policy auto-approval and preserves it after tool settlement", () =>
+    Effect.gen(function* () {
+      yield* setup([{ action: "read", resource: "*", effect: "allow" }])
+      const events = yield* EventV2.Service
+      const service = yield* PermissionV2.Service
+      const store = yield* SessionStore.Service
+      const sessionID = SessionV2.ID.make("ses_test")
+      const assistantMessageID = SessionMessage.ID.create()
+      const timestamp = yield* DateTime.now
+      yield* events.publish(SessionEvent.Step.Started, { sessionID, assistantMessageID, timestamp, agent: "test", model: { providerID: ProviderV2.ID.make("test"), id: ModelV2.ID.make("test") } })
+      yield* events.publish(SessionEvent.Tool.Input.Started, { sessionID, assistantMessageID, timestamp, callID: "call_read", name: "read" })
+      yield* events.publish(SessionEvent.Tool.Called, { sessionID, assistantMessageID, timestamp, callID: "call_read", tool: "read", input: {}, provider: { executed: false } })
+      yield* service.assert(assertion({ source: { type: "tool", messageID: assistantMessageID, callID: "call_read" } }))
+      yield* events.publish(SessionEvent.Tool.Success, { sessionID, assistantMessageID, timestamp, callID: "call_read", structured: {}, content: [], provider: { executed: false } })
+      const found = yield* store.message(assistantMessageID)
+      const tool = found?.message.type === "assistant" ? found.message.content.find((item) => item.type === "tool") : undefined
+      expect(tool?.type === "tool" && tool.state.status === "completed" && tool.state.structured.autoApprovals).toEqual([{ action: "read", resources: ["src/index.ts"], reason: "rule" }])
+    }),
+  )
   it.effect("returns the evaluated effect and only queues prompts", () =>
     Effect.gen(function* () {
       yield* setup([{ action: "read", resource: "*", effect: "allow" }])
@@ -150,6 +176,49 @@ describe("PermissionV2", () => {
       const blocked = yield* service.assert(assertion()).pipe(Effect.flip)
       expect(blocked).toBeInstanceOf(PermissionV2.BlockedError)
       expect(yield* service.list()).toEqual([])
+    }),
+  )
+
+  it.live("assert - auto-denies the request with feedback after the timeout", () =>
+    Effect.gen(function* () {
+      yield* setup([{ action: "read", resource: "*", effect: "ask" }])
+      process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS = "100"
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          delete process.env.OPENCODE_PERMISSION_ASK_TIMEOUT_MS
+        }),
+      )
+
+      const events = yield* EventV2.Service
+      const seen = yield* Deferred.make<unknown>()
+      const unsubscribe = yield* events.listen((event) =>
+        event.type === PermissionV2.Event.Replied.type
+          ? Deferred.succeed(seen, event.data).pipe(Effect.asVoid)
+          : Effect.void,
+      )
+      yield* Effect.addFinalizer(() => unsubscribe)
+
+      const service = yield* PermissionV2.Service
+      const error = yield* service.assert(assertion()).pipe(Effect.flip)
+      expect(error).toBeInstanceOf(PermissionV2.CorrectedError)
+      expect(yield* Deferred.await(seen)).toMatchObject({ reply: "reject" })
+      expect(yield* service.list()).toEqual([])
+    }),
+  )
+
+  it.effect("an answered request's timer cannot reject a reused request ID", () =>
+    Effect.gen(function* () {
+      yield* setup([])
+      const service = yield* PermissionV2.Service
+      const input = assertion()
+      yield* service.ask(input)
+      yield* adjust("2 minutes")
+      yield* service.reply({ requestID: input.id, reply: "once" })
+      yield* service.ask(input)
+      yield* adjust("3 minutes")
+      expect(yield* service.get(input.id)).toBeDefined()
+      yield* adjust("2 minutes")
+      expect(yield* service.get(input.id)).toBeUndefined()
     }),
   )
 

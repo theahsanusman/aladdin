@@ -733,24 +733,61 @@ describe("tool.shell permissions", () => {
     )
   }
 
-  each("asks for external_directory permission when cd to parent", () =>
+  each("asks for external_directory permission when cd to parent of a non-git project", () =>
     Effect.gen(function* () {
       const tmp = yield* tmpdirScoped()
       yield* runIn(
         tmp,
         Effect.gen(function* () {
-          const err = new Error("stop after permission")
           const requests: Array<Omit<PermissionV1.Request, "id" | "sessionID" | "tool">> = []
-          expect(
-            yield* fail(
-              {
-                command: "cd ../",
-              },
-              capture(requests, err),
-            ),
-          ).toMatchObject({ message: err.message })
+          const err = new Error("stop after permission")
+          expect(yield* fail({ command: "cd ../" }, capture(requests, err))).toMatchObject({ message: err.message })
           const extDirReq = requests.find((r) => r.permission === "external_directory")
           expect(extDirReq).toBeDefined()
+        }),
+      )
+    }),
+  )
+
+  each("asks for external_directory permission when cd to a sibling outside the workspace", () =>
+    Effect.gen(function* () {
+      const tmp = yield* tmpdirScoped()
+      const sibling = yield* tmpdirScoped()
+      yield* runIn(
+        tmp,
+        Effect.gen(function* () {
+          const err = new Error("stop after permission")
+          const requests: Array<Omit<PermissionV1.Request, "id" | "sessionID" | "tool">> = []
+          expect(yield* fail({ command: `cd ${sibling}` }, capture(requests, err))).toMatchObject({
+            message: err.message,
+          })
+          const extDirReq = requests.find((r) => r.permission === "external_directory")
+          expect(extDirReq).toBeDefined()
+        }),
+      )
+    }),
+  )
+
+  each("allows navigation to a git worktree's immediate parent but gates siblings and ancestors", () =>
+    Effect.gen(function* () {
+      const tmp = yield* tmpdirScoped({ git: true })
+      const sibling = yield* tmpdirScoped()
+      yield* runIn(
+        tmp,
+        Effect.gen(function* () {
+          const requests: Array<Omit<PermissionV1.Request, "id" | "sessionID" | "tool">> = []
+          yield* run({ command: "cd ../" }, capture(requests))
+          yield* run({ command: "echo ok", workdir: path.dirname(tmp) }, capture(requests))
+          expect(requests.filter((request) => request.permission === "external_directory")).toEqual([])
+
+          for (const target of [sibling, path.dirname(path.dirname(tmp)), path.parse(tmp).root]) {
+            const outside: Array<Omit<PermissionV1.Request, "id" | "sessionID" | "tool">> = []
+            const err = new Error("stop after permission")
+            expect(yield* fail({ command: `cd ${quote(target)}` }, capture(outside, err))).toMatchObject({
+              message: err.message,
+            })
+            expect(outside[0]?.permission).toBe("external_directory")
+          }
         }),
       )
     }),

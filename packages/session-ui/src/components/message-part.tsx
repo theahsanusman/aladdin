@@ -61,6 +61,8 @@ import { Spinner } from "@opencode-ai/ui/spinner"
 import { TextShimmer } from "@opencode-ai/ui/text-shimmer"
 import { AnimatedCountList } from "./tool-count-summary"
 import { ToolStatusTitle } from "./tool-status-title"
+import { ToolAutoApproval } from "./tool-auto-approval"
+import { readAutoApprovals } from "./tool-auto-approvals"
 import { patchFiles } from "./apply-patch-file"
 import { partDefaultOpen } from "./part-default-open"
 import { animate } from "motion"
@@ -1056,6 +1058,9 @@ export function ContextToolGroup(props: {
       !!props.busy || props.parts.some((part) => part.state.status === "pending" || part.state.status === "running"),
   )
   const summary = createMemo(() => contextToolSummary(props.parts))
+  const autoApprovals = createMemo(() =>
+    props.parts.flatMap((part) => readAutoApprovals("metadata" in part.state ? part.state.metadata : undefined)),
+  )
   const handleOpenChange = (value: boolean) => {
     if (props.open === undefined) setLocalOpen(value)
     props.onOpenChange?.(value)
@@ -1110,6 +1115,7 @@ export function ContextToolGroup(props: {
           <Collapsible.Arrow />
         </div>
       </Collapsible.Trigger>
+      <ToolAutoApproval approvals={autoApprovals()} onToggle={props.onSizeChange} />
       <Collapsible.Content>
         <div data-component="context-tool-group-list">
           <Index each={props.parts}>
@@ -1548,6 +1554,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   const input = () => part().state?.input ?? emptyInput
   // @ts-expect-error
   const partMetadata = () => part().state?.metadata ?? emptyMetadata
+  const autoApprovals = createMemo(() => readAutoApprovals(partMetadata()))
   const taskId = createMemo(() => {
     if (part().tool !== "task") return
     const value = partMetadata().sessionId
@@ -1628,6 +1635,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
             />
           </Match>
         </Switch>
+        <ToolAutoApproval approvals={autoApprovals()} onToggle={props.onContentRendered} />
       </div>
     </Show>
   )

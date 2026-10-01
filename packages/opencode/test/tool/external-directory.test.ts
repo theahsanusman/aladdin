@@ -95,6 +95,22 @@ describe("tool.assertExternalDirectory", () => {
     }),
   )
 
+  it.instance(
+    "allows only directory navigation to the immediate git workspace parent",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const value = makeCtx()
+        const parent = path.dirname(test.directory)
+        yield* assertExternalDirectoryEffect(value.ctx, parent, { kind: "directory" })
+        expect(value.requests).toEqual([])
+        yield* assertExternalDirectoryEffect(value.ctx, path.join(parent, "private.txt"))
+        yield* assertExternalDirectoryEffect(value.ctx, path.parse(parent).root, { kind: "directory" })
+        expect(value.requests).toHaveLength(2)
+      }),
+    { git: true },
+  )
+
   it.live("skips prompting when bypass=true", () =>
     Effect.gen(function* () {
       const { requests, ctx } = makeCtx()

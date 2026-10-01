@@ -1,4 +1,7 @@
 export const dict = {
+  "ui.promptInput.permissionMode": "Permission mode",
+  "ui.tool.autoApproved": "Auto-approved",
+  "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Alterações da sessão",
   "ui.sessionReview.title.git": "Alterações do Git",
   "ui.sessionReview.title.branch": "Alterações da branch",

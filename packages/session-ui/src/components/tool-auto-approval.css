@@ -1,0 +1,94 @@
+[data-component="tool-auto-approval"] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  color: var(--text-weak);
+  font-family: var(--font-family-sans);
+  font-size: 12px;
+  line-height: 20px;
+
+  [data-slot="tool-auto-approval-summary"] {
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    min-block-size: 24px;
+    list-style-position: inside;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 4px;
+
+    &:hover {
+      color: var(--text-strong);
+    }
+  }
+
+  [data-slot="tool-auto-approval-summary-content"] {
+    display: inline-flex;
+    align-items: baseline;
+    vertical-align: middle;
+    gap: 8px;
+    min-inline-size: 0;
+    max-inline-size: calc(100% - 18px);
+  }
+
+  [data-slot="tool-auto-approval-label"] {
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  [data-slot="tool-auto-approval-preview"] {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-slot="tool-auto-approval-details"] {
+    max-block-size: 160px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    margin-block: 4px;
+    padding-block: 2px;
+    padding-inline: 16px 4px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  [data-slot="tool-auto-approval-summary"]:focus-visible,
+  [data-slot="tool-auto-approval-details"]:focus-visible {
+    outline: 1px solid var(--border-interactive-base);
+    outline-offset: 2px;
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  [data-slot="tool-auto-approval-action"] {
+    font-weight: var(--font-weight-medium);
+  }
+
+  [data-slot="tool-auto-approval-resources"] {
+    gap: 2px;
+    font-family: var(--font-family-mono);
+    white-space: pre-wrap;
+  }
+}
+
+body[data-new-layout] [data-component="tool-auto-approval"] {
+  color: var(--v2-text-text-muted);
+
+  [data-slot="tool-auto-approval-summary"]:hover {
+    color: var(--v2-text-text-base);
+  }
+
+  [data-slot="tool-auto-approval-summary"]:focus-visible,
+  [data-slot="tool-auto-approval-details"]:focus-visible {
+    outline-color: var(--v2-border-border-focus);
+  }
+}

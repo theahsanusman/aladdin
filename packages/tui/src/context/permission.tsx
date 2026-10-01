@@ -1,5 +1,4 @@
 import { createStore } from "solid-js/store"
-import { useArgs } from "./args"
 import { createSimpleContext } from "./helper"
 
 export type PermissionMode = "auto" | "normal"
@@ -7,9 +6,10 @@ export type PermissionMode = "auto" | "normal"
 export const { use: usePermission, provider: PermissionProvider } = createSimpleContext({
   name: "Permission",
   init: () => {
-    const args = useArgs()
+    // Auto-approve is the default for every chat; the danger gate keeps
+    // dangerous requests prompting even while this mode is on.
     const [store, setStore] = createStore<{ mode: PermissionMode }>({
-      mode: args.auto ? "auto" : "normal",
+      mode: "auto",
     })
     return {
       get mode() {

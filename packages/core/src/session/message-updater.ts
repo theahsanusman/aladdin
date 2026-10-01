@@ -2,6 +2,7 @@ import { castDraft, produce, type WritableDraft } from "immer"
 import { Effect } from "effect"
 import { SessionEvent } from "./event"
 import { SessionMessage } from "./message"
+import { PermissionAutoApproval } from "../permission/auto-approval"
 
 export type MemoryState = {
   messages: SessionMessage.Message[]
@@ -289,7 +290,7 @@ export function update(adapter: Adapter, event: SessionEvent.Event) {
         return updateOwnedAssistant(event.data.assistantMessageID, (draft) => {
           const match = latestTool(draft, event.data.callID)
           if (match && match.state.status === "running") {
-            match.state.structured = event.data.structured
+            match.state.structured = PermissionAutoApproval.preserve(event.data.structured, match.state.structured)
             match.state.content = [...event.data.content]
           }
         })
@@ -308,7 +309,7 @@ export function update(adapter: Adapter, event: SessionEvent.Event) {
               SessionMessage.ToolStateCompleted.make({
                 status: "completed",
                 input: match.state.input,
-                structured: event.data.structured,
+                structured: PermissionAutoApproval.preserve(event.data.structured, match.state.structured),
                 content: [...event.data.content],
                 outputPaths: event.data.outputPaths ? [...event.data.outputPaths] : [],
                 result: event.data.result,
