@@ -10,6 +10,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute("data-color-scheme")
   document.documentElement.removeAttribute("data-look")
   localStorage.clear()
+  Reflect.deleteProperty(window, "api")
   Object.defineProperty(window, "matchMedia", {
     value: () =>
       ({
@@ -53,6 +54,34 @@ describe("theme preload", () => {
 
   test("applies a stored classic look before mount", () => {
     localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "classic" } }))
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("classic")
+  })
+
+  test("prefers the desktop mirror key over stored settings", () => {
+    localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "liquid-glass" } }))
+    localStorage.setItem("opencode-look", "classic")
+    Object.defineProperty(window, "api", { value: {}, configurable: true })
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("classic")
+  })
+
+  test("prefers web settings over a stale desktop mirror", () => {
+    localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "liquid-glass" } }))
+    localStorage.setItem("opencode-look", "classic")
+
+    run()
+
+    expect(document.documentElement.dataset.look).toBe("liquid-glass")
+  })
+
+  test("falls back to stored settings when the mirror key is unknown", () => {
+    localStorage.setItem("settings.v3", JSON.stringify({ appearance: { look: "classic" } }))
+    localStorage.setItem("opencode-look", "neon")
 
     run()
 

@@ -54,6 +54,11 @@ import { EventV2Bridge } from "@/event-v2-bridge"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { AppNodeBuilderV1 } from "./app-node-builder-v1"
 import { SessionProjector } from "@opencode-ai/core/session/projector"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
+import { TaskHost } from "../task/host"
+import { TaskReplacements } from "../task/replacements"
 
 export const AppLayer = AppNodeBuilderV1.build(
   LayerNode.group([
@@ -78,6 +83,10 @@ export const AppLayer = AppNodeBuilderV1.build(
     Todo.node,
     Session.node,
     SessionProjector.node,
+    TaskExecution.node,
+    TaskLedger.node,
+    TaskInteractionStore.node,
+    TaskHost.node,
     SessionStatus.node,
     BackgroundJob.node,
     RuntimeFlags.node,
@@ -106,6 +115,7 @@ export const AppLayer = AppNodeBuilderV1.build(
     ShareNext.node,
     SessionShare.node,
   ]),
+  TaskReplacements.values,
 ).pipe(Layer.provideMerge(AppNodeBuilderV1.build(Ripgrep.node)), Layer.provideMerge(Observability.layer))
 
 const rt = ManagedRuntime.make(AppLayer, { memoMap })

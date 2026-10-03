@@ -1753,6 +1753,541 @@ export type SessionsMessageOutput = {
       }
 }["data"]
 
+export type TasksBoardInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type TasksBoardOutput = {
+  readonly data: ReadonlyArray<{
+    readonly task: {
+      readonly id: string
+      readonly ownerSessionID: string
+      readonly projectID: string
+      readonly location: { readonly directory: string; readonly workspaceID?: string }
+      readonly dispatchKey: string
+      readonly brief: {
+        readonly title: string
+        readonly objective: string
+        readonly scope: ReadonlyArray<string>
+        readonly output: string
+        readonly checks: ReadonlyArray<string>
+        readonly constraints: ReadonlyArray<string>
+        readonly execution?: {
+          readonly engine: "v1" | "v2"
+          readonly agent: string
+          readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+          readonly mode: "native" | "report" | "research" | "coding"
+          readonly paths?: ReadonlyArray<string>
+          readonly baseRevision?: string
+          readonly maxCalls: number
+          readonly maxToolCalls?: number
+          readonly wallClockMs: number
+        }
+      }
+      readonly status:
+        | "queued"
+        | "starting"
+        | "running"
+        | "waiting_for_user"
+        | "verifying"
+        | "cancelling"
+        | "interrupted"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly generation: number
+      readonly queueSequence: number
+      readonly timeCreated: number
+      readonly timeUpdated: number
+    }
+    readonly attempt?: {
+      readonly id: string
+      readonly taskID: string
+      readonly ownerSessionID: string
+      readonly workerSessionID: string
+      readonly inputMessageID: string
+      readonly runtimeEpoch: string
+      readonly generation: number
+      readonly slot: 1 | 2 | 3
+    }
+    readonly evidence?: string
+  }>
+  readonly team: { readonly ownerSessionID: string; readonly paused: boolean; readonly timeUpdated: number }
+  readonly counts: { readonly [x: string]: number }
+}
+
+export type TasksListInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly after?: { readonly after?: number | undefined }["after"]
+}
+
+export type TasksListOutput = {
+  readonly data: ReadonlyArray<{
+    readonly task: {
+      readonly id: string
+      readonly ownerSessionID: string
+      readonly projectID: string
+      readonly location: { readonly directory: string; readonly workspaceID?: string }
+      readonly dispatchKey: string
+      readonly brief: {
+        readonly title: string
+        readonly objective: string
+        readonly scope: ReadonlyArray<string>
+        readonly output: string
+        readonly checks: ReadonlyArray<string>
+        readonly constraints: ReadonlyArray<string>
+        readonly execution?: {
+          readonly engine: "v1" | "v2"
+          readonly agent: string
+          readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+          readonly mode: "native" | "report" | "research" | "coding"
+          readonly paths?: ReadonlyArray<string>
+          readonly baseRevision?: string
+          readonly maxCalls: number
+          readonly maxToolCalls?: number
+          readonly wallClockMs: number
+        }
+      }
+      readonly status:
+        | "queued"
+        | "starting"
+        | "running"
+        | "waiting_for_user"
+        | "verifying"
+        | "cancelling"
+        | "interrupted"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly generation: number
+      readonly queueSequence: number
+      readonly timeCreated: number
+      readonly timeUpdated: number
+    }
+    readonly attempt?: {
+      readonly id: string
+      readonly taskID: string
+      readonly ownerSessionID: string
+      readonly workerSessionID: string
+      readonly inputMessageID: string
+      readonly runtimeEpoch: string
+      readonly generation: number
+      readonly slot: 1 | 2 | 3
+    }
+    readonly evidence?: string
+  }>
+  readonly team: { readonly ownerSessionID: string; readonly paused: boolean; readonly timeUpdated: number }
+}
+
+export type TasksGetInput = {
+  readonly sessionID: { readonly sessionID: string; readonly taskID: string }["sessionID"]
+  readonly taskID: { readonly sessionID: string; readonly taskID: string }["taskID"]
+}
+
+export type TasksGetOutput = {
+  readonly data: {
+    readonly task: {
+      readonly id: string
+      readonly ownerSessionID: string
+      readonly projectID: string
+      readonly location: { readonly directory: string; readonly workspaceID?: string }
+      readonly dispatchKey: string
+      readonly brief: {
+        readonly title: string
+        readonly objective: string
+        readonly scope: ReadonlyArray<string>
+        readonly output: string
+        readonly checks: ReadonlyArray<string>
+        readonly constraints: ReadonlyArray<string>
+        readonly execution?: {
+          readonly engine: "v1" | "v2"
+          readonly agent: string
+          readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+          readonly mode: "native" | "report" | "research" | "coding"
+          readonly paths?: ReadonlyArray<string>
+          readonly baseRevision?: string
+          readonly maxCalls: number
+          readonly maxToolCalls?: number
+          readonly wallClockMs: number
+        }
+      }
+      readonly status:
+        | "queued"
+        | "starting"
+        | "running"
+        | "waiting_for_user"
+        | "verifying"
+        | "cancelling"
+        | "interrupted"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly generation: number
+      readonly queueSequence: number
+      readonly timeCreated: number
+      readonly timeUpdated: number
+    }
+    readonly attempt?: {
+      readonly id: string
+      readonly taskID: string
+      readonly ownerSessionID: string
+      readonly workerSessionID: string
+      readonly inputMessageID: string
+      readonly runtimeEpoch: string
+      readonly generation: number
+      readonly slot: 1 | 2 | 3
+    }
+    readonly evidence?: string
+  }
+}["data"]
+
+export type TasksDispatchInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly dispatchKey: {
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+  }["dispatchKey"]
+  readonly brief: {
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+  }["brief"]
+}
+
+export type TasksDispatchOutput = {
+  readonly data: {
+    readonly id: string
+    readonly ownerSessionID: string
+    readonly projectID: string
+    readonly location: { readonly directory: string; readonly workspaceID?: string }
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+    readonly status:
+      | "queued"
+      | "starting"
+      | "running"
+      | "waiting_for_user"
+      | "verifying"
+      | "cancelling"
+      | "interrupted"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly generation: number
+    readonly queueSequence: number
+    readonly timeCreated: number
+    readonly timeUpdated: number
+  }
+}["data"]
+
+export type TasksCancelInput = {
+  readonly sessionID: { readonly sessionID: string; readonly taskID: string }["sessionID"]
+  readonly taskID: { readonly sessionID: string; readonly taskID: string }["taskID"]
+}
+
+export type TasksCancelOutput = {
+  readonly data: {
+    readonly id: string
+    readonly ownerSessionID: string
+    readonly projectID: string
+    readonly location: { readonly directory: string; readonly workspaceID?: string }
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+    readonly status:
+      | "queued"
+      | "starting"
+      | "running"
+      | "waiting_for_user"
+      | "verifying"
+      | "cancelling"
+      | "interrupted"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly generation: number
+    readonly queueSequence: number
+    readonly timeCreated: number
+    readonly timeUpdated: number
+  }
+}["data"]
+
+export type TasksRetryInput = {
+  readonly sessionID: { readonly sessionID: string; readonly taskID: string }["sessionID"]
+  readonly taskID: { readonly sessionID: string; readonly taskID: string }["taskID"]
+  readonly generation: {
+    readonly generation: number
+    readonly confirmStopped?: boolean | undefined
+    readonly reviewedChanges?: boolean | undefined
+  }["generation"]
+  readonly confirmStopped?: {
+    readonly generation: number
+    readonly confirmStopped?: boolean | undefined
+    readonly reviewedChanges?: boolean | undefined
+  }["confirmStopped"]
+  readonly reviewedChanges?: {
+    readonly generation: number
+    readonly confirmStopped?: boolean | undefined
+    readonly reviewedChanges?: boolean | undefined
+  }["reviewedChanges"]
+}
+
+export type TasksRetryOutput = {
+  readonly data: {
+    readonly id: string
+    readonly ownerSessionID: string
+    readonly projectID: string
+    readonly location: { readonly directory: string; readonly workspaceID?: string }
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+    readonly status:
+      | "queued"
+      | "starting"
+      | "running"
+      | "waiting_for_user"
+      | "verifying"
+      | "cancelling"
+      | "interrupted"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly generation: number
+    readonly queueSequence: number
+    readonly timeCreated: number
+    readonly timeUpdated: number
+  }
+}["data"]
+
+export type TasksPauseInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type TasksPauseOutput = {
+  readonly data: { readonly ownerSessionID: string; readonly paused: boolean; readonly timeUpdated: number }
+}["data"]
+
+export type TasksResumeInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type TasksResumeOutput = {
+  readonly data: { readonly ownerSessionID: string; readonly paused: boolean; readonly timeUpdated: number }
+}["data"]
+
+export type TasksEventsInput = {
+  readonly sessionID: { readonly sessionID: string }["sessionID"]
+  readonly after?: { readonly after?: number | undefined }["after"]
+}
+
+export type TasksEventsOutput = {
+  readonly data: ReadonlyArray<{
+    readonly seq: number
+    readonly kind: "admitted" | "claimed" | "transitioned" | "cancel_requested" | "settled" | "interrupted" | "retried"
+    readonly task: {
+      readonly id: string
+      readonly ownerSessionID: string
+      readonly status:
+        | "queued"
+        | "starting"
+        | "running"
+        | "waiting_for_user"
+        | "verifying"
+        | "cancelling"
+        | "interrupted"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly generation: number
+      readonly queueSequence: number
+      readonly timeUpdated: number
+    }
+    readonly attempt?: {
+      readonly id: string
+      readonly taskID: string
+      readonly ownerSessionID: string
+      readonly workerSessionID: string
+      readonly inputMessageID: string
+      readonly runtimeEpoch: string
+      readonly generation: number
+      readonly slot: 1 | 2 | 3
+    }
+    readonly evidence?: string
+  }>
+}["data"]
+
+export type TasksInteractionsInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
+
+export type TasksInteractionsOutput = {
+  readonly data: ReadonlyArray<{
+    readonly id: string
+    readonly kind: "question" | "permission"
+    readonly format: "current" | "v1"
+    readonly requestID: string
+    readonly ownerSessionID: string
+    readonly taskID: string
+    readonly attemptID: string
+    readonly workerSessionID: string
+    readonly generation: number
+    readonly payload: { readonly [x: string]: JsonValue }
+    readonly timeCreated: number
+    readonly timeUpdated: number
+    readonly expiresAt?: number
+    readonly timeDecided?: number
+    readonly state: "pending" | "decided" | "expired" | "invalidated"
+    readonly decision?:
+      | { readonly kind: "question"; readonly answers: ReadonlyArray<ReadonlyArray<string>> }
+      | { readonly kind: "question-rejection" }
+      | {
+          readonly kind: "permission"
+          readonly reply: "once" | "always" | "reject"
+          readonly message?: string
+          readonly automatic?: boolean
+        }
+    readonly reason?: string
+  }>
+}["data"]
+
+export type TasksAnswerInput = {
+  readonly sessionID: { readonly sessionID: string; readonly interactionID: string }["sessionID"]
+  readonly interactionID: { readonly sessionID: string; readonly interactionID: string }["interactionID"]
+  readonly generation: {
+    readonly generation: number
+    readonly decision:
+      | { readonly kind: "question"; readonly answers: ReadonlyArray<ReadonlyArray<string>> }
+      | { readonly kind: "question-rejection" }
+      | {
+          readonly kind: "permission"
+          readonly reply: "once" | "always" | "reject"
+          readonly message?: string
+          readonly automatic?: boolean
+        }
+  }["generation"]
+  readonly decision: {
+    readonly generation: number
+    readonly decision:
+      | { readonly kind: "question"; readonly answers: ReadonlyArray<ReadonlyArray<string>> }
+      | { readonly kind: "question-rejection" }
+      | {
+          readonly kind: "permission"
+          readonly reply: "once" | "always" | "reject"
+          readonly message?: string
+          readonly automatic?: boolean
+        }
+  }["decision"]
+}
+
+export type TasksAnswerOutput = {
+  readonly data: {
+    readonly id: string
+    readonly kind: "question" | "permission"
+    readonly format: "current" | "v1"
+    readonly requestID: string
+    readonly ownerSessionID: string
+    readonly taskID: string
+    readonly attemptID: string
+    readonly workerSessionID: string
+    readonly generation: number
+    readonly payload: { readonly [x: string]: JsonValue }
+    readonly timeCreated: number
+    readonly timeUpdated: number
+    readonly expiresAt?: number
+    readonly timeDecided?: number
+    readonly state: "pending" | "decided" | "expired" | "invalidated"
+    readonly decision?:
+      | { readonly kind: "question"; readonly answers: ReadonlyArray<ReadonlyArray<string>> }
+      | { readonly kind: "question-rejection" }
+      | {
+          readonly kind: "permission"
+          readonly reply: "once" | "always" | "reject"
+          readonly message?: string
+          readonly automatic?: boolean
+        }
+    readonly reason?: string
+  }
+}["data"]
+
 export type MessagesListInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
   readonly limit?: {

@@ -124,6 +124,40 @@ describe("HttpApi authorization middleware", () => {
     }),
   )
 
+  itSecret.live("pairs browser assets and reloads without exposing the server password in a cookie", () =>
+    Effect.gen(function* () {
+      const paired = yield* HttpClient.get(`/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
+      const cookie = paired.headers["set-cookie"] ?? ""
+      expect(cookie).toContain("HttpOnly")
+      expect(cookie).toContain("Secure")
+      expect(cookie).toContain("SameSite=Strict")
+      expect(cookie).not.toContain(token("opencode", "secret"))
+      const authenticated = yield* getProbe({ cookie: cookie.split(";")[0] })
+      expect(authenticated.status).toBe(200)
+      const tampered = yield* getProbe({ cookie: cookie.split(";")[0] + "0" })
+      expect(tampered.status).toBe(401)
+      const crossSite = yield* getProbe({ cookie: cookie.split(";")[0], "sec-fetch-site": "cross-site" })
+      expect(crossSite.status).toBe(401)
+      const wrongOrigin = yield* getProbe({ cookie: cookie.split(";")[0], origin: "https://attacker.example" })
+      expect(wrongOrigin.status).toBe(401)
+      const explicitWrong = yield* getProbe({ cookie: cookie.split(";")[0], authorization: basic("opencode", "wrong") })
+      expect(explicitWrong.status).toBe(401)
+    }),
+  )
+
+  itV2Secret.live("accepts paired browser requests through the canonical API too", () =>
+    Effect.gen(function* () {
+      const paired = yield* HttpClient.get(`/api/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
+      const cookie = paired.headers["set-cookie"] ?? ""
+      expect(cookie).toContain("HttpOnly")
+      const response = yield* HttpClientRequest.get("/api/probe").pipe(
+        HttpClientRequest.setHeader("cookie", cookie.split(";")[0]),
+        HttpClient.execute,
+      )
+      expect(response.status).toBe(200)
+    }),
+  )
+
   itSecret.live("prefers auth token query credentials over basic auth", () =>
     Effect.gen(function* () {
       const response = yield* HttpClientRequest.get(

@@ -7,6 +7,7 @@ import { SessionFollowupDock } from "@/pages/session/composer/session-followup-d
 import { SessionRevertDock } from "@/pages/session/composer/session-revert-dock"
 import { SessionTodoDock } from "@/pages/session/composer/session-todo-dock"
 import { SessionGoalDock } from "@/pages/session/composer/session-goal-dock"
+import { SessionWorkerDock } from "./session-worker-dock"
 import type { SessionComposerRegionController } from "./session-composer-region-controller"
 
 export function SessionComposerRegion(props: {
@@ -37,6 +38,7 @@ export function SessionComposerRegion(props: {
           "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": controller.centered(),
         }}
       >
+        <SessionWorkerDock />
         <Show when={controller.state.questionRequest()} keyed>
           {(request) => (
             <div>

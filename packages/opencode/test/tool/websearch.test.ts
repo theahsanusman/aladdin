@@ -45,6 +45,12 @@ describe("websearch provider", () => {
     expect(webSearchEnabled(ProviderV2.ID.openai, { exa: false, parallel: true })).toBe(true)
   })
 
+  test("Michael research is available with every model provider", () => {
+    for (const agent of ["michael", "michael-lead", "dispatcher"])
+      expect(webSearchEnabled(ProviderV2.ID.make("commandcode"), { exa: false, parallel: false }, agent)).toBe(true)
+    expect(webSearchEnabled(ProviderV2.ID.make("commandcode"), { exa: false, parallel: false }, "build")).toBe(false)
+  })
+
   test("uses branded labels", () => {
     expect(webSearchProviderLabel("parallel")).toBe("Parallel Web Search")
     expect(webSearchProviderLabel("exa")).toBe("Exa Web Search")

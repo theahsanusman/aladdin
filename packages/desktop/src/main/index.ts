@@ -7,7 +7,7 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
 import type { Event } from "electron"
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, powerMonitor, powerSaveBlocker } from "electron"
 
 import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
@@ -50,6 +50,9 @@ import { migrate } from "./migrate"
 import { cleanupStoreFiles } from "./store-cleanup"
 import { startBackgroundCli } from "./background-cli"
 import { setNativeTranslations } from "./native-translations"
+import { startSystemTray } from "./tray"
+import { loadWebPassword } from "./web-credentials"
+import { createSidecarSupervisor } from "./sidecar-supervisor"
 
 const APP_NAMES: Record<string, string> = {
   dev: "Aladdin",
@@ -105,7 +108,11 @@ async function startLocalSpeech() {
   const python = join(home, ".venv/bin/python")
   const model = join(home, ".models/Qwen3-ASR-1.7B-8bit")
   const outputModel = join(home, ".models/Qwen3-TTS-12Hz-1.7B-CustomVoice-4bit")
-  if (!existsSync(python) || !existsSync(join(model, "model.safetensors")) || !existsSync(join(outputModel, "model.safetensors"))) {
+  if (
+    !existsSync(python) ||
+    !existsSync(join(model, "model.safetensors")) ||
+    !existsSync(join(outputModel, "model.safetensors"))
+  ) {
     logger.error("Qwen speech runtime or model is missing", { home })
     return
   }
@@ -124,12 +131,14 @@ async function startLocalSpeech() {
     })
     speech.on("error", (error) => logger.error("Qwen speech process failed", { error: error.message }))
   }
+  let speechReady = false
   for (const delay of [250, 500, 1000, 2000, 4000, 8000]) {
     const ready = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(500) }).then(
       (response) => response.ok,
       () => false,
     )
     if (ready) {
+      speechReady = true
       await fetch(`${endpoint}/v1/models?model_name=${encodeURIComponent(model)}`, {
         method: "POST",
         signal: AbortSignal.timeout(120_000),
@@ -141,6 +150,9 @@ async function startLocalSpeech() {
     }
     await new Promise((resolve) => setTimeout(resolve, delay))
   }
+  // Transcription has no other startup signal, so a dead ASR server would
+  // otherwise disappear into a silent voice input.
+  if (!speechReady) logger.error("Qwen speech server did not become ready")
   const outputEndpoint = "http://127.0.0.1:43122"
   const outputRunning = await fetch(`${outputEndpoint}/health`, { signal: AbortSignal.timeout(500) }).then(
     (response) => response.ok,
@@ -334,6 +346,25 @@ const main = Effect.gen(function* () {
   const serverReady = Deferred.makeUnsafe<ServerReadyData, unknown>()
 
   yield* Effect.promise(() => app.whenReady())
+  if (process.platform === "darwin") {
+    let blocker: number | undefined
+    const update = () => {
+      if (powerMonitor.isOnBatteryPower()) {
+        if (blocker !== undefined) powerSaveBlocker.stop(blocker)
+        blocker = undefined
+        return
+      }
+      blocker ??= powerSaveBlocker.start("prevent-app-suspension")
+    }
+    update()
+    powerMonitor.on("on-ac", update)
+    powerMonitor.on("on-battery", update)
+    app.once("before-quit", () => {
+      powerMonitor.off("on-ac", update)
+      powerMonitor.off("on-battery", update)
+      if (blocker !== undefined) powerSaveBlocker.stop(blocker)
+    })
+  }
   void startLocalSpeech().catch((error) => logger.error("Qwen speech startup failed", { error: String(error) }))
 
   if (!TEST_ONBOARDING) migrate()
@@ -454,18 +485,31 @@ const main = Effect.gen(function* () {
     })
     const hostname = "127.0.0.1"
     const url = `http://${hostname}:${port}`
-    const password = randomUUID()
+    const password = yield* Effect.promise(() => loadWebPassword(app.getPath("userData")))
 
     logger.log("spawning sidecar", { url })
-    const { listener, health } = yield* Effect.promise(() =>
-      spawnLocalServer(hostname, port, password, {
-        userDataPath: app.getPath("userData"),
-        onStdout: (message) => writeLog("server", "stdout", { message }),
-        onStderr: (message) => writeLog("server", "stderr", { message }, "warn"),
-        onExit: (code) => writeLog("utility", "sidecar exited", { code }, "warn"),
-      }),
-    )
-    server = listener
+    const supervisor = createSidecarSupervisor({
+      spawn: async (onExit, signal) => {
+        const child = await spawnLocalServer(hostname, port, password, {
+          signal,
+          userDataPath: app.getPath("userData"),
+          onStdout: (message) => writeLog("server", "stdout", { message }),
+          onStderr: (message) => writeLog("server", "stderr", { message }, "warn"),
+          onExit: (code) => {
+            writeLog("utility", "sidecar exited", { code }, "warn")
+            onExit()
+          },
+        })
+        await child.health.wait.catch(async (error) => {
+          await child.listener.stop()
+          throw error
+        })
+        return child.listener
+      },
+      onFailure: (error) => writeLog("utility", "sidecar recovery failed", { error: String(error) }, "error"),
+    })
+    server = supervisor
+    yield* Effect.promise(() => supervisor.start())
     yield* Deferred.succeed(serverReady, {
       url,
       username: "opencode",
@@ -475,15 +519,6 @@ const main = Effect.gen(function* () {
     if (process.platform === "win32") {
       void wslServers.initialize().catch((error) => logger.error("wsl server initialization failed", error))
     }
-
-    yield* Effect.promise(() => health.wait).pipe(
-      Effect.timeout("30 seconds"),
-      Effect.catch((e) =>
-        Effect.sync(() => {
-          logger.error("sidecar health check failed", e.toString())
-        }),
-      ),
-    )
 
     logger.log("loading task finished")
   }).pipe(forwardInitializationFailure(serverReady), Effect.forkChild)
@@ -501,6 +536,19 @@ const main = Effect.gen(function* () {
 
   const windows = restoreMainWindows()
   if (windows.length) createMenu(menuDeps)
+  if (!TEST_ONBOARDING)
+    startSystemTray({
+      focus: () => {
+        const win = getLastFocusedWindow()
+        if (win) {
+          win.show()
+          win.focus()
+          return
+        }
+        restoreMainWindows()
+      },
+      quit: () => app.quit(),
+    })
 })
 
 Effect.runFork(main)

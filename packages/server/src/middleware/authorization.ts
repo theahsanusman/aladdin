@@ -47,7 +47,16 @@ export const authorizationLayer = Layer.effect(
         // credential checks here; the connect handler consumes and validates the ticket.
         if (hasPtyConnectTicketURL(new URL(request.url, "http://localhost"))) return yield* effect
         const credential = yield* credentialFromRequest(request)
-        if (ServerAuth.authorized(credential, config)) return yield* effect
+        const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
+        if (ServerAuth.authorized(credential, config)) {
+          if (token)
+            yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+              Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", ServerAuth.browserCookie(config))),
+            )
+          return yield* effect
+        }
+        if (!token && !request.headers.authorization && ServerAuth.browserAuthorized(request.headers, config))
+          return yield* effect
         yield* HttpEffect.appendPreResponseHandler((_request, response) =>
           Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
         )

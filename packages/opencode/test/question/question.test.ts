@@ -11,10 +11,91 @@ import { testEffect } from "../lib/effect"
 import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
 import { Unattended } from "../../src/automation/unattended"
+import { Database } from "@opencode-ai/core/database/database"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
+import { SessionTable } from "@opencode-ai/core/session/sql"
+import { InstanceState } from "../../src/effect/instance-state"
 
-const questionLayer = LayerNode.compile(LayerNode.group([Question.node, EventV2Bridge.node, CrossSpawnSpawner.node]))
+const questionLayer = LayerNode.compile(
+  LayerNode.group([
+    Question.node,
+    EventV2Bridge.node,
+    CrossSpawnSpawner.node,
+    Database.node,
+    TaskLedger.node,
+    TaskInteractionStore.node,
+  ]),
+)
 const it = testEffect(questionLayer)
 const lifecycle = testEffect(Layer.mergeAll(questionLayer, testInstanceStoreLayer))
+
+it.instance("durably owns and answers a native worker question without changing its request ID", () =>
+  Effect.gen(function* () {
+    const instance = yield* InstanceState.context
+    const database = yield* Database.Service
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const service = yield* Question.Service
+    const ownerSessionID = SessionID.create()
+    yield* database.db.insert(SessionTable).values({
+      id: ownerSessionID,
+      project_id: instance.project.id,
+      directory: instance.directory,
+      slug: "worker-question",
+      title: "Worker question",
+      version: "test",
+    })
+    yield* ledger.admit({
+      ownerSessionID,
+      dispatchKey: "worker-question",
+      brief: {
+        title: "Ask",
+        objective: "Ask the owner",
+        scope: ["This project"],
+        output: "Decision",
+        checks: ["Answer saved"],
+        constraints: [],
+      },
+    })
+    const attempt = yield* ledger.claim({ ownerSessionID, runtimeEpoch: "native-question-test" })
+    if (!attempt) return yield* Effect.die("Expected worker claim")
+    yield* ledger.transition(attempt, "running")
+    const fiber = yield* service
+      .ask({
+        sessionID: attempt.workerSessionID,
+        questions: [{ header: "Choice", question: "Which?", options: [{ label: "One", description: "First" }] }],
+        timeoutSeconds: 300,
+      })
+      .pipe(Effect.forkScoped)
+    const requests = yield* waitForPending(1)
+    const request = requests[0]
+    if (!request) return yield* Effect.die("Expected pending question")
+    expect((yield* interactions.list({ ownerSessionID }))[0]).toMatchObject({
+      requestID: request.id,
+      workerSessionID: attempt.workerSessionID,
+      state: "pending",
+    })
+    yield* service.reply({ requestID: request.id, answers: [["One"]] })
+    expect(yield* Fiber.join(fiber)).toEqual({ answers: [["One"]], source: "user" })
+    expect((yield* interactions.list({ ownerSessionID }))[0]).toMatchObject({ state: "decided" })
+    const waiting = yield* service
+      .ask({
+        sessionID: attempt.workerSessionID,
+        questions: [{ header: "Next", question: "Continue?", options: [{ label: "Yes", description: "Continue" }] }],
+      })
+      .pipe(Effect.forkScoped)
+    const next = (yield* waitForPending(1))[0]
+    if (!next) return yield* Effect.die("Expected next question")
+    expect(next.expiresAt).toBeUndefined()
+    yield* ledger.interruptEpoch("native-question-test")
+    expect(yield* Effect.flip(service.reply({ requestID: next.id, answers: [["Yes"]] }))).toMatchObject({
+      _tag: "Question.ExpiredError",
+    })
+    expect(yield* Effect.flip(service.reject(next.id))).toMatchObject({ _tag: "Question.ExpiredError" })
+    yield* Fiber.interrupt(waiting)
+  }),
+)
 
 const askEffect = Effect.fn("QuestionTest.ask")(function* (input: {
   sessionID: SessionID

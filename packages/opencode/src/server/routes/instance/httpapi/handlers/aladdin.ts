@@ -1,4 +1,3 @@
-import os from "node:os"
 import path from "node:path"
 import { readdir } from "node:fs/promises"
 import { Effect } from "effect"
@@ -7,11 +6,11 @@ import { RootHttpApi } from "../api"
 import { ImageInput, OpenAIProfileInput, SpeechInput, TranscriptionInput } from "../groups/aladdin"
 import { Auth } from "@/auth"
 import { Path } from "@opencode-ai/core/global"
-import { disableMobileAccess, enableMobileAccess, mobileAccessStatus } from "@/aladdin/mobile"
+import { disableMobileAccess, enableMobileAccess, mobileAccessStatus, mobilePasswordRequired } from "@/aladdin/mobile"
 import { generate } from "@/aladdin/image"
 import { ensureChatWorkspace } from "@/aladdin/chats"
 import { AladdinProviderError } from "../errors"
-import { Flag } from "@opencode-ai/core/flag/flag"
+import { withTimeout } from "@/util/timeout"
 
 const qwenEndpoint = "http://127.0.0.1:43121"
 const ttsEndpoint = "http://127.0.0.1:43122"
@@ -30,16 +29,18 @@ async function drawThingsModels() {
     signal: AbortSignal.timeout(750),
   }).catch(() => undefined)
   if (response?.ok) {
-    const models = await response.json().catch(() => undefined)
+    const models = await withTimeout(response.json(), 750).catch(() => undefined)
     if (Array.isArray(models)) {
       return models.flatMap((model) =>
         model && typeof model === "object" && typeof model.title === "string" ? [model.title] : [],
       )
     }
   }
-  const directory = path.join(os.homedir(), "Library/Containers/com.liuliu.draw-things/Data/Documents/Models")
+  const directory = path.join(Path.home, "Library/Containers/com.liuliu.draw-things/Data/Documents/Models")
   try {
-    return (await readdir(directory, { recursive: true }))
+    // Media discovery must not hold the entire status request open on a slow
+    // or cloud-backed model directory.
+    return (await withTimeout(readdir(directory, { recursive: true }), 750))
       .filter((file) => /\.(ckpt|safetensors|pth)$/i.test(file))
       .sort((a, b) => a.localeCompare(b))
   } catch {
@@ -54,9 +55,7 @@ function mediaError() {
 export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (handlers) =>
   Effect.gen(function* () {
     const auth = yield* Auth.Service
-    // Mobile access is only offered when the server is already password protected: an unauthenticated
-    // HTTPS endpoint on the local network would expose the whole machine.
-    const mobileInput = { passwordRequired: !Flag.OPENCODE_SERVER_PASSWORD, data: Path.data }
+    const mobileInput = { passwordRequired: mobilePasswordRequired(), data: Path.data }
     const mobileStatus = Effect.fn("AladdinHttpApi.mobileStatus")(function* () {
       return yield* Effect.promise(() => mobileAccessStatus(mobileInput))
     })

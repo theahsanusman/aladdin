@@ -196,9 +196,9 @@ export function PromptInputV2(props: PromptInputV2Props) {
           </Show>
         </div>
 
-        <div class="flex h-11 items-center px-2">
+        <div class="flex min-h-11 flex-wrap items-center px-2 sm:flex-nowrap">
           <div
-            class="flex min-w-0 flex-1 items-center gap-1"
+            class="flex w-full min-w-0 flex-none items-center gap-1 overflow-x-auto sm:w-auto sm:flex-1 sm:overflow-visible"
             aria-hidden={state.mode === "shell"}
             inert={state.mode === "shell" ? true : undefined}
             style={buttons()}
@@ -260,16 +260,18 @@ export function PromptInputV2(props: PromptInputV2Props) {
               )}
             </Show>
           </div>
-          {props.toolbarActions}
-          <PromptInputV2SubmitButton
-            mode={state.mode}
-            stopping={view.submit.stopping()}
-            disabled={!props.controller.canSubmit()}
-            sendLabel={i18n.t("ui.promptInput.send")}
-            stopLabel={i18n.t("ui.promptInput.stop")}
-            onSubmit={props.controller.submit}
-            onStop={props.controller.stop}
-          />
+          <div class="ms-auto flex shrink-0 items-center">
+            {props.toolbarActions}
+            <PromptInputV2SubmitButton
+              mode={state.mode}
+              stopping={view.submit.stopping()}
+              disabled={!props.controller.canSubmit()}
+              sendLabel={i18n.t("ui.promptInput.send")}
+              stopLabel={i18n.t("ui.promptInput.stop")}
+              onSubmit={props.controller.submit}
+              onStop={props.controller.stop}
+            />
+          </div>
         </div>
       </form>
     </div>

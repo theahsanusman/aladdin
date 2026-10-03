@@ -43,5 +43,8 @@ export const migrations = (
     import("./migration/20260920025259_aladdin_session_goal"),
     import("./migration/20260920105150_handy_nico_minoru"),
     import("./migration/20260921165254_aladdin_automations"),
+    import("./migration/20261001171408_task_ledger"),
+    import("./migration/20261002110645_task_interactions"),
+    import("./migration/20261002115135_task_team"),
   ])
 ).map((module) => module.default) satisfies DatabaseMigration.Migration[]

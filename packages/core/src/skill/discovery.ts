@@ -5,6 +5,7 @@ import { Context, Effect, Layer, Schedule, Schema } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { FSUtil } from "../fs-util"
 import { Global } from "../global"
+import { Hash } from "../util/hash"
 import { makeGlobalNode } from "../effect/app-node"
 import { httpClient } from "../effect/app-node-platform"
 import { AbsolutePath } from "../schema"
@@ -110,7 +111,9 @@ const layer = Layer.effect(
         )
         if (!data) return []
 
-        const sourceRoot = path.resolve(global.cache, "skills", Bun.hash(base).toString(16))
+        // `Hash.fast` instead of `Bun.hash`: the desktop bundles this code for
+        // Node, where the global `Bun` object does not exist.
+        const sourceRoot = path.resolve(global.cache, "skills", Hash.fast(base))
         return yield* Effect.forEach(
           data.skills.flatMap((skill) => {
             if (!isSafeSegment(skill.name)) {

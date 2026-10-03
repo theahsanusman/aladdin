@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { PermissionRequest, QuestionRequest, Session } from "@opencode-ai/sdk/v2/client"
-import { todoDockAtBoundary, todoState } from "./session-composer-state"
+import { todoDockAtBoundary, todoState, permissionBlocksComposer } from "./session-composer-state"
 import { sessionPermissionRequest, sessionQuestionRequest } from "./session-request-tree"
 
 const session = (input: { id: string; parentID?: string }) =>
@@ -23,6 +23,18 @@ const question = (id: string, sessionID: string) =>
   }) as QuestionRequest
 
 describe("sessionPermissionRequest", () => {
+  test("a detached worker popup does not block its root conversation", () => {
+    const worker = { ...session({ id: "worker", parentID: "root" }), metadata: { task: { ownerSessionID: "root" } } }
+    expect(permissionBlocksComposer([session({ id: "root" }), worker], "root", permission("p", "worker"))).toBe(false)
+    expect(permissionBlocksComposer([session({ id: "root" }), worker], "root", permission("p", "root"))).toBe(true)
+    expect(
+      permissionBlocksComposer(
+        [session({ id: "root" }), session({ id: "legacy", parentID: "root" })],
+        "root",
+        permission("p", "legacy"),
+      ),
+    ).toBe(true)
+  })
   test("prefers the current session permission", () => {
     const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
     const permissions = {

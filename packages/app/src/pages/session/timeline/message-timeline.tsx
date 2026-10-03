@@ -70,6 +70,7 @@ import { useSettings } from "@/context/settings"
 import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
+import { SessionWorkerResults } from "./session-worker-results"
 import { notifySessionTabsRemoved } from "@/components/titlebar-session-events"
 import { sessionTitle } from "@/utils/session-title"
 import { scheduleConnectedMeasure } from "./measure"
@@ -1819,27 +1820,29 @@ export function MessageTimeline(props: {
             </div>
           </div>
         </Show>
-        <div
-          data-timeline-virtual-content
-          ref={(element) => {
-            virtualContent = element
-            props.setContentRef(element)
-          }}
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            position: "relative",
-            width: "100%",
-          }}
-        >
-          <For each={virtualRowKeys()}>{(rowKey) => <VirtualTimelineRow rowKey={rowKey} />}</For>
-          <Show when={timelineRows().length > 0}>
-            <div
-              data-timeline-row="bottom-spacer"
-              aria-hidden="true"
-              class="h-16 absolute top-0 left-0 w-full"
-              style={{ transform: `translateY(${virtualizer.getTotalSize() - 64}px)` }}
-            />
-          </Show>
+        <div ref={props.setContentRef}>
+          <div
+            data-timeline-virtual-content
+            ref={(element) => {
+              virtualContent = element
+            }}
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: "relative",
+              width: "100%",
+            }}
+          >
+            <For each={virtualRowKeys()}>{(rowKey) => <VirtualTimelineRow rowKey={rowKey} />}</For>
+            <Show when={timelineRows().length > 0}>
+              <div
+                data-timeline-row="bottom-spacer"
+                aria-hidden="true"
+                class="h-16 absolute top-0 left-0 w-full"
+                style={{ transform: `translateY(${virtualizer.getTotalSize() - 64}px)` }}
+              />
+            </Show>
+          </div>
+          <SessionWorkerResults />
         </div>
       </ScrollView>
     </div>

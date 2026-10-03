@@ -57,6 +57,34 @@ describe("verification runner", () => {
     }),
   )
 
+  it.live("does not report a command that finishes before its deadline as timed out", () =>
+    Effect.gen(function* () {
+      const directory = yield* tempdir()
+      // Long timeout, fast command: the timer is cleared on completion, so the
+      // result must be a normal exit rather than a timeout.
+      const report = yield* Verification.run({
+        directory,
+        checks: [{ command: "echo done", timeoutSeconds: 30 }],
+      })
+      expect(report.passed).toBe(true)
+      expect(report.results[0]).toMatchObject({ exitCode: 0, timedOut: false, output: "done" })
+    }),
+  )
+
+  it.live("terminates a descendant process when the check times out", () =>
+    Effect.gen(function* () {
+      const directory = yield* tempdir()
+      const report = yield* Verification.run({
+        directory,
+        // A background child retains the shell's output pipes after SIGTERM.
+        // The check must stop the entire process group at the deadline.
+        checks: [{ command: "sleep 30 & wait", timeoutSeconds: 1 }],
+      })
+      expect(report.results[0]).toMatchObject({ exitCode: 124, timedOut: true })
+      expect(report.results[0].durationMs).toBeLessThan(10_000)
+    }),
+  )
+
   it.live("runs checks in the project directory", () =>
     Effect.gen(function* () {
       const directory = yield* tempdir((dir) => fs.writeFile(path.join(dir, "marker.txt"), "ok").then(() => undefined))

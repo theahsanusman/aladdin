@@ -16,13 +16,72 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
 
 const noopBootstrap = Layer.succeed(InstanceBootstrap.Service, InstanceBootstrap.Service.of({ run: Effect.void }))
 const env = AppNodeBuilder.build(
-  LayerNode.group([Permission.node, Session.node, SessionProjector.node, EventV2Bridge.node, CrossSpawnSpawner.node, InstanceStore.node]),
+  LayerNode.group([
+    Permission.node,
+    Session.node,
+    SessionProjector.node,
+    EventV2Bridge.node,
+    CrossSpawnSpawner.node,
+    InstanceStore.node,
+    TaskLedger.node,
+    TaskInteractionStore.node,
+  ]),
   [[InstanceStore.bootstrapNode, noopBootstrap]],
 )
 const it = testEffect(env)
+
+it.instance("records a worker's native permission deadline and exact automatic reply", () =>
+  Effect.gen(function* () {
+    const sessions = yield* Session.Service
+    const permission = yield* Permission.Service
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const session = yield* sessions.create()
+    yield* ledger.admit({
+      ownerSessionID: session.id,
+      dispatchKey: "native-permission",
+      brief: {
+        title: "Read",
+        objective: "Read project",
+        scope: ["This project"],
+        output: "Report",
+        checks: ["Permission recorded"],
+        constraints: [],
+      },
+    })
+    const attempt = yield* ledger.claim({ ownerSessionID: session.id, runtimeEpoch: "native-permission" })
+    if (!attempt) return yield* Effect.die("Expected worker claim")
+    yield* ledger.transition(attempt, "running")
+    const fiber = yield* permission
+      .ask({
+        sessionID: attempt.workerSessionID,
+        permission: "read",
+        patterns: ["/tmp/worker.txt"],
+        always: [],
+        metadata: {},
+        ruleset: [{ permission: "read", pattern: "*", action: "ask" }],
+      })
+      .pipe(Effect.forkScoped)
+    const pending = (yield* waitForPending(1))[0]
+    if (!pending) return yield* Effect.die("Expected native permission")
+    expect((yield* interactions.list({ ownerSessionID: session.id }))[0]).toMatchObject({
+      kind: "permission",
+      requestID: pending.id,
+      state: "pending",
+    })
+    yield* permission.reply({ requestID: pending.id, reply: "once", automatic: true })
+    yield* Fiber.join(fiber)
+    expect((yield* interactions.list({ ownerSessionID: session.id }))[0]).toMatchObject({
+      state: "decided",
+      decision: { kind: "permission", reply: "once", automatic: true },
+    })
+  }),
+)
 
 it.instance("auto-approval notices survive later tool metadata and completion updates", () =>
   Effect.gen(function* () {
@@ -31,14 +90,50 @@ it.instance("auto-approval notices survive later tool metadata and completion up
     const session = yield* sessions.create()
     const messageID = MessageID.ascending()
     const partID = PartID.ascending()
-    yield* sessions.updateMessage({ id: messageID, sessionID: session.id, role: "user", time: { created: Date.now() }, agent: "build", model: { providerID: ProviderV2.ID.make("test"), modelID: ModelV2.ID.make("test") } })
-    yield* sessions.updatePart({ id: partID, messageID, sessionID: session.id, type: "tool", callID: "call_test", tool: "read", state: { status: "running", input: {}, metadata: {}, time: { start: Date.now() } } })
-    yield* permission.ask({ sessionID: session.id, permission: "read", patterns: ["/tmp/test.txt"], always: [], metadata: {}, tool: { messageID, callID: "call_test" }, ruleset: [{ permission: "read", pattern: "*", action: "allow" }] })
+    yield* sessions.updateMessage({
+      id: messageID,
+      sessionID: session.id,
+      role: "user",
+      time: { created: Date.now() },
+      agent: "build",
+      model: { providerID: ProviderV2.ID.make("test"), modelID: ModelV2.ID.make("test") },
+    })
+    yield* sessions.updatePart({
+      id: partID,
+      messageID,
+      sessionID: session.id,
+      type: "tool",
+      callID: "call_test",
+      tool: "read",
+      state: { status: "running", input: {}, metadata: {}, time: { start: Date.now() } },
+    })
+    yield* permission.ask({
+      sessionID: session.id,
+      permission: "read",
+      patterns: ["/tmp/test.txt"],
+      always: [],
+      metadata: {},
+      tool: { messageID, callID: "call_test" },
+      ruleset: [{ permission: "read", pattern: "*", action: "allow" }],
+    })
     const current = yield* sessions.getPart({ sessionID: session.id, messageID, partID })
-    if (!current || current.type !== "tool" || current.state.status !== "running") return yield* Effect.die("missing running tool")
-    yield* sessions.updatePart({ ...current, state: { status: "completed", input: {}, metadata: { output: true }, title: "test", output: "done", time: { start: current.state.time.start, end: Date.now() } } })
+    if (!current || current.type !== "tool" || current.state.status !== "running")
+      return yield* Effect.die("missing running tool")
+    yield* sessions.updatePart({
+      ...current,
+      state: {
+        status: "completed",
+        input: {},
+        metadata: { output: true },
+        title: "test",
+        output: "done",
+        time: { start: current.state.time.start, end: Date.now() },
+      },
+    })
     const persisted = yield* sessions.getPart({ sessionID: session.id, messageID, partID })
-    expect(persisted?.type === "tool" && persisted.state.status === "completed" && persisted.state.metadata.autoApprovals).toEqual([{ action: "read", resources: ["/tmp/test.txt"], reason: "rule" }])
+    expect(
+      persisted?.type === "tool" && persisted.state.status === "completed" && persisted.state.metadata.autoApprovals,
+    ).toEqual([{ action: "read", resources: ["/tmp/test.txt"], reason: "rule" }])
   }),
 )
 

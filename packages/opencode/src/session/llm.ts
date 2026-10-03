@@ -301,6 +301,10 @@ const live: Layer.Layer<
                 toolName: lower,
               }
             }
+            // Restricted coordinators and workers omit the diagnostic tool.
+            // Preserve the original name, validation error and available tools
+            // instead of repairing a failed call into another unavailable call.
+            if (!prepared.tools.invalid) return null
             return {
               ...failed.toolCall,
               input: JSON.stringify({

@@ -6,6 +6,8 @@ import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import DESCRIPTION from "./grep.txt"
 import * as Tool from "./tool"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
+import { TaskWorkerPolicy } from "@opencode-ai/core/task/worker-policy"
 
 export const Parameters = Schema.Struct({
   pattern: Schema.String.annotate({ description: "The regex pattern to search for in file contents" }),
@@ -22,6 +24,7 @@ export const GrepTool = Tool.define(
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
     const ripgrep = yield* Ripgrep.Service
+    const tasks = yield* TaskExecution.Service
     return {
       description: DESCRIPTION,
       parameters: Parameters,
@@ -60,10 +63,12 @@ export const GrepTool = Tool.define(
           const search = FSUtil.resolve(requested)
           const info = yield* fs.stat(search).pipe(Effect.catch(() => Effect.succeed(undefined)))
           const cwd = info?.type === "Directory" ? search : path.dirname(search)
+          const worker = yield* tasks.workerContext(ctx.sessionID)
           const result = yield* ripgrep.grep({
             cwd,
             pattern: params.pattern,
             include: params.include,
+            ...(worker ? { exclude: TaskWorkerPolicy.searchExclusions } : {}),
             limit: 100,
           })
           if (result.length === 0) return empty

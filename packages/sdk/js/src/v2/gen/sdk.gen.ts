@@ -6,6 +6,8 @@ import type {
   AgentPartInput,
   AladdinActivateOpenAiProfileErrors,
   AladdinActivateOpenAiProfileResponses,
+  AladdinChatWorkspaceErrors,
+  AladdinChatWorkspaceResponses,
   AladdinImageErrors,
   AladdinImageResponses,
   AladdinMobileDisableErrors,
@@ -278,6 +280,11 @@ import type {
   SyncStartResponses,
   SyncStealErrors,
   SyncStealResponses,
+  TaskBrief,
+  TaskGeneration,
+  TaskId,
+  TaskInteractionDecision,
+  TaskInteractionId,
   TextPartInput,
   ToolIdsErrors,
   ToolIdsResponses,
@@ -433,6 +440,28 @@ import type {
   V2SessionWaitResponses,
   V2SkillListErrors,
   V2SkillListResponses,
+  V2TaskAnswerErrors,
+  V2TaskAnswerResponses,
+  V2TaskBoardErrors,
+  V2TaskBoardResponses,
+  V2TaskCancelErrors,
+  V2TaskCancelResponses,
+  V2TaskDispatchErrors,
+  V2TaskDispatchResponses,
+  V2TaskEventsErrors,
+  V2TaskEventsResponses,
+  V2TaskGetErrors,
+  V2TaskGetResponses,
+  V2TaskInteractionsErrors,
+  V2TaskInteractionsResponses,
+  V2TaskListErrors,
+  V2TaskListResponses,
+  V2TaskPauseErrors,
+  V2TaskPauseResponses,
+  V2TaskResumeErrors,
+  V2TaskResumeResponses,
+  V2TaskRetryErrors,
+  V2TaskRetryResponses,
   V2UsageSummaryErrors,
   V2UsageSummaryResponses,
   VcsApplyErrors,
@@ -666,6 +695,14 @@ export class Aladdin extends HeyApiClient {
         ...params.headers,
       },
     })
+  }
+
+  public chatWorkspace<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).post<
+      AladdinChatWorkspaceResponses,
+      AladdinChatWorkspaceErrors,
+      ThrowOnError
+    >({ url: "/aladdin/chats/ensure", ...options })
   }
 
   public mobileStatus<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
@@ -6606,6 +6643,299 @@ export class Session3 extends HeyApiClient {
   }
 }
 
+export class Task extends HeyApiClient {
+  /**
+   * Read assigned workers, queued work and recent persistent results
+   */
+  public board<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "sessionID" }] }])
+    return (options?.client ?? this.client).get<V2TaskBoardResponses, V2TaskBoardErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task-board",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List this chat's durable worker tasks
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      after?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "after" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<V2TaskListResponses, V2TaskListErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Admit detached work to this chat's worker queue
+   */
+  public dispatch<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      dispatchKey?: string
+      brief?: TaskBrief
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "body", key: "dispatchKey" },
+            { in: "body", key: "brief" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<V2TaskDispatchResponses, V2TaskDispatchErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Read one owned task and its persistent result
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      taskID: TaskId
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "taskID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<V2TaskGetResponses, V2TaskGetErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/{taskID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel one task and join its owned cleanup
+   */
+  public cancel<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      taskID: TaskId
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "taskID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<V2TaskCancelResponses, V2TaskCancelErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/{taskID}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Explicitly retry a safely settled or reconciled worker failure
+   */
+  public retry<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      taskID: TaskId
+      generation?: TaskGeneration
+      confirmStopped?: boolean
+      reviewedChanges?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "taskID" },
+            { in: "body", key: "generation" },
+            { in: "body", key: "confirmStopped" },
+            { in: "body", key: "reviewedChanges" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<V2TaskRetryResponses, V2TaskRetryErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/{taskID}/retry",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Durably pause this chat's queued dispatch
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "sessionID" }] }])
+    return (options?.client ?? this.client).post<V2TaskPauseResponses, V2TaskPauseErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume this chat's queued dispatch
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "sessionID" }] }])
+    return (options?.client ?? this.client).post<V2TaskResumeResponses, V2TaskResumeErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Replay committed task transitions after a cursor
+   */
+  public events<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      after?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "after" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<V2TaskEventsResponses, V2TaskEventsErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task-events",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read this chat's worker questions and permission decisions
+   */
+  public interactions<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "sessionID" }] }])
+    return (options?.client ?? this.client).get<V2TaskInteractionsResponses, V2TaskInteractionsErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task-interactions",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Deliver an exact owned native worker decision
+   */
+  public answer<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      interactionID: TaskInteractionId
+      generation?: TaskGeneration
+      decision?: TaskInteractionDecision
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "interactionID" },
+            { in: "body", key: "generation" },
+            { in: "body", key: "decision" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<V2TaskAnswerResponses, V2TaskAnswerErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task-interactions/{interactionID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Model extends HeyApiClient {
   /**
    * List models
@@ -7771,6 +8101,11 @@ export class V2 extends HeyApiClient {
   private _session?: Session3
   get session(): Session3 {
     return (this._session ??= new Session3({ client: this.client }))
+  }
+
+  private _task?: Task
+  get task(): Task {
+    return (this._task ??= new Task({ client: this.client }))
   }
 
   private _model?: Model

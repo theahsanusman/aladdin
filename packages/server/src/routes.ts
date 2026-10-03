@@ -7,11 +7,15 @@ import { Credential } from "@opencode-ai/core/credential"
 import { PermissionSaved } from "@opencode-ai/core/permission/saved"
 import { PtyTicket } from "@opencode-ai/core/pty/ticket"
 import { SessionV2 } from "@opencode-ai/core/session"
+import { SessionStore } from "@opencode-ai/core/session/store"
 import { SessionExecution } from "@opencode-ai/core/session/execution"
 import { LocationServiceMap } from "@opencode-ai/core/location-service-map"
 import { SessionExecutionLocal } from "@opencode-ai/core/session/execution/local"
 import { ToolOutputStore } from "@opencode-ai/core/tool-output-store"
 import { Usage } from "@opencode-ai/core/usage"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Layer, Option } from "effect"
@@ -30,12 +34,16 @@ const applicationServices = LayerNode.group([
   httpClient,
   ToolOutputStore.cleanupNode,
   SessionV2.node,
+  SessionStore.node,
   PermissionSaved.node,
   PtyTicket.node,
   Credential.node,
   PtyEnvironment.node,
   LocationServiceMap.node,
   Usage.node,
+  TaskExecution.node,
+  TaskLedger.node,
+  TaskInteractionStore.node,
 ])
 
 export function createRoutes(password?: string) {

@@ -67,6 +67,8 @@ export type Event =
   | EventQuestionV2Asked
   | EventQuestionV2Replied
   | EventQuestionV2Rejected
+  | EventTaskChanged
+  | EventTaskTeamChanged
   | EventTodoUpdated
   | EventLspUpdated
   | EventPermissionAsked
@@ -1366,6 +1368,21 @@ export type GlobalEvent = {
         properties: {
           sessionID: string
           requestID: string
+        }
+      }
+    | {
+        id: string
+        type: "task.changed"
+        properties: {
+          sessionID: string
+          taskID: TaskId
+        }
+      }
+    | {
+        id: string
+        type: "task.team.changed"
+        properties: {
+          sessionID: string
         }
       }
     | {
@@ -2951,6 +2968,8 @@ export type V2Event =
   | QuestionV2Asked
   | QuestionV2Replied
   | QuestionV2Rejected
+  | TaskChanged
+  | TaskTeamChanged
   | TodoUpdated
   | LspUpdated
   | PermissionAsked
@@ -3197,6 +3216,8 @@ export type QuestionV2Tool = {
 }
 
 export type QuestionV2Answer = Array<string>
+
+export type TaskId = string
 
 export type ProjectVcs = "git"
 
@@ -4947,6 +4968,170 @@ export type SessionNextRevertCommitted = {
   }
 }
 
+export type TaskExecution = {
+  engine: "v1" | "v2"
+  agent: string
+  model: {
+    id: string
+    providerID: string
+    variant?: string
+  }
+  mode: "native" | "report" | "research" | "coding"
+  paths?: Array<string>
+  baseRevision?: string
+  maxCalls: number
+  maxToolCalls?: number
+  wallClockMs: number
+}
+
+export type TaskBrief = {
+  title: string
+  objective: string
+  scope: Array<string>
+  output: string
+  checks: Array<string>
+  constraints: Array<string>
+  execution?: TaskExecution
+}
+
+export type TaskStatus =
+  | "queued"
+  | "starting"
+  | "running"
+  | "waiting_for_user"
+  | "verifying"
+  | "cancelling"
+  | "interrupted"
+  | "completed"
+  | "failed"
+  | "cancelled"
+
+export type TaskInfo = {
+  id: TaskId
+  ownerSessionID: string
+  projectID: string
+  location: LocationRef
+  dispatchKey: string
+  brief: TaskBrief
+  status: TaskStatus
+  generation: number
+  queueSequence: number
+  timeCreated: number
+  timeUpdated: number
+}
+
+export type TaskAttemptId = string
+
+export type TaskRuntimeEpoch = string
+
+export type TaskGeneration = number
+
+export type TaskSlot = 1 | 2 | 3
+
+export type TaskAttempt = {
+  id: TaskAttemptId
+  taskID: TaskId
+  ownerSessionID: string
+  workerSessionID: string
+  inputMessageID: string
+  runtimeEpoch: TaskRuntimeEpoch
+  generation: TaskGeneration
+  slot: TaskSlot
+}
+
+export type TaskDetails = {
+  task: TaskInfo
+  attempt?: TaskAttempt
+  evidence?: string
+}
+
+export type TaskTeam = {
+  ownerSessionID: string
+  paused: boolean
+  timeUpdated: number
+}
+
+export type TaskBoard = {
+  data: Array<TaskDetails>
+  team: TaskTeam
+  counts: {
+    [key: string]: number
+  }
+}
+
+export type TaskEventKind =
+  | "admitted"
+  | "claimed"
+  | "transitioned"
+  | "cancel_requested"
+  | "settled"
+  | "interrupted"
+  | "retried"
+
+export type TaskState = {
+  id: TaskId
+  ownerSessionID: string
+  status: TaskStatus
+  generation: number
+  queueSequence: number
+  timeUpdated: number
+}
+
+export type TaskEvent = {
+  seq: number
+  kind: TaskEventKind
+  task: TaskState
+  attempt?: TaskAttempt
+  evidence?: string
+}
+
+export type TaskInteractionId = string
+
+export type TaskInteractionKind = "question" | "permission"
+
+export type TaskInteractionFormat = "current" | "v1"
+
+export type TaskInteractionPayload = {
+  [key: string]: unknown
+}
+
+export type TaskInteractionState = "pending" | "decided" | "expired" | "invalidated"
+
+export type TaskInteractionDecision =
+  | {
+      kind: "question"
+      answers: Array<QuestionV2Answer>
+    }
+  | {
+      kind: "question-rejection"
+    }
+  | {
+      kind: "permission"
+      reply: PermissionV2Reply
+      message?: string
+      automatic?: boolean
+    }
+
+export type TaskInteractionInfo = {
+  id: TaskInteractionId
+  kind: TaskInteractionKind
+  format: TaskInteractionFormat
+  requestID: string
+  ownerSessionID: string
+  taskID: TaskId
+  attemptID: TaskAttemptId
+  workerSessionID: string
+  generation: TaskGeneration
+  payload: TaskInteractionPayload
+  timeCreated: number
+  timeUpdated: number
+  expiresAt?: number
+  timeDecided?: number
+  state: TaskInteractionState
+  decision?: TaskInteractionDecision
+  reason?: string
+}
+
 export type ModelApi =
   | {
       id: string
@@ -5834,6 +6019,41 @@ export type QuestionV2Rejected = {
   data: {
     sessionID: string
     requestID: string
+  }
+}
+
+export type TaskChanged = {
+  id: string
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "task.changed"
+  durable?: {
+    aggregateID: string
+    seq: number
+    version: number
+  }
+  location?: LocationRef
+  data: {
+    sessionID: string
+    taskID: TaskId
+  }
+}
+
+export type TaskTeamChanged = {
+  id: string
+  metadata?: {
+    [key: string]: unknown
+  }
+  type: "task.team.changed"
+  durable?: {
+    aggregateID: string
+    seq: number
+    version: number
+  }
+  location?: LocationRef
+  data: {
+    sessionID: string
   }
 }
 
@@ -7028,6 +7248,23 @@ export type EventQuestionV2Rejected = {
   }
 }
 
+export type EventTaskChanged = {
+  id: string
+  type: "task.changed"
+  properties: {
+    sessionID: string
+    taskID: TaskId
+  }
+}
+
+export type EventTaskTeamChanged = {
+  id: string
+  type: "task.team.changed"
+  properties: {
+    sessionID: string
+  }
+}
+
 export type EventTodoUpdated = {
   id: string
   type: "todo.updated"
@@ -7552,6 +7789,33 @@ export type AladdinImageResponses = {
 
 export type AladdinImageResponse = AladdinImageResponses[keyof AladdinImageResponses]
 
+export type AladdinChatWorkspaceData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/aladdin/chats/ensure"
+}
+
+export type AladdinChatWorkspaceErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+}
+
+export type AladdinChatWorkspaceError = AladdinChatWorkspaceErrors[keyof AladdinChatWorkspaceErrors]
+
+export type AladdinChatWorkspaceResponses = {
+  /**
+   * Folder-less chat workspace directory
+   */
+  200: {
+    directory: string
+  }
+}
+
+export type AladdinChatWorkspaceResponse = AladdinChatWorkspaceResponses[keyof AladdinChatWorkspaceResponses]
+
 export type AladdinMobileStatusData = {
   body?: never
   path?: never
@@ -7578,6 +7842,8 @@ export type AladdinMobileStatusResponses = {
     reason?: "password-required"
     url?: string
     connectUrl?: string
+    localUrl?: string
+    localConnectUrl?: string
     host: string
     port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
     addresses: Array<string>
@@ -7617,6 +7883,8 @@ export type AladdinMobileEnableResponses = {
     reason?: "password-required"
     url?: string
     connectUrl?: string
+    localUrl?: string
+    localConnectUrl?: string
     host: string
     port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
     addresses: Array<string>
@@ -7656,6 +7924,8 @@ export type AladdinMobileDisableResponses = {
     reason?: "password-required"
     url?: string
     connectUrl?: string
+    localUrl?: string
+    localConnectUrl?: string
     host: string
     port?: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
     addresses: Array<string>
@@ -13023,6 +13293,562 @@ export type V2SessionMessageResponses = {
 }
 
 export type V2SessionMessageResponse = V2SessionMessageResponses[keyof V2SessionMessageResponses]
+
+export type V2TaskBoardData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task-board"
+}
+
+export type V2TaskBoardErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskBoardError = V2TaskBoardErrors[keyof V2TaskBoardErrors]
+
+export type V2TaskBoardResponses = {
+  /**
+   * Task.Board
+   */
+  200: TaskBoard
+}
+
+export type V2TaskBoardResponse = V2TaskBoardResponses[keyof V2TaskBoardResponses]
+
+export type V2TaskListData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    after?: string
+  }
+  url: "/api/session/{sessionID}/task"
+}
+
+export type V2TaskListErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskListError = V2TaskListErrors[keyof V2TaskListErrors]
+
+export type V2TaskListResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: Array<TaskDetails>
+    team: TaskTeam
+  }
+}
+
+export type V2TaskListResponse = V2TaskListResponses[keyof V2TaskListResponses]
+
+export type V2TaskDispatchData = {
+  body: {
+    dispatchKey: string
+    brief: TaskBrief
+  }
+  path: {
+    sessionID: string
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task"
+}
+
+export type V2TaskDispatchErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskDispatchError = V2TaskDispatchErrors[keyof V2TaskDispatchErrors]
+
+export type V2TaskDispatchResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskInfo
+  }
+}
+
+export type V2TaskDispatchResponse = V2TaskDispatchResponses[keyof V2TaskDispatchResponses]
+
+export type V2TaskGetData = {
+  body?: never
+  path: {
+    sessionID: string
+    taskID: TaskId
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/{taskID}"
+}
+
+export type V2TaskGetErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskGetError = V2TaskGetErrors[keyof V2TaskGetErrors]
+
+export type V2TaskGetResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskDetails
+  }
+}
+
+export type V2TaskGetResponse = V2TaskGetResponses[keyof V2TaskGetResponses]
+
+export type V2TaskCancelData = {
+  body?: never
+  path: {
+    sessionID: string
+    taskID: TaskId
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/{taskID}/cancel"
+}
+
+export type V2TaskCancelErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskCancelError = V2TaskCancelErrors[keyof V2TaskCancelErrors]
+
+export type V2TaskCancelResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskInfo
+  }
+}
+
+export type V2TaskCancelResponse = V2TaskCancelResponses[keyof V2TaskCancelResponses]
+
+export type V2TaskRetryData = {
+  body: {
+    generation: TaskGeneration
+    confirmStopped?: boolean
+    reviewedChanges?: boolean
+  }
+  path: {
+    sessionID: string
+    taskID: TaskId
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/{taskID}/retry"
+}
+
+export type V2TaskRetryErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskRetryError = V2TaskRetryErrors[keyof V2TaskRetryErrors]
+
+export type V2TaskRetryResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskInfo
+  }
+}
+
+export type V2TaskRetryResponse = V2TaskRetryResponses[keyof V2TaskRetryResponses]
+
+export type V2TaskPauseData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/pause"
+}
+
+export type V2TaskPauseErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskPauseError = V2TaskPauseErrors[keyof V2TaskPauseErrors]
+
+export type V2TaskPauseResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskTeam
+  }
+}
+
+export type V2TaskPauseResponse = V2TaskPauseResponses[keyof V2TaskPauseResponses]
+
+export type V2TaskResumeData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/resume"
+}
+
+export type V2TaskResumeErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskResumeError = V2TaskResumeErrors[keyof V2TaskResumeErrors]
+
+export type V2TaskResumeResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskTeam
+  }
+}
+
+export type V2TaskResumeResponse = V2TaskResumeResponses[keyof V2TaskResumeResponses]
+
+export type V2TaskEventsData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    after?: string
+  }
+  url: "/api/session/{sessionID}/task-events"
+}
+
+export type V2TaskEventsErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskEventsError = V2TaskEventsErrors[keyof V2TaskEventsErrors]
+
+export type V2TaskEventsResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: Array<TaskEvent>
+  }
+}
+
+export type V2TaskEventsResponse = V2TaskEventsResponses[keyof V2TaskEventsResponses]
+
+export type V2TaskInteractionsData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task-interactions"
+}
+
+export type V2TaskInteractionsErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskInteractionsError = V2TaskInteractionsErrors[keyof V2TaskInteractionsErrors]
+
+export type V2TaskInteractionsResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: Array<TaskInteractionInfo>
+  }
+}
+
+export type V2TaskInteractionsResponse = V2TaskInteractionsResponses[keyof V2TaskInteractionsResponses]
+
+export type V2TaskAnswerData = {
+  body: {
+    generation: TaskGeneration
+    decision: TaskInteractionDecision
+  }
+  path: {
+    sessionID: string
+    interactionID: TaskInteractionId
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task-interactions/{interactionID}"
+}
+
+export type V2TaskAnswerErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskAnswerError = V2TaskAnswerErrors[keyof V2TaskAnswerErrors]
+
+export type V2TaskAnswerResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskInteractionInfo
+  }
+}
+
+export type V2TaskAnswerResponse = V2TaskAnswerResponses[keyof V2TaskAnswerResponses]
 
 export type V2SessionMessagesData = {
   body?: never

@@ -808,3 +808,53 @@ it.instance(
     },
   },
 )
+
+it.instance(
+  "dispatcher and workers inherit configured Michael discipline without basic-agent fallbacks",
+  () =>
+    Effect.gen(function* () {
+      const dispatcher = yield* load((svc) => svc.get("michael-lead"))
+      const worker = yield* load((svc) => svc.get("michael"))
+      expect(dispatcher.prompt).toContain("MICHAEL_CUSTOM_SKILL_DISCIPLINE")
+      expect(dispatcher.prompt).toContain("`michael`")
+      expect(dispatcher.prompt).not.toContain("such as build")
+      expect(worker.prompt).toContain("MICHAEL_CUSTOM_SKILL_DISCIPLINE")
+      expect(worker.mode).toBe("primary")
+      for (const agent of [dispatcher, worker]) {
+        expect(evalPerm(agent, "skill")).toBe("allow")
+        expect(evalPerm(agent, "websearch")).toBe("allow")
+        if (agent.name === "michael-lead") expect(evalPerm(agent, "task")).toBe("deny")
+      }
+    }),
+  {
+    config: {
+      agent: {
+        michael: { prompt: "MICHAEL_CUSTOM_SKILL_DISCIPLINE", mode: "primary" },
+        "michael-worker": { prompt: "WORKER_CUSTOM_DISCIPLINE", mode: "subagent" },
+      },
+    },
+  },
+)
+
+it.instance(
+  "Michael Lead uses Michael's tool permissions for shell and installed browser tools",
+  () =>
+    Effect.gen(function* () {
+      const lead = yield* load((svc) => svc.get("michael-lead"))
+      expect(evalPerm(lead, "bash")).toBe("ask")
+      expect(evalPerm(lead, "chrome-devtools_new_page")).toBe("allow")
+      expect(evalPerm(lead, "edit")).toBe("deny")
+      expect(evalPerm(lead, "task_dispatch")).toBe("allow")
+      expect(evalPerm(lead, "task")).toBe("deny")
+    }),
+  {
+    config: {
+      agent: {
+        michael: {
+          prompt: "Configured Michael",
+          permission: { bash: "ask", "chrome-devtools_*": "allow", edit: "deny" },
+        },
+      },
+    },
+  },
+)

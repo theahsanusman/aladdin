@@ -11,6 +11,27 @@ import { testEffect } from "./lib/effect"
 const it = testEffect(LayerNode.compile(Ripgrep.node))
 
 describe("Ripgrep", () => {
+  it.live("enforces host exclusions after caller includes before reading protected content", () =>
+    Effect.acquireUseRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) =>
+        Effect.gen(function* () {
+          yield* Effect.promise(() => fs.writeFile(path.join(tmp.path, "opencode.json"), "needle private credential\n"))
+          yield* Effect.promise(() => fs.writeFile(path.join(tmp.path, "facts.json"), "needle public fact\n"))
+          const input = {
+            cwd: tmp.path,
+            pattern: "needle",
+            include: "*.json",
+            exclude: ["**/opencode.json"],
+            limit: 10,
+          }
+          const matches = yield* (yield* Ripgrep.Service).grep(input)
+          expect(matches.map((match) => match.entry.path)).toEqual([RelativePath.make("facts.json")])
+          expect(matches.map((match) => match.text).join("\n")).not.toContain("private credential")
+        }),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ),
+  )
   it.live("keeps ignored files out of catch-all find results", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),

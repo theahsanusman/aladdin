@@ -58,9 +58,12 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { MCP } from "@/mcp"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { McpCatalog } from "@/mcp/catalog"
+import { TaskDispatchV1 } from "../task/dispatch-v1"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
 
-export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
+export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }, agent?: string) {
   return (
+    (!!agent && ["michael", "michael-lead", "dispatcher"].includes(agent)) ||
     providerID === ProviderV2.ID.opencode ||
     providerID === ProviderV2.ID.make("opencode-go") ||
     flags.exa ||
@@ -104,6 +107,7 @@ const layer = Layer.effect(
 
     const invalid = yield* InvalidTool
     const task = yield* TaskTool
+    const dispatch = yield* TaskDispatchV1.Tool
     const read = yield* ReadTool
     const question = yield* QuestionTool
     const todo = yield* TodoWriteTool
@@ -221,6 +225,7 @@ const layer = Layer.effect(
           edit: Tool.init(edit),
           write: Tool.init(writetool),
           task: Tool.init(task),
+          dispatch: Tool.init(dispatch),
           fetch: Tool.init(webfetch),
           todo: Tool.init(todo),
           goal: Tool.init(goal),
@@ -246,6 +251,7 @@ const layer = Layer.effect(
             tool.edit,
             tool.write,
             tool.task,
+            tool.dispatch,
             tool.fetch,
             tool.todo,
             tool.goal,
@@ -301,7 +307,11 @@ const layer = Layer.effect(
     const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (input) {
       const filtered = (yield* all()).filter((tool) => {
         if (tool.id === WebSearchTool.id) {
-          return webSearchEnabled(input.providerID, { exa: flags.enableExa, parallel: flags.enableParallel })
+          return webSearchEnabled(
+            input.providerID,
+            { exa: flags.enableExa, parallel: flags.enableParallel },
+            input.agent.name,
+          )
         }
 
         const usePatch =
@@ -461,6 +471,7 @@ export const node = LayerNode.make({
     MCP.node,
     Database.node,
     Ripgrep.node,
+    TaskExecution.node,
   ],
 })
 

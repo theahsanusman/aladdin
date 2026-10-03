@@ -11,6 +11,19 @@ import {
 import { ServerScope } from "@/utils/server-scope"
 
 describe("resolveServerList", () => {
+  test("a paired browser uses its current origin credentials and cookie instead of stale saved credentials", () => {
+    const stored = [{ url: "https://server.example.test", password: "old" }]
+    const paired = resolveServerList({
+      stored,
+      props: [{ type: "http", browserSession: true, http: { url: "https://server.example.test", password: "new" } }],
+    })
+    const reloaded = resolveServerList({
+      stored,
+      props: [{ type: "http", browserSession: true, http: { url: "https://server.example.test" } }],
+    })
+    expect(paired[0].http.password).toBe("new")
+    expect(reloaded[0].http.password).toBeUndefined()
+  })
   test("lets startup auth_token credentials override a persisted same-url server", () => {
     const list = resolveServerList({
       stored: [{ url: "https://server.example.test" }],

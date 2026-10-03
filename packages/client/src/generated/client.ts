@@ -37,6 +37,28 @@ import type {
   SessionsInterruptOutput,
   SessionsMessageInput,
   SessionsMessageOutput,
+  TasksBoardInput,
+  TasksBoardOutput,
+  TasksListInput,
+  TasksListOutput,
+  TasksGetInput,
+  TasksGetOutput,
+  TasksDispatchInput,
+  TasksDispatchOutput,
+  TasksCancelInput,
+  TasksCancelOutput,
+  TasksRetryInput,
+  TasksRetryOutput,
+  TasksPauseInput,
+  TasksPauseOutput,
+  TasksResumeInput,
+  TasksResumeOutput,
+  TasksEventsInput,
+  TasksEventsOutput,
+  TasksInteractionsInput,
+  TasksInteractionsOutput,
+  TasksAnswerInput,
+  TasksAnswerOutput,
   MessagesListInput,
   MessagesListOutput,
   ModelsListInput,
@@ -490,6 +512,138 @@ export function make(options: ClientOptions) {
             path: `/api/session/${encodeURIComponent(input.sessionID)}/message/${encodeURIComponent(input.messageID)}`,
             successStatus: 200,
             declaredStatuses: [404, 400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+    },
+    tasks: {
+      board: (input: TasksBoardInput, requestOptions?: RequestOptions) =>
+        request<TasksBoardOutput>(
+          {
+            method: "GET",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task-board`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      list: (input: TasksListInput, requestOptions?: RequestOptions) =>
+        request<TasksListOutput>(
+          {
+            method: "GET",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task`,
+            query: { after: input["after"] },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      get: (input: TasksGetInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksGetOutput }>(
+          {
+            method: "GET",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/${encodeURIComponent(input.taskID)}`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      dispatch: (input: TasksDispatchInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksDispatchOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task`,
+            body: { dispatchKey: input["dispatchKey"], brief: input["brief"] },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      cancel: (input: TasksCancelInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksCancelOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/${encodeURIComponent(input.taskID)}/cancel`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      retry: (input: TasksRetryInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksRetryOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/${encodeURIComponent(input.taskID)}/retry`,
+            body: {
+              generation: input["generation"],
+              confirmStopped: input["confirmStopped"],
+              reviewedChanges: input["reviewedChanges"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      pause: (input: TasksPauseInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksPauseOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/pause`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      resume: (input: TasksResumeInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksResumeOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/resume`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      events: (input: TasksEventsInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksEventsOutput }>(
+          {
+            method: "GET",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task-events`,
+            query: { after: input["after"] },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      interactions: (input: TasksInteractionsInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksInteractionsOutput }>(
+          {
+            method: "GET",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task-interactions`,
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      answer: (input: TasksAnswerInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksAnswerOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task-interactions/${encodeURIComponent(input.interactionID)}`,
+            body: { generation: input["generation"], decision: input["decision"] },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
             empty: false,
           },
           requestOptions,

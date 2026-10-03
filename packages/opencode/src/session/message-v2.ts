@@ -360,6 +360,10 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
             })
         }
         if (part.type === "reasoning") {
+          // Responses providers can emit a reasoning item ID without any replayable
+          // content. Replaying it sends a blank assistant turn back to the model.
+          if (!part.text.trim() && part.metadata?.openai?.itemId && !part.metadata.openai.reasoningEncryptedContent)
+            continue
           if (differentModel) {
             if (part.text.trim().length > 0)
               assistantMessage.parts.push({

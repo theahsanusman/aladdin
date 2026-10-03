@@ -24,6 +24,37 @@ export default {
         );
       `)
       yield* tx.run(`
+        CREATE TABLE \`task_interaction\` (
+          \`id\` text PRIMARY KEY,
+          \`kind\` text NOT NULL,
+          \`format\` text NOT NULL,
+          \`request_id\` text NOT NULL,
+          \`owner_session_id\` text NOT NULL,
+          \`task_id\` text NOT NULL,
+          \`attempt_id\` text NOT NULL,
+          \`worker_session_id\` text NOT NULL,
+          \`generation\` integer NOT NULL,
+          \`payload\` text NOT NULL,
+          \`state\` text NOT NULL,
+          \`decision\` text,
+          \`reason\` text,
+          \`time_created\` integer NOT NULL,
+          \`time_updated\` integer NOT NULL,
+          \`expires_at\` integer,
+          \`time_decided\` integer,
+          CONSTRAINT \`fk_task_interaction_attempt_id_task_attempt_id_fk\` FOREIGN KEY (\`attempt_id\`) REFERENCES \`task_attempt\`(\`id\`) ON DELETE RESTRICT,
+          CONSTRAINT \`fk_task_interaction_task_id_owner_session_id_task_ledger_id_owner_session_id_fk\` FOREIGN KEY (\`task_id\`,\`owner_session_id\`) REFERENCES \`task_ledger\`(\`id\`,\`owner_session_id\`) ON DELETE RESTRICT,
+          CONSTRAINT "task_interaction_kind_check" CHECK("kind" IN ('question', 'permission')),
+          CONSTRAINT "task_interaction_format_check" CHECK("format" IN ('current', 'v1')),
+          CONSTRAINT "task_interaction_generation_check" CHECK("generation" > 0),
+          CONSTRAINT "task_interaction_time_check" CHECK("time_created" >= 0 AND "time_updated" >= 0 AND ("expires_at" IS NULL OR "expires_at" >= 0)),
+          CONSTRAINT "task_interaction_permission_expiry_check" CHECK("kind" != 'permission' OR "expires_at" IS NOT NULL),
+          CONSTRAINT "task_interaction_state_check" CHECK("state" IN ('pending', 'decided', 'expired', 'invalidated')),
+          CONSTRAINT "task_interaction_settlement_check" CHECK(("state" = 'pending' AND "decision" IS NULL AND "time_decided" IS NULL)
+            OR ("state" != 'pending' AND "time_decided" IS NOT NULL AND ("state" != 'decided' OR "decision" IS NOT NULL)))
+        );
+      `)
+      yield* tx.run(`
         CREATE TABLE \`account_state\` (
           \`id\` integer PRIMARY KEY,
           \`active_account_id\` text,
@@ -285,6 +316,76 @@ export default {
           CONSTRAINT \`fk_session_share_session_id_session_id_fk\` FOREIGN KEY (\`session_id\`) REFERENCES \`session\`(\`id\`) ON DELETE CASCADE
         );
       `)
+      yield* tx.run(`
+        CREATE TABLE \`task_attempt\` (
+          \`id\` text PRIMARY KEY,
+          \`task_id\` text NOT NULL,
+          \`owner_session_id\` text NOT NULL,
+          \`worker_session_id\` text NOT NULL,
+          \`input_message_id\` text NOT NULL,
+          \`runtime_epoch\` text NOT NULL,
+          \`generation\` integer NOT NULL,
+          \`slot\` integer NOT NULL,
+          \`status\` text NOT NULL,
+          \`evidence\` text,
+          \`time_created\` integer NOT NULL,
+          \`time_updated\` integer NOT NULL,
+          \`time_interrupted\` integer,
+          \`time_released\` integer,
+          CONSTRAINT \`fk_task_attempt_task_id_owner_session_id_task_ledger_id_owner_session_id_fk\` FOREIGN KEY (\`task_id\`,\`owner_session_id\`) REFERENCES \`task_ledger\`(\`id\`,\`owner_session_id\`) ON DELETE RESTRICT,
+          CONSTRAINT "task_attempt_slot_check" CHECK("slot" IN (1, 2, 3)),
+          CONSTRAINT "task_attempt_generation_check" CHECK("generation" > 0),
+          CONSTRAINT "task_attempt_status_check" CHECK("status" IN ('starting', 'running', 'waiting_for_user', 'verifying', 'cancelling', 'interrupted', 'completed', 'failed', 'cancelled')),
+          CONSTRAINT "task_attempt_release_check" CHECK(("time_released" IS NULL AND "status" NOT IN ('completed', 'failed', 'cancelled')) OR ("time_released" IS NOT NULL AND "status" IN ('completed', 'failed', 'cancelled')))
+        );
+      `)
+      yield* tx.run(`
+        CREATE TABLE \`task_ledger_event\` (
+          \`seq\` integer PRIMARY KEY AUTOINCREMENT,
+          \`task_id\` text NOT NULL,
+          \`owner_session_id\` text NOT NULL,
+          \`kind\` text NOT NULL,
+          \`data\` text NOT NULL,
+          CONSTRAINT \`fk_task_ledger_event_task_id_owner_session_id_task_ledger_id_owner_session_id_fk\` FOREIGN KEY (\`task_id\`,\`owner_session_id\`) REFERENCES \`task_ledger\`(\`id\`,\`owner_session_id\`) ON DELETE RESTRICT
+        );
+      `)
+      yield* tx.run(`
+        CREATE TABLE \`task_ledger\` (
+          \`id\` text PRIMARY KEY,
+          \`owner_session_id\` text NOT NULL,
+          \`project_id\` text NOT NULL,
+          \`directory\` text NOT NULL,
+          \`workspace_id\` text,
+          \`dispatch_key\` text NOT NULL,
+          \`brief\` text NOT NULL,
+          \`status\` text NOT NULL,
+          \`generation\` integer DEFAULT 0 NOT NULL,
+          \`queue_seq\` integer NOT NULL,
+          \`time_created\` integer NOT NULL,
+          \`time_updated\` integer NOT NULL,
+          CONSTRAINT \`fk_task_ledger_owner_session_id_session_id_fk\` FOREIGN KEY (\`owner_session_id\`) REFERENCES \`session\`(\`id\`) ON DELETE RESTRICT,
+          CONSTRAINT \`fk_task_ledger_project_id_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`project\`(\`id\`) ON DELETE RESTRICT,
+          CONSTRAINT "task_ledger_generation_check" CHECK("generation" >= 0),
+          CONSTRAINT "task_ledger_queue_check" CHECK("queue_seq" > 0),
+          CONSTRAINT "task_ledger_status_check" CHECK("status" IN ('queued', 'starting', 'running', 'waiting_for_user', 'verifying', 'cancelling', 'interrupted', 'completed', 'failed', 'cancelled'))
+        );
+      `)
+      yield* tx.run(`
+        CREATE TABLE \`task_team\` (
+          \`owner_session_id\` text PRIMARY KEY,
+          \`paused\` integer DEFAULT false NOT NULL,
+          \`time_updated\` integer NOT NULL,
+          CONSTRAINT \`fk_task_team_owner_session_id_session_id_fk\` FOREIGN KEY (\`owner_session_id\`) REFERENCES \`session\`(\`id\`) ON DELETE RESTRICT,
+          CONSTRAINT "task_team_paused_check" CHECK("paused" IN (0, 1))
+        );
+      `)
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_interaction_request_idx\` ON \`task_interaction\` (\`kind\`,\`request_id\`);`,
+      )
+      yield* tx.run(
+        `CREATE INDEX \`task_interaction_owner_idx\` ON \`task_interaction\` (\`owner_session_id\`,\`id\`);`,
+      )
+      yield* tx.run(`CREATE INDEX \`task_interaction_attempt_idx\` ON \`task_interaction\` (\`attempt_id\`,\`state\`);`)
       yield* tx.run(
         `CREATE INDEX \`automation_run_automation_time_idx\` ON \`automation_run\` (\`automation_id\`,\`time_created\`);`,
       )
@@ -326,6 +427,33 @@ export default {
       yield* tx.run(`CREATE INDEX \`session_workspace_idx\` ON \`session\` (\`workspace_id\`);`)
       yield* tx.run(`CREATE INDEX \`session_parent_idx\` ON \`session\` (\`parent_id\`);`)
       yield* tx.run(`CREATE INDEX \`todo_session_idx\` ON \`todo\` (\`session_id\`);`)
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_attempt_live_slot_idx\` ON \`task_attempt\` (\`owner_session_id\`,\`slot\`) WHERE "task_attempt"."time_released" IS NULL;`,
+      )
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_attempt_live_task_idx\` ON \`task_attempt\` (\`task_id\`) WHERE "task_attempt"."time_released" IS NULL;`,
+      )
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_attempt_generation_idx\` ON \`task_attempt\` (\`task_id\`,\`generation\`);`,
+      )
+      yield* tx.run(`CREATE UNIQUE INDEX \`task_attempt_worker_idx\` ON \`task_attempt\` (\`worker_session_id\`);`)
+      yield* tx.run(`CREATE UNIQUE INDEX \`task_attempt_input_idx\` ON \`task_attempt\` (\`input_message_id\`);`)
+      yield* tx.run(
+        `CREATE INDEX \`task_attempt_epoch_idx\` ON \`task_attempt\` (\`runtime_epoch\`,\`time_released\`);`,
+      )
+      yield* tx.run(
+        `CREATE INDEX \`task_ledger_event_owner_seq_idx\` ON \`task_ledger_event\` (\`owner_session_id\`,\`seq\`);`,
+      )
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_ledger_owner_dispatch_idx\` ON \`task_ledger\` (\`owner_session_id\`,\`dispatch_key\`);`,
+      )
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`task_ledger_id_owner_idx\` ON \`task_ledger\` (\`id\`,\`owner_session_id\`);`,
+      )
+      yield* tx.run(
+        `CREATE INDEX \`task_ledger_ready_idx\` ON \`task_ledger\` (\`owner_session_id\`,\`status\`,\`queue_seq\`);`,
+      )
+      yield* tx.run(`CREATE INDEX \`task_ledger_queue_seq_idx\` ON \`task_ledger\` (\`queue_seq\`);`)
     })
   },
 } satisfies Omit<DatabaseMigration.Migration, "id">

@@ -170,7 +170,7 @@ export function resolveServerList(input: {
       deduped.set(key, {
         ...existing,
         ...conn,
-        http: { ...existing.http, ...conn.http },
+        http: existing.type === "http" && existing.browserSession ? existing.http : { ...existing.http, ...conn.http },
       })
     else deduped.set(key, conn)
   }
@@ -192,6 +192,7 @@ export namespace ServerConnection {
     type: "http"
     http: HttpBase
     authToken?: boolean
+    browserSession?: boolean
   } & Base
 
   export type Sidecar = {

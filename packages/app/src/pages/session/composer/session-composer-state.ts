@@ -1,6 +1,6 @@
 import { createEffect, createMemo, on, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
-import type { PermissionRequest, QuestionRequest, Todo } from "@opencode-ai/sdk/v2"
+import type { PermissionRequest, QuestionRequest, Todo, Session } from "@opencode-ai/sdk/v2"
 import { useParams } from "@solidjs/router"
 import { showToast } from "@/utils/toast"
 import { useServerSync } from "@/context/server-sync"
@@ -34,6 +34,18 @@ export type GoalAction = "pause" | "resume" | "clear"
 
 const idle = { type: "idle" as const }
 
+export function permissionBlocksComposer(sessions: readonly Session[], owner: string, request?: PermissionRequest) {
+  if (!request) return false
+  return !isDetachedWorkerSession(sessions, owner, request.sessionID)
+}
+
+export function isDetachedWorkerSession(sessions: readonly Session[], owner: string, sessionID: string) {
+  if (sessionID === owner) return false
+  const actor = sessions.find((session) => session.id === sessionID)
+  const task = actor?.metadata?.task
+  return !!(task && typeof task === "object" && "ownerSessionID" in task && task.ownerSessionID === owner)
+}
+
 export function createSessionComposerController(options?: { closeMs?: number | (() => number) }) {
   const params = useParams()
   const sdk = useSDK()
@@ -43,12 +55,12 @@ export function createSessionComposerController(options?: { closeMs?: number | (
   const permission = usePermission()
 
   const questionRequest = createMemo((): QuestionRequest | undefined => {
-    return sessionQuestionRequest(sync().data.session, sync().data.question, params.id)
+    return sessionQuestionRequest(sync().data.session, sync().data.question, params.id, (item) => !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID))
   })
 
   const permissionRequest = createMemo((): PermissionRequest | undefined => {
     return sessionPermissionRequest(sync().data.session, sync().data.permission, params.id, (item) => {
-      return !permission.autoResponds(item, sdk().directory)
+      return !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID) && !permission.autoResponds(item, sdk().directory)
     })
   })
 
@@ -57,7 +69,7 @@ export function createSessionComposerController(options?: { closeMs?: number | (
   const blocked = createMemo(() => {
     const id = params.id
     if (!id) return false
-    return !!permissionRequest()
+    return permissionBlocksComposer(sync().data.session, id, permissionRequest())
   })
 
   const todos = createMemo((): Todo[] => {

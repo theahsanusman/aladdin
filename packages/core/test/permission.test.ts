@@ -24,6 +24,8 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { eq } from "drizzle-orm"
 import { location } from "./fixture/location"
 import { testEffect } from "./lib/effect"
+import { TaskLedger } from "../src/task/ledger"
+import { TaskInteractionStore } from "../src/task/interaction"
 
 const current = Layer.succeed(
   Location.Service,
@@ -39,6 +41,8 @@ const it = testEffect(
       PermissionSaved.node,
       AgentV2.node,
       PermissionV2.node,
+      TaskLedger.node,
+      TaskInteractionStore.node,
     ]),
     [[Location.node, current]],
   ),
@@ -110,6 +114,52 @@ function waitForRequest() {
 }
 
 describe("PermissionV2", () => {
+  it.live("persists worker permission identity and automatic decision before releasing the native wait", () =>
+    Effect.gen(function* () {
+      yield* setup([])
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const service = yield* PermissionV2.Service
+      const db = (yield* Database.Service).db
+      const ownerSessionID = SessionV2.ID.make("ses_test")
+      yield* ledger.admit({
+        ownerSessionID,
+        dispatchKey: "permission-worker",
+        brief: {
+          title: "Permission",
+          objective: "Ask native permission",
+          scope: ["This project"],
+          output: "Report",
+          checks: ["Decision recorded"],
+          constraints: [],
+        },
+      })
+      const attempt = yield* ledger.claim({ ownerSessionID, runtimeEpoch: "permission-worker" })
+      if (!attempt) return yield* Effect.die("Expected worker claim")
+      yield* db
+        .insert(SessionTable)
+        .values({
+          id: attempt.workerSessionID,
+          parent_id: ownerSessionID,
+          project_id: Project.ID.global,
+          directory: "/project",
+          slug: "worker",
+          title: "Worker",
+          version: "test",
+          agent: "test",
+        })
+      yield* ledger.transition(attempt, "running")
+      const result = yield* service.ask(assertion({ sessionID: attempt.workerSessionID }))
+      const saved = (yield* interactions.list({ ownerSessionID }))[0]
+      expect(saved).toMatchObject({ requestID: result.id, kind: "permission", state: "pending" })
+      expect(saved?.expiresAt).toBeGreaterThan(Date.now())
+      yield* service.reply({ requestID: result.id, reply: "once", automatic: true })
+      expect((yield* interactions.list({ ownerSessionID }))[0]).toMatchObject({
+        state: "decided",
+        decision: { kind: "permission", reply: "once", automatic: true },
+      })
+    }),
+  )
   it.effect("records actual policy auto-approval and preserves it after tool settlement", () =>
     Effect.gen(function* () {
       yield* setup([{ action: "read", resource: "*", effect: "allow" }])
@@ -119,14 +169,45 @@ describe("PermissionV2", () => {
       const sessionID = SessionV2.ID.make("ses_test")
       const assistantMessageID = SessionMessage.ID.create()
       const timestamp = yield* DateTime.now
-      yield* events.publish(SessionEvent.Step.Started, { sessionID, assistantMessageID, timestamp, agent: "test", model: { providerID: ProviderV2.ID.make("test"), id: ModelV2.ID.make("test") } })
-      yield* events.publish(SessionEvent.Tool.Input.Started, { sessionID, assistantMessageID, timestamp, callID: "call_read", name: "read" })
-      yield* events.publish(SessionEvent.Tool.Called, { sessionID, assistantMessageID, timestamp, callID: "call_read", tool: "read", input: {}, provider: { executed: false } })
+      yield* events.publish(SessionEvent.Step.Started, {
+        sessionID,
+        assistantMessageID,
+        timestamp,
+        agent: "test",
+        model: { providerID: ProviderV2.ID.make("test"), id: ModelV2.ID.make("test") },
+      })
+      yield* events.publish(SessionEvent.Tool.Input.Started, {
+        sessionID,
+        assistantMessageID,
+        timestamp,
+        callID: "call_read",
+        name: "read",
+      })
+      yield* events.publish(SessionEvent.Tool.Called, {
+        sessionID,
+        assistantMessageID,
+        timestamp,
+        callID: "call_read",
+        tool: "read",
+        input: {},
+        provider: { executed: false },
+      })
       yield* service.assert(assertion({ source: { type: "tool", messageID: assistantMessageID, callID: "call_read" } }))
-      yield* events.publish(SessionEvent.Tool.Success, { sessionID, assistantMessageID, timestamp, callID: "call_read", structured: {}, content: [], provider: { executed: false } })
+      yield* events.publish(SessionEvent.Tool.Success, {
+        sessionID,
+        assistantMessageID,
+        timestamp,
+        callID: "call_read",
+        structured: {},
+        content: [],
+        provider: { executed: false },
+      })
       const found = yield* store.message(assistantMessageID)
-      const tool = found?.message.type === "assistant" ? found.message.content.find((item) => item.type === "tool") : undefined
-      expect(tool?.type === "tool" && tool.state.status === "completed" && tool.state.structured.autoApprovals).toEqual([{ action: "read", resources: ["src/index.ts"], reason: "rule" }])
+      const tool =
+        found?.message.type === "assistant" ? found.message.content.find((item) => item.type === "tool") : undefined
+      expect(tool?.type === "tool" && tool.state.status === "completed" && tool.state.structured.autoApprovals).toEqual(
+        [{ action: "read", resources: ["src/index.ts"], reason: "rule" }],
+      )
     }),
   )
   it.effect("returns the evaluated effect and only queues prompts", () =>

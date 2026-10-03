@@ -118,6 +118,12 @@ import { instanceContextLayer } from "./middleware/instance-context"
 import { workspaceRoutingLayer } from "./middleware/workspace-routing"
 import { disposeMiddleware } from "./lifecycle"
 import { memoMap } from "@opencode-ai/core/effect/memo-map"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
+import { SessionStore } from "@opencode-ai/core/session/store"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
+import { TaskHost } from "@/task/host"
+import { TaskReplacements } from "@/task/replacements"
 import { compressionLayer } from "./middleware/compression"
 import { corsVaryFix } from "./middleware/cors-vary"
 import { errorLayer } from "./middleware/error"
@@ -250,6 +256,11 @@ const app = LayerNode.group([
   SessionGoal.node,
   Automation.node,
   Usage.node,
+  TaskExecution.node,
+  SessionStore.node,
+  TaskLedger.node,
+  TaskInteractionStore.node,
+  TaskHost.node,
   AutomationEngine.node,
   AutomationScheduler.node,
   Session.node,
@@ -291,7 +302,7 @@ const app = LayerNode.group([
 export function createRoutes(
   options?: CorsOptions & { serveWebUI?: boolean },
 ): Layer.Layer<never, EffectConfig.ConfigError, RouteRequirements> {
-  const locationServiceMapV2 = buildLocationServiceMap()
+  const locationServiceMapV2 = buildLocationServiceMap(TaskReplacements.values)
 
   return Layer.mergeAll(
     rootApiRoutes,
@@ -308,7 +319,10 @@ export function createRoutes(
       corsVaryFix,
       fenceLayer,
       cors(options),
-      AppNodeBuilderV1.build(MoveSession.node, [[LocationServiceMap.node, locationServiceMapV2]]),
+      AppNodeBuilderV1.build(
+        MoveSession.node,
+        TaskReplacements.values.concat([[LocationServiceMap.node, locationServiceMapV2]]),
+      ),
       HttpServer.layerServices,
     ]),
     Layer.provide(Layer.succeed(CorsConfig)(options)),
@@ -316,14 +330,17 @@ export function createRoutes(
     Layer.provide(locationLayer),
     Layer.provide(PtyEnvironment.layer),
     Layer.provide(
-      AppNodeBuilderV1.build(SessionV2.node, [
-        [LocationServiceMap.node, locationServiceMapV2],
-        [SessionExecution.node, SessionExecutionLocal.node],
-      ]),
+      AppNodeBuilderV1.build(
+        SessionV2.node,
+        TaskReplacements.values.concat([
+          [LocationServiceMap.node, locationServiceMapV2],
+          [SessionExecution.node, SessionExecutionLocal.node],
+        ]),
+      ),
     ),
     Layer.provide(locationServiceMapV2),
 
-    Layer.provide(AppNodeBuilderV1.build(app)),
+    Layer.provide(AppNodeBuilderV1.build(app, TaskReplacements.values)),
     // Must stay last: layers provided later in this pipe build beneath earlier ones,
     // so Observability must come after every service graph. Otherwise eagerly forked
     // fibers (e.g. the ModelsDev background refresh) capture Effect's default stdout

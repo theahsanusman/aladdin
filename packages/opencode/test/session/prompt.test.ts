@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { expect } from "bun:test"
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect"
+import fs from "node:fs/promises"
 import path from "path"
 import { fileURLToPath } from "url"
 import { NamedError } from "@opencode-ai/core/util/error"
@@ -593,8 +594,15 @@ it.instance(
         title: "Goal context",
         permission: [{ permission: "*", pattern: "*", action: "allow" }],
       })
-      yield* db.update(SessionTable).set({ goal_objective: "Ship Aladdin", goal_status: "active" }).where(eq(SessionTable.id, chat.id)).run()
-      yield* todos.update({ sessionID: chat.id, todos: [{ content: "Verify voice", status: "in_progress", priority: "high" }] })
+      yield* db
+        .update(SessionTable)
+        .set({ goal_objective: "Ship Aladdin", goal_status: "active" })
+        .where(eq(SessionTable.id, chat.id))
+        .run()
+      yield* todos.update({
+        sessionID: chat.id,
+        todos: [{ content: "Verify voice", status: "in_progress", priority: "high" }],
+      })
       yield* llm.hang
       yield* user(chat.id, "continue")
 
@@ -902,6 +910,158 @@ it.instance("loop continues when finish is unknown", () =>
     if (result.info.role === "assistant") {
       expect(result.parts.some((part) => part.type === "text" && part.text === "second")).toBe(true)
       expect(result.info.finish).toBe("stop")
+    }
+  }),
+)
+
+it.instance("Michael coordinator admits research and skills without inline mutation or recursive delegation", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Dispatcher" })
+    yield* llm.text("Ready to dispatch bounded work")
+    const result = yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "dispatcher",
+      parts: [{ type: "text", text: "Are you there?" }],
+    })
+    expect(result.info.role).toBe("assistant")
+    const inputs = yield* llm.inputs
+    const tools = inputs[0]?.tools as { function: { name: string } }[]
+    expect(tools.map((tool) => tool.function.name)).toContain("task_dispatch")
+    for (const name of ["read", "grep", "glob", "skill", "websearch", "webfetch"]) {
+      expect(tools.map((tool) => tool.function.name)).toContain(name)
+    }
+    expect(
+      tools.map((tool) => tool.function.name).filter((name) => ["bash", "task", "edit", "write"].includes(name)),
+    ).toEqual([])
+  }),
+)
+
+it.instance("Michael Lead preserves unavailable-tool feedback and recovers with a permitted read", () =>
+  Effect.gen(function* () {
+    const { dir, llm } = yield* useServerConfig(providerCfg)
+    yield* writeText(path.join(dir, "audit.txt"), "Dummy audit evidence")
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Lead tool recovery" })
+    yield* llm.tool("bash", { command: "printf this-must-never-run" })
+    yield* llm.tool("Read", { filePath: path.join(dir, "audit.txt") })
+    yield* llm.text("Recovered using the permitted inspection tool")
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "michael-lead",
+      parts: [{ type: "text", text: "Read the dummy audit evidence" }],
+    })
+    const messages = yield* MessageV2.filterCompactedEffect(session.id)
+    const calls = messages.flatMap((message) => message.parts.filter((part) => part.type === "tool"))
+    const denied = calls.find((part) => part.tool === "bash")
+    expect(denied?.state.status).toBe("error")
+    if (denied?.state.status === "error") {
+      expect(denied.state.error).toContain("unavailable tool 'bash'")
+      expect(denied.state.error).toContain("task_dispatch")
+      expect(denied.state.error).not.toContain("unavailable tool 'invalid'")
+    }
+    const read = calls.find((part) => part.state.status === "completed" && part.tool === "read")
+    expect(read?.state.status).toBe("completed")
+    if (read?.state.status === "completed") expect(read.state.output).toContain("Dummy audit evidence")
+    expect(yield* llm.calls).toBe(3)
+  }),
+)
+
+it.instance("Michael Lead keeps malformed available-tool arguments as validation feedback", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Lead argument recovery" })
+    yield* llm.tool("read", { unexpected: "missing file path" })
+    yield* llm.text("I need to correct the read arguments")
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "michael-lead",
+      parts: [{ type: "text", text: "Inspect the dummy project" }],
+    })
+    const messages = yield* MessageV2.filterCompactedEffect(session.id)
+    const failed = messages.flatMap((message) => message.parts).find((part) => part.type === "tool")
+    expect(failed?.type === "tool" && failed.state.status).toBe("error")
+    if (failed?.type === "tool" && failed.state.status === "error") {
+      expect(failed.state.error).toContain("read")
+      expect(failed.state.error).not.toContain("unavailable tool 'invalid'")
+    }
+  }),
+)
+
+it.instance("stops repeated empty unknown provider turns with a persisted error", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Empty stream" })
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "hello" }],
+    })
+    yield* llm.push(reply())
+    yield* llm.push(reply())
+    yield* llm.push(reply())
+    yield* llm.text("This fourth call must never happen")
+    const result = yield* prompt.loop({ sessionID: session.id })
+    expect(yield* llm.calls).toBe(3)
+    expect(result.info.role).toBe("assistant")
+    if (result.info.role === "assistant") {
+      expect(result.info.error).toMatchObject({ data: { message: expect.stringContaining("empty") } })
+      expect(result.info.time.completed).toBeDefined()
+    }
+    const status = yield* SessionStatus.Service
+    expect((yield* status.get(session.id)).type).toBe("idle")
+  }),
+)
+
+it.instance("surfaces an empty stop response instead of silently completing", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Empty completed stream" })
+    yield* llm.push(reply().stop())
+    const result = yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      parts: [{ type: "text", text: "hello" }],
+    })
+    expect(yield* llm.calls).toBe(1)
+    expect(result.info.role).toBe("assistant")
+    if (result.info.role === "assistant") {
+      expect(result.info.error).toMatchObject({ data: { message: expect.stringContaining("empty") } })
+      expect(result.info.finish).toBe("error")
+    }
+  }),
+)
+
+it.instance("persists an actionable error when a project directory disappears", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const test = yield* TestInstance
+    const session = yield* sessions.create({ title: "Missing folder" })
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "hello" }],
+    })
+    yield* Effect.promise(() => fs.rm(test.directory, { recursive: true }))
+    const result = yield* prompt.loop({ sessionID: session.id })
+    expect(yield* llm.calls).toBe(0)
+    expect(result.info.role).toBe("assistant")
+    if (result.info.role === "assistant") {
+      expect(result.info.error).toMatchObject({ data: { message: expect.stringContaining("Project folder") } })
+      expect(result.info.time.completed).toBeDefined()
     }
   }),
 )

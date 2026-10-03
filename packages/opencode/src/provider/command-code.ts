@@ -17,7 +17,13 @@ export function commandCodeResponsesRequest(input: RequestInfo | URL, init: Requ
       ? { type: "message", ...item }
       : item,
   )
-  return { ...init, body: JSON.stringify({ ...parsed.value, input: messages }) }
+  const reasoning = parsed.value.reasoning
+  if (!isRecord(reasoning) || !Object.hasOwn(reasoning, "summary"))
+    return { ...init, body: JSON.stringify({ ...parsed.value, input: messages }) }
+
+  // Command Code accepts reasoning effort but rejects OpenAI's summary option.
+  const { summary: _, ...supportedReasoning } = reasoning
+  return { ...init, body: JSON.stringify({ ...parsed.value, input: messages, reasoning: supportedReasoning }) }
 }
 
 export * as CommandCode from "./command-code"

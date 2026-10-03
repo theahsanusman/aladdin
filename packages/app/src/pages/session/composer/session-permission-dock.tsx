@@ -4,9 +4,13 @@ import { Button } from "@opencode-ai/ui/button"
 import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
 import { Icon } from "@opencode-ai/ui/icon"
 import { useLanguage } from "@/context/language"
+type PermissionView = Omit<PermissionRequest, "patterns" | "always"> & {
+  readonly patterns: readonly string[]
+  readonly always: readonly string[]
+}
 
 export function SessionPermissionDock(props: {
-  request: PermissionRequest
+  request: PermissionView
   responding: boolean
   onDecide: (response: "once" | "always" | "reject") => void
 }) {

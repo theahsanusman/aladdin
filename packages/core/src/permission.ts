@@ -13,6 +13,10 @@ import { PermissionSaved } from "./permission/saved"
 import { PermissionAutoApproval } from "./permission/auto-approval"
 import { SessionMessage } from "./session/message"
 import { SessionEvent } from "./session/event"
+import { TaskLedger } from "./task/ledger"
+import { TaskInteractionStore } from "./task/interaction"
+import { TaskInteraction } from "@opencode-ai/schema/task-interaction"
+import { TaskExecution } from "./task/execution"
 
 export { Effect, Rule, Ruleset } from "@opencode-ai/schema/permission"
 const missingAgentPermissions: Permission.Ruleset = [{ action: "*", resource: "*", effect: "deny" }]
@@ -114,6 +118,7 @@ interface Pending {
   readonly request: Request
   readonly agent?: AgentV2.ID
   readonly deferred: Deferred.Deferred<void, DeclinedError | CorrectedError>
+  readonly interaction?: TaskInteraction.Info
 }
 
 const layer = Layer.effect(
@@ -125,6 +130,9 @@ const layer = Layer.effect(
     const sessions = yield* SessionStore.Service
     const saved = yield* PermissionSaved.Service
     const scope = yield* Scope.Scope
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const execution = yield* TaskExecution.Service
     const pending = new Map<ID, Pending>()
 
     const recordApproval = EffectRuntime.fnUntraced(function* (input: AssertInput, reason: "rule" | "auto") {
@@ -138,7 +146,11 @@ const layer = Layer.effect(
         assistantMessageID: stored.message.id,
         callID: tool.id,
         timestamp: yield* DateTime.now,
-        structured: PermissionAutoApproval.append(tool.state.structured, { action: input.action, resources: input.resources, reason }),
+        structured: PermissionAutoApproval.append(tool.state.structured, {
+          action: input.action,
+          resources: input.resources,
+          reason,
+        }),
         content: tool.state.content,
       })
     })
@@ -204,7 +216,30 @@ const layer = Layer.effect(
       EffectRuntime.uninterruptible(
         EffectRuntime.gen(function* () {
           const deferred = yield* Deferred.make<void, DeclinedError | CorrectedError>()
-          const item = { request, agent, deferred }
+          const attempt = yield* ledger.worker(request.sessionID).pipe(EffectRuntime.orDie)
+          const timeCreated = DateTime.toEpochMillis(yield* DateTime.now)
+          const opened = attempt
+            ? yield* interactions
+                .open({
+                  kind: "permission",
+                  format: "current",
+                  generation: attempt.generation,
+                  payload: Schema.decodeUnknownSync(TaskInteraction.Payload)(
+                    Schema.decodeUnknownSync(Schema.UnknownFromJsonString)(
+                      Schema.encodeSync(Schema.fromJsonString(Request))(request),
+                    ),
+                  ),
+                  timeCreated,
+                  expiresAt: timeCreated + Duration.toMillis(TIMEOUT()),
+                })
+                .pipe(EffectRuntime.orDie)
+            : undefined
+          const item: Pending = {
+            request,
+            agent,
+            deferred,
+            ...(opened?._tag === "worker" ? { interaction: opened.interaction } : {}),
+          }
           if (pending.has(request.id)) return yield* EffectRuntime.die(`Duplicate pending permission ID: ${request.id}`)
           pending.set(request.id, item)
           yield* events
@@ -215,6 +250,10 @@ const layer = Layer.effect(
               yield* EffectRuntime.sleep(TIMEOUT())
               if (pending.get(request.id) !== item) return
               pending.delete(request.id)
+              if (item.interaction)
+                yield* interactions
+                  .get({ ownerSessionID: item.interaction.ownerSessionID, id: item.interaction.id })
+                  .pipe(EffectRuntime.orDie)
               yield* events
                 .publish(Event.Replied, {
                   sessionID: request.sessionID,
@@ -256,7 +295,7 @@ const layer = Layer.effect(
           }
           if (result.effect === "allow") return yield* recordApproval(input, "rule")
           const item = yield* create(request(input), input.agent)
-          return yield* restore(Deferred.await(item.deferred)).pipe(
+          return yield* restore(execution.withWait(input.sessionID, Deferred.await(item.deferred))).pipe(
             EffectRuntime.catchTag("PermissionV2.DeclinedError", (error) => EffectRuntime.die(error)),
             EffectRuntime.ensuring(
               EffectRuntime.sync(() => {
@@ -273,6 +312,20 @@ const layer = Layer.effect(
         EffectRuntime.gen(function* () {
           const existing = pending.get(input.requestID)
           if (!existing) return yield* new NotFoundError({ requestID: input.requestID })
+          if (existing.interaction)
+            yield* interactions
+              .decide({
+                ownerSessionID: existing.interaction.ownerSessionID,
+                id: existing.interaction.id,
+                generation: existing.interaction.generation,
+                decision: {
+                  kind: "permission",
+                  reply: input.reply,
+                  ...(input.message === undefined ? {} : { message: input.message }),
+                  ...(input.automatic === undefined ? {} : { automatic: input.automatic }),
+                },
+              })
+              .pipe(EffectRuntime.mapError(() => new NotFoundError({ requestID: input.requestID })))
           yield* events.publish(Event.Replied, {
             sessionID: existing.request.sessionID,
             requestID: existing.request.id,
@@ -287,6 +340,21 @@ const layer = Layer.effect(
             pending.delete(input.requestID)
             for (const [id, item] of pending) {
               if (item.request.sessionID !== existing.request.sessionID) continue
+              if (item.interaction) {
+                const accepted = yield* interactions
+                  .decide({
+                    ownerSessionID: item.interaction.ownerSessionID,
+                    id: item.interaction.id,
+                    generation: item.interaction.generation,
+                    decision: { kind: "permission", reply: "reject" },
+                  })
+                  .pipe(
+                    EffectRuntime.as(true),
+                    EffectRuntime.catchTag("TaskInteractionStore.Error", () => EffectRuntime.succeed(false)),
+                    EffectRuntime.orDie,
+                  )
+                if (!accepted) continue
+              }
               yield* events.publish(Event.Replied, {
                 sessionID: item.request.sessionID,
                 requestID: item.request.id,
@@ -325,6 +393,21 @@ const layer = Layer.effect(
               )
             )
               continue
+            if (item.interaction) {
+              const accepted = yield* interactions
+                .decide({
+                  ownerSessionID: item.interaction.ownerSessionID,
+                  id: item.interaction.id,
+                  generation: item.interaction.generation,
+                  decision: { kind: "permission", reply: "always", automatic: true },
+                })
+                .pipe(
+                  EffectRuntime.as(true),
+                  EffectRuntime.catchTag("TaskInteractionStore.Error", () => EffectRuntime.succeed(false)),
+                  EffectRuntime.orDie,
+                )
+              if (!accepted) continue
+            }
             yield* events.publish(Event.Replied, {
               sessionID: item.request.sessionID,
               requestID: item.request.id,
@@ -359,5 +442,14 @@ export const locationLayer = layer.pipe(Layer.provideMerge(AgentV2.locationLayer
 export const node = makeLocationNode({
   service: Service,
   layer,
-  deps: [EventV2.node, Location.node, AgentV2.node, SessionStore.node, PermissionSaved.node],
+  deps: [
+    EventV2.node,
+    Location.node,
+    AgentV2.node,
+    SessionStore.node,
+    PermissionSaved.node,
+    TaskLedger.node,
+    TaskInteractionStore.node,
+    TaskExecution.node,
+  ],
 })

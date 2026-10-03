@@ -7,6 +7,10 @@ import { EventV2Bridge } from "@/event-v2-bridge"
 import { Config } from "@/config/config"
 import { Unattended } from "@/automation/unattended"
 import { QuestionV1 } from "@opencode-ai/schema/question-v1"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
+import { TaskInteraction } from "@opencode-ai/schema/task-interaction"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
 
 export const Option = QuestionV1.Option
 export type Option = typeof Option.Type
@@ -61,6 +65,7 @@ const MAX_EXPIRED = 100
 interface PendingEntry {
   info: Request
   deferred: Deferred.Deferred<Result, RejectedError>
+  interaction?: TaskInteraction.Info
 }
 
 interface State {
@@ -92,6 +97,9 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
     const config = yield* Config.Service
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const execution = yield* TaskExecution.Service
     const state = yield* InstanceState.make<State>(
       Effect.fn("Question.state")(function* () {
         const state: State = {
@@ -122,6 +130,22 @@ const layer = Layer.effect(
       const current = yield* InstanceState.get(state)
       const existing = current.pending.get(id)
       if (!existing) return
+      if (existing.interaction) {
+        if (source === "timeout" || source === "unattended") {
+          yield* interactions
+            .get({ ownerSessionID: existing.interaction.ownerSessionID, id: existing.interaction.id })
+            .pipe(Effect.orDie)
+        } else {
+          yield* interactions
+            .decide({
+              ownerSessionID: existing.interaction.ownerSessionID,
+              id: existing.interaction.id,
+              generation: existing.interaction.generation,
+              decision: { kind: "question-rejection" },
+            })
+            .pipe(Effect.mapError(() => new ExpiredError({ requestID: id })))
+        }
+      }
       current.pending.delete(id)
       yield* Effect.logInfo("resolved", { requestID: id, source })
 
@@ -157,6 +181,7 @@ const layer = Layer.effect(
       timeoutSeconds?: number
     }) {
       const cfg = yield* config.get()
+      const attempt = yield* ledger.worker(input.sessionID).pipe(Effect.orDie)
       const { pending } = yield* InstanceState.get(state)
       const configured = cfg.question?.timeout_seconds ?? DEFAULT_TIMEOUT_SECONDS
       const requested = input.timeoutSeconds ?? configured
@@ -167,6 +192,7 @@ const layer = Layer.effect(
       // result is reported as unattended instead of pretending it timed out.
       const unattended = Unattended.isUnattended(input.sessionID)
       const deadlineMs = unattended ? 0 : seconds * 1000
+      const waitIndefinitely = attempt !== undefined && input.timeoutSeconds === undefined && !unattended
       const source: Resolution = unattended ? "unattended" : onTimeout === "skip" ? "skipped" : "timeout"
       const id = QuestionID.ascending()
       yield* Effect.logInfo("asking", { id, questions: input.questions.length, timeoutSeconds: seconds, unattended })
@@ -176,27 +202,42 @@ const layer = Layer.effect(
         id,
         sessionID: input.sessionID,
         questions: input.questions,
-        tool: input.tool,
+        ...(input.tool === undefined ? {} : { tool: input.tool }),
         timeoutSeconds: seconds,
-        expiresAt: Date.now() + deadlineMs,
+        ...(waitIndefinitely ? {} : { expiresAt: Date.now() + deadlineMs }),
       }
-      pending.set(id, { info, deferred })
+      const opened = attempt
+        ? yield* interactions
+            .open({
+              kind: "question",
+              format: "v1",
+              generation: attempt.generation,
+              payload: Schema.decodeUnknownSync(TaskInteraction.Payload)(Schema.encodeSync(Request)(info)),
+              timeCreated: Date.now(),
+              ...(info.expiresAt === undefined ? {} : { expiresAt: info.expiresAt }),
+            })
+            .pipe(Effect.orDie)
+        : undefined
+      pending.set(id, { info, deferred, ...(opened?._tag === "worker" ? { interaction: opened.interaction } : {}) })
       yield* events.publish(Event.Asked, info)
 
-      const fallback =
+      const fallback = (
         source === "skipped"
           ? settle(id, "skipped", [])
           : source === "unattended"
             ? settle(id, "unattended", assume(input.questions))
             : settle(id, "timeout", assume(input.questions))
+      ).pipe(Effect.orDie)
 
       return yield* Effect.ensuring(
-        deadlineMs <= 0
-          ? fallback.pipe(Effect.andThen(Deferred.await(deferred)))
-          : Effect.raceFirst(
-              Deferred.await(deferred),
-              Effect.sleep(deadlineMs).pipe(Effect.andThen(fallback), Effect.andThen(Deferred.await(deferred))),
-            ),
+        waitIndefinitely
+          ? Deferred.await(deferred)
+          : deadlineMs <= 0
+            ? fallback.pipe(Effect.andThen(Deferred.await(deferred)))
+            : Effect.raceFirst(
+                Deferred.await(deferred),
+                Effect.sleep(deadlineMs).pipe(Effect.andThen(fallback), Effect.andThen(Deferred.await(deferred))),
+              ),
         Effect.sync(() => {
           pending.delete(id)
         }),
@@ -217,6 +258,15 @@ const layer = Layer.effect(
         yield* Effect.logWarning("reply for unknown request", { requestID: input.requestID })
         return yield* new NotFoundError({ requestID: input.requestID })
       }
+      if (existing.interaction)
+        yield* interactions
+          .decide({
+            ownerSessionID: existing.interaction.ownerSessionID,
+            id: existing.interaction.id,
+            generation: existing.interaction.generation,
+            decision: { kind: "question", answers: input.answers },
+          })
+          .pipe(Effect.mapError(() => new ExpiredError({ requestID: input.requestID })))
       current.pending.delete(input.requestID)
       yield* Effect.logInfo("replied", { requestID: input.requestID, answers: input.answers })
       yield* events.publish(Event.Replied, {
@@ -248,10 +298,14 @@ const layer = Layer.effect(
       return Array.from(pending.values(), (x) => x.info)
     })
 
-    return Service.of({ ask, reply, reject, list })
+    return Service.of({ ask: (input) => execution.withWait(input.sessionID, ask(input)), reply, reject, list })
   }),
 )
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node, Config.node] })
+export const node = LayerNode.make({
+  service: Service,
+  layer: layer,
+  deps: [EventV2Bridge.node, Config.node, TaskLedger.node, TaskInteractionStore.node, TaskExecution.node],
+})
 
 export * as Question from "."

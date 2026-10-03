@@ -13,6 +13,8 @@ import { RelativePath } from "../schema"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { TaskExecution } from "../task/execution"
+import { TaskWorkerPolicy } from "../task/worker-policy"
 
 export const name = "grep"
 
@@ -57,6 +59,7 @@ const layer = Layer.effectDiscard(
     const ripgrep = yield* Ripgrep.Service
     const location = yield* Location.Service
     const permission = yield* PermissionV2.Service
+    const tasks = yield* TaskExecution.Service
 
     yield* tools
       .register({
@@ -94,12 +97,14 @@ const layer = Layer.effectDiscard(
               })
               const target = path.resolve(location.directory, input.path ?? ".")
               const info = yield* fs.stat(target).pipe(Effect.catch(() => Effect.succeed(undefined)))
+              const worker = yield* tasks.workerContext(context.sessionID)
               return yield* ripgrep
                 .grep({
                   cwd: info?.type === "Directory" ? target : path.dirname(target),
                   pattern: input.pattern,
                   file: info?.type === "File" ? path.basename(target) : undefined,
                   include: input.include,
+                  ...(worker ? { exclude: TaskWorkerPolicy.searchExclusions } : {}),
                   limit: input.limit ?? Number.MAX_SAFE_INTEGER,
                 })
                 .pipe(
@@ -133,5 +138,5 @@ const layer = Layer.effectDiscard(
 export const node = makeLocationNode({
   name: "tool/grep",
   layer,
-  deps: [ToolRegistry.node, FSUtil.node, Ripgrep.node, Location.node, PermissionV2.node],
+  deps: [ToolRegistry.node, FSUtil.node, Ripgrep.node, Location.node, PermissionV2.node, TaskExecution.node],
 })

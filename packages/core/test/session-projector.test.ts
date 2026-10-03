@@ -11,6 +11,7 @@ import { Project } from "@opencode-ai/core/project"
 import { ProjectTable } from "@opencode-ai/core/project/sql"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { AbsolutePath } from "@opencode-ai/core/schema"
+import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { SessionEvent } from "@opencode-ai/core/session/event"
 import { SessionMessage } from "@opencode-ai/core/session/message"
@@ -75,6 +76,44 @@ describe("SessionProjector", () => {
       expect(yield* db.select({ directory: SessionTable.directory }).from(SessionTable).get()).toEqual({
         directory: "/project/subdir",
       })
+    }),
+  )
+
+  it.effect("clears an obsolete relative path when reconnecting a legacy chat", () =>
+    Effect.gen(function* () {
+      const { db } = yield* Database.Service
+      const events = yield* EventV2.Service
+      yield* db
+        .insert(ProjectTable)
+        .values({ id: Project.ID.global, worktree: AbsolutePath.make("/project"), sandboxes: [] })
+        .run()
+      yield* db
+        .insert(SessionTable)
+        .values({
+          id: sessionID,
+          project_id: Project.ID.global,
+          slug: "test",
+          directory: "/old",
+          path: "old/path",
+          title: "test",
+          version: "test",
+        })
+        .run()
+      yield* events.publish(SessionV1.Event.Updated, {
+        sessionID,
+        info: {
+          id: sessionID,
+          projectID: Project.ID.global,
+          slug: "test",
+          directory: "/project",
+          title: "test",
+          version: "test",
+          time: { created: 0, updated: 1 },
+        },
+      })
+      expect(
+        yield* db.select({ directory: SessionTable.directory, path: SessionTable.path }).from(SessionTable).get(),
+      ).toEqual({ directory: "/project", path: null })
     }),
   )
 

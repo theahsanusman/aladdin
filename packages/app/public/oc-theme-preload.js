@@ -18,10 +18,15 @@
   document.documentElement.style.backgroundColor = isDark ? "#080808" : "#fafafa"
 
   // Look must be applied before first paint so the glass layer does not flash in.
+  // Desktop settings live in the main-process store, so the app mirrors the look
+  // into localStorage where this synchronous preload can read it.
   var look = "liquid-glass"
   try {
-    var stored = JSON.parse(localStorage.getItem("settings.v3") || "null")
-    var value = stored && stored.appearance ? stored.appearance.look : undefined
+    var value = window.api ? localStorage.getItem("opencode-look") : undefined
+    if (value !== "classic" && value !== "liquid-glass") {
+      var stored = JSON.parse(localStorage.getItem("settings.v3") || "null")
+      value = stored && stored.appearance ? stored.appearance.look : undefined
+    }
     if (value === "classic" || value === "liquid-glass") look = value
   } catch (error) {}
   document.documentElement.dataset.look = look

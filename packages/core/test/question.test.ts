@@ -6,8 +6,17 @@ import { EventV2 } from "@opencode-ai/core/event"
 import { QuestionV2 } from "@opencode-ai/core/question"
 import { SessionV2 } from "@opencode-ai/core/session"
 import { testEffect } from "./lib/effect"
+import { Database } from "../src/database/database"
+import { ProjectTable } from "../src/project/sql"
+import { SessionTable } from "../src/session/sql"
+import { ProjectID } from "@opencode-ai/schema/project-id"
+import { AbsolutePath } from "@opencode-ai/schema/schema"
+import { TaskLedger } from "../src/task/ledger"
+import { TaskInteractionStore } from "../src/task/interaction"
 
-const questions = AppNodeBuilder.build(LayerNode.group([EventV2.node, QuestionV2.node]))
+const questions = AppNodeBuilder.build(
+  LayerNode.group([Database.node, EventV2.node, QuestionV2.node, TaskLedger.node, TaskInteractionStore.node]),
+)
 const it = testEffect(questions)
 
 const sessionID = SessionV2.ID.make("ses_question_test")
@@ -34,6 +43,64 @@ const waitForAsk = Effect.fn("QuestionV2Test.waitForAsk")(function* (
 })
 
 describe("QuestionV2", () => {
+  it.live("persists a worker's exact native request and answer before resolving its wait", () =>
+    Effect.gen(function* () {
+      const db = (yield* Database.Service).db
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const service = yield* QuestionV2.Service
+      yield* db.insert(ProjectTable).values({
+        id: ProjectID.make("question-worker"),
+        worktree: AbsolutePath.make("/question-worker"),
+        sandboxes: [],
+      })
+      yield* db.insert(SessionTable).values({
+        id: sessionID,
+        project_id: ProjectID.make("question-worker"),
+        directory: "/question-worker",
+        slug: "question-worker",
+        title: "Question worker",
+        version: "test",
+      })
+      yield* ledger.admit({
+        ownerSessionID: sessionID,
+        dispatchKey: "question-worker",
+        brief: {
+          title: "Worker",
+          objective: "Ask for a decision",
+          scope: ["This project"],
+          output: "Report",
+          checks: ["Decision recorded"],
+          constraints: [],
+        },
+      })
+      const attempt = yield* ledger.claim({ ownerSessionID: sessionID, runtimeEpoch: "question-test" })
+      if (!attempt) return yield* Effect.die("Expected worker claim")
+      yield* ledger.transition(attempt, "running")
+      const pending = yield* waitForAsk(service, { sessionID: attempt.workerSessionID, questions: [question] })
+      const saved = (yield* interactions.list({ ownerSessionID: sessionID }))[0]
+      expect(saved).toMatchObject({
+        requestID: pending.request.id,
+        workerSessionID: attempt.workerSessionID,
+        state: "pending",
+      })
+      yield* service.reply({ requestID: pending.request.id, answers: [["One"]] })
+      expect(yield* Fiber.join(pending.fiber)).toEqual([["One"]])
+      expect((yield* interactions.list({ ownerSessionID: sessionID }))[0]).toMatchObject({
+        state: "decided",
+        decision: { kind: "question", answers: [["One"]] },
+      })
+      const next = yield* waitForAsk(service, { sessionID: attempt.workerSessionID, questions: [question] })
+      yield* ledger.interruptEpoch("question-test")
+      expect(yield* Effect.flip(service.reply({ requestID: next.request.id, answers: [["One"]] }))).toMatchObject({
+        _tag: "QuestionV2.NotFoundError",
+      })
+      expect(
+        (yield* interactions.list({ ownerSessionID: sessionID })).filter((item) => item.state === "pending"),
+      ).toHaveLength(1)
+      yield* Fiber.interrupt(next.fiber)
+    }),
+  )
   it.effect("publishes lifecycle events and settles a pending reply", () =>
     Effect.gen(function* () {
       const service = yield* QuestionV2.Service

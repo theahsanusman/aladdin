@@ -13,6 +13,10 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { PermissionAutoApproval } from "@opencode-ai/core/permission/auto-approval"
 import { and, eq } from "drizzle-orm"
 import { MessageID } from "@/session/schema"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
+import { TaskInteractionStore } from "@opencode-ai/core/task/interaction"
+import { TaskInteraction } from "@opencode-ai/schema/task-interaction"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
 
 export const Event = PermissionV1.Event
 
@@ -24,13 +28,16 @@ const TIMEOUT_FEEDBACK = "Permission request timed out without a response."
 
 export interface Interface {
   readonly ask: (input: PermissionV1.AskInput) => Effect.Effect<void, PermissionV1.Error>
-  readonly reply: (input: PermissionV1.ReplyInput & { automatic?: boolean }) => Effect.Effect<void, PermissionV1.NotFoundError>
+  readonly reply: (
+    input: PermissionV1.ReplyInput & { automatic?: boolean },
+  ) => Effect.Effect<void, PermissionV1.NotFoundError>
   readonly list: () => Effect.Effect<ReadonlyArray<PermissionV1.Request>>
 }
 
 interface PendingEntry {
   info: PermissionV1.Request
   deferred: Deferred.Deferred<void, PermissionV1.RejectedError | PermissionV1.CorrectedError>
+  interaction?: TaskInteraction.Info
 }
 
 interface State {
@@ -57,15 +64,73 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
     const database = yield* Database.Service
-    const recordApproval = Effect.fnUntraced(function* (request: Omit<PermissionV1.Request, "id">, reason: "rule" | "auto") {
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const execution = yield* TaskExecution.Service
+    const decide = Effect.fnUntraced(function* (
+      entry: PendingEntry,
+      reply: PermissionV1.ReplyInput["reply"],
+      message?: string,
+      automatic?: boolean,
+    ) {
+      if (!entry.interaction) return
+      yield* interactions
+        .decide({
+          ownerSessionID: entry.interaction.ownerSessionID,
+          id: entry.interaction.id,
+          generation: entry.interaction.generation,
+          decision: {
+            kind: "permission",
+            reply,
+            ...(message === undefined ? {} : { message }),
+            ...(automatic === undefined ? {} : { automatic }),
+          },
+        })
+        .pipe(Effect.mapError(() => new PermissionV1.NotFoundError({ requestID: entry.info.id })))
+    })
+    const recordApproval = Effect.fnUntraced(function* (
+      request: Omit<PermissionV1.Request, "id">,
+      reason: "rule" | "auto",
+    ) {
       if (!request.tool) return
-      const rows = yield* database.db.select().from(PartTable).where(and(eq(PartTable.session_id, request.sessionID), eq(PartTable.message_id, MessageID.make(request.tool.messageID)))).all().pipe(Effect.orDie)
-      const part = rows.map((row) => Option.getOrUndefined(Schema.decodeUnknownOption(SessionV1.Part)({ ...row.data, id: row.id, messageID: row.message_id, sessionID: row.session_id }))).find((item) => item?.type === "tool" && item.callID === request.tool?.callID)
+      const rows = yield* database.db
+        .select()
+        .from(PartTable)
+        .where(
+          and(
+            eq(PartTable.session_id, request.sessionID),
+            eq(PartTable.message_id, MessageID.make(request.tool.messageID)),
+          ),
+        )
+        .all()
+        .pipe(Effect.orDie)
+      const part = rows
+        .map((row) =>
+          Option.getOrUndefined(
+            Schema.decodeUnknownOption(SessionV1.Part)({
+              ...row.data,
+              id: row.id,
+              messageID: row.message_id,
+              sessionID: row.session_id,
+            }),
+          ),
+        )
+        .find((item) => item?.type === "tool" && item.callID === request.tool?.callID)
       if (!part || part.type !== "tool" || part.state.status === "pending") return
       yield* events.publish(SessionV1.Event.PartUpdated, {
         sessionID: request.sessionID,
         time: Date.now(),
-        part: { ...part, state: { ...part.state, metadata: PermissionAutoApproval.append(part.state.metadata ?? {}, { action: request.permission, resources: request.patterns, reason }) } },
+        part: {
+          ...part,
+          state: {
+            ...part.state,
+            metadata: PermissionAutoApproval.append(part.state.metadata ?? {}, {
+              action: request.permission,
+              resources: request.patterns,
+              reason,
+            }),
+          },
+        },
       })
     })
     const state = yield* InstanceState.make<State>(
@@ -134,14 +199,41 @@ const layer = Layer.effect(
       yield* Effect.logInfo("asking", { id, permission: info.permission, patterns: info.patterns })
 
       const deferred = yield* Deferred.make<void, PermissionV1.RejectedError | PermissionV1.CorrectedError>()
-      pending.set(id, { info, deferred })
+      const attempt = yield* ledger.worker(request.sessionID).pipe(Effect.orDie)
+      const timeCreated = Date.now()
+      const opened = attempt
+        ? yield* interactions
+            .open({
+              kind: "permission",
+              format: "v1",
+              generation: attempt.generation,
+              payload: Schema.decodeUnknownSync(TaskInteraction.Payload)(
+                Schema.decodeUnknownSync(Schema.UnknownFromJsonString)(
+                  Schema.encodeSync(Schema.fromJsonString(PermissionV1.Request))(info),
+                ),
+              ),
+              timeCreated,
+              expiresAt: timeCreated + Duration.toMillis(TIMEOUT()),
+            })
+            .pipe(Effect.orDie)
+        : undefined
+      const entry: PendingEntry = {
+        info,
+        deferred,
+        ...(opened?._tag === "worker" ? { interaction: opened.interaction } : {}),
+      }
+      pending.set(id, entry)
       yield* events.publish(Event.Asked, info)
       return yield* Effect.ensuring(
-        Deferred.await(deferred).pipe(
+        execution.withWait(request.sessionID, Deferred.await(deferred).pipe(
           Effect.timeoutOrElse({
             duration: TIMEOUT(),
             orElse: () =>
               Effect.gen(function* () {
+                if (entry.interaction)
+                  yield* interactions
+                    .get({ ownerSessionID: entry.interaction.ownerSessionID, id: entry.interaction.id })
+                    .pipe(Effect.orDie)
                 yield* events.publish(Event.Replied, {
                   sessionID: request.sessionID,
                   requestID: id,
@@ -150,7 +242,7 @@ const layer = Layer.effect(
                 return yield* new PermissionV1.CorrectedError({ feedback: TIMEOUT_FEEDBACK })
               }),
           }),
-        ),
+        )),
         Effect.sync(() => {
           pending.delete(id)
         }),
@@ -161,6 +253,7 @@ const layer = Layer.effect(
       const { approved, pending } = yield* InstanceState.get(state)
       const existing = pending.get(input.requestID)
       if (!existing) return yield* new PermissionV1.NotFoundError({ requestID: input.requestID })
+      yield* decide(existing, input.reply, input.message, input.automatic)
 
       pending.delete(input.requestID)
       yield* events.publish(Event.Replied, {
@@ -179,6 +272,11 @@ const layer = Layer.effect(
 
         for (const [id, item] of pending.entries()) {
           if (item.info.sessionID !== existing.info.sessionID) continue
+          const accepted = yield* decide(item, "reject").pipe(
+            Effect.as(true),
+            Effect.catchTag("Permission.NotFoundError", () => Effect.succeed(false)),
+          )
+          if (!accepted) continue
           pending.delete(id)
           yield* events.publish(Event.Replied, {
             sessionID: item.info.sessionID,
@@ -208,6 +306,11 @@ const layer = Layer.effect(
           (pattern) => evaluate(item.info.permission, pattern, approved).action === "allow",
         )
         if (!ok) continue
+        const accepted = yield* decide(item, "always", undefined, true).pipe(
+          Effect.as(true),
+          Effect.catchTag("Permission.NotFoundError", () => Effect.succeed(false)),
+        )
+        if (!accepted) continue
         pending.delete(id)
         yield* events.publish(Event.Replied, {
           sessionID: item.info.sessionID,
@@ -271,6 +374,10 @@ export function visibleTools<T>(tools: Record<string, T>, ruleset: PermissionV1.
   return Object.fromEntries(Object.entries(tools).filter(([name]) => !hidden.has(name)))
 }
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node, Database.node] })
+export const node = LayerNode.make({
+  service: Service,
+  layer: layer,
+  deps: [EventV2Bridge.node, Database.node, TaskLedger.node, TaskInteractionStore.node, TaskExecution.node],
+})
 
 export * as Permission from "."

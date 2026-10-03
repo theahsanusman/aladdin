@@ -161,6 +161,8 @@ const nativeLayer = (config: Config) =>
         create: config.create ?? true,
       })
       yield* Effect.addFinalizer(() => Effect.sync(() => native.close()))
+      // WAL recovery can contend before the higher-level Database layer boots.
+      native.run("PRAGMA busy_timeout = 5000;")
       if (config.disableWAL !== true) native.run("PRAGMA journal_mode = WAL;")
       return native
     }),

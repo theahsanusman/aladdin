@@ -1,10 +1,28 @@
-import { describe, expect } from "bun:test"
+import { afterEach, beforeAll, describe, expect } from "bun:test"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { Global } from "@opencode-ai/core/global"
 import { Effect } from "effect"
 import { Auth } from "../../src/auth"
 import { testEffect } from "../lib/effect"
 
 const it = testEffect(LayerNode.compile(Auth.node))
+
+// Auth uses one process-global JSON file; preserve any OpenAI login already
+// present so these tests don't leak their fake OAuth credentials or delete a
+// credential set up by another test.
+const file = `${Global.Path.data}/auth.json`
+let original: Record<string, unknown> = {}
+beforeAll(async () => {
+  const data = await Bun.file(file).json().catch(() => ({}))
+  original = Object.fromEntries(Object.entries(data).filter(([key]) => key === "openai" || key.startsWith("openai::aladdin-profile::")))
+})
+afterEach(async () => {
+  const data = await Bun.file(file).json().catch(() => ({}))
+  const cleaned = Object.fromEntries(
+    Object.entries(data).filter(([key]) => key !== "openai" && !key.startsWith("openai::aladdin-profile::")),
+  )
+  await Bun.write(file, JSON.stringify({ ...cleaned, ...original }))
+})
 
 describe("Auth", () => {
   it.instance("does not save an API key as a ChatGPT account", () =>

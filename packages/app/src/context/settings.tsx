@@ -355,7 +355,15 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
       const root = document.documentElement
       root.style.setProperty("--font-family-mono", monoFontFamily(store.appearance?.mono))
       root.style.setProperty("--font-family-sans", sansFontFamily(store.appearance?.sans))
-      root.dataset.look = appLook(store.appearance?.look)
+      const look = appLook(store.appearance?.look)
+      root.dataset.look = look
+      // Desktop settings persist in the main-process store, so mirror the look
+      // where `oc-theme-preload.js` can read it synchronously before first paint.
+      if (platform.platform === "desktop") {
+        try {
+          localStorage.setItem("opencode-look", look)
+        } catch {}
+      }
     })
 
     // Older builds coerced the followup mode to "steer", so any stored value is untrustworthy.

@@ -22,6 +22,7 @@ const SIDECAR_STOP_TIMEOUT = 6_000
 
 type SpawnLocalServerOptions = {
   userDataPath: string
+  signal?: AbortSignal
   onStdout?: (message: string) => void
   onStderr?: (message: string) => void
   onExit?: (code: number) => void
@@ -60,6 +61,7 @@ export async function spawnLocalServer(
   password: string,
   options: SpawnLocalServerOptions,
 ) {
+  options.signal?.throwIfAborted()
   const sidecar = join(dirname(fileURLToPath(import.meta.url)), "sidecar.js")
   const child = utilityProcess.fork(sidecar, [], {
     cwd: process.cwd(),
@@ -120,14 +122,18 @@ export async function spawnLocalServer(
     const onExit = (code: number) => {
       fail(new Error(`Sidecar exited before ready with code ${code}`))
     }
+    const onAbort = () => fail(new Error("Sidecar startup cancelled"))
     const cleanup = () => {
       clearTimeout(timeout)
       child.off("message", onMessage)
       child.off("exit", onExit)
+      options.signal?.removeEventListener("abort", onAbort)
     }
 
     child.on("message", onMessage)
     child.on("exit", onExit)
+    options.signal?.addEventListener("abort", onAbort, { once: true })
+    if (options.signal?.aborted) return onAbort()
     refreshTimeout()
     child.postMessage({
       type: "start",
@@ -136,30 +142,21 @@ export async function spawnLocalServer(
       password,
       userDataPath: options.userDataPath,
     })
-  }).catch((error) => {
+  }).catch(async (error) => {
     if (!exited) child.kill()
+    await Promise.race([exit.promise, delay(SIDECAR_STOP_TIMEOUT)])
     throw error
   })
 
   const wait = (async () => {
     const url = `http://${hostname}:${port}`
-    let healthy = false
-    const gone = exit.promise.then((code) => {
-      if (healthy) return
-      throw new Error(`Sidecar exited before health check passed with code ${code}`)
-    })
-
-    const ready = async () => {
-      while (true) {
-        await new Promise((resolve) => setTimeout(resolve, 100))
-        if (await checkHealth(url, password)) {
-          healthy = true
-          return
-        }
-      }
+    const deadline = Date.now() + 30_000
+    while (!exited && Date.now() < deadline) {
+      options.signal?.throwIfAborted()
+      if (await checkHealth(url, password, options.signal)) return
+      await delay(100)
     }
-
-    await Promise.race([ready(), gone])
+    throw new Error(exited ? "Sidecar exited before becoming healthy" : "Sidecar health check timed out")
   })()
 
   let stopping: Promise<void> | undefined
@@ -170,12 +167,13 @@ export async function spawnLocalServer(
         if (stopping) return stopping
         if (exited) return Promise.resolve()
         child.postMessage({ type: "stop" })
-        stopping = Promise.race([
-          exit.promise.then(() => undefined),
-          delay(SIDECAR_STOP_TIMEOUT).then(() => {
-            if (!exited) child.kill()
-          }),
-        ])
+        stopping = (async () => {
+          await Promise.race([exit.promise, delay(SIDECAR_STOP_TIMEOUT)])
+          if (exited) return
+          child.kill()
+          await Promise.race([exit.promise, delay(SIDECAR_STOP_TIMEOUT)])
+          if (!exited) throw new Error("Sidecar shutdown could not be confirmed")
+        })()
         return stopping
       },
     },
@@ -183,7 +181,7 @@ export async function spawnLocalServer(
   }
 }
 
-export async function checkHealth(url: string, password?: string | null): Promise<boolean> {
+export async function checkHealth(url: string, password?: string | null, signal?: AbortSignal): Promise<boolean> {
   let healthUrls: URL[]
   try {
     healthUrls = [new URL("/api/health", url), new URL("/global/health", url)]
@@ -202,7 +200,7 @@ export async function checkHealth(url: string, password?: string | null): Promis
       const res = await fetch(healthUrl, {
         method: "GET",
         headers,
-        signal: AbortSignal.timeout(3000),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(3000)]) : AbortSignal.timeout(3000),
       })
       if (res.ok) return true
     } catch {}
@@ -220,7 +218,9 @@ function createSidecarEnv(): Record<string, string> {
 }
 
 function delay(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms).unref()
+  })
 }
 
 function serializeError(error: unknown) {

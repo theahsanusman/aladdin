@@ -72,6 +72,7 @@ export interface GrepInput {
   readonly pattern: string
   readonly file?: string
   readonly include?: string
+  readonly exclude?: readonly string[]
   readonly limit: number
   readonly signal?: AbortSignal
 }
@@ -224,6 +225,7 @@ const layer = Layer.effect(
             "--hidden",
             "--no-messages",
             ...(input.include ? [`--glob=${input.include}`] : []),
+            ...(input.exclude?.map((pattern) => `--glob=!${pattern}`) ?? []),
             "--glob=!**/.git/**",
             "--",
             input.pattern,

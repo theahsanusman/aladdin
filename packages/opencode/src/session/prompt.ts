@@ -1090,6 +1090,7 @@ const layer = Layer.effect(
         const ctx = yield* InstanceState.context
         let structured: unknown
         let step = 0
+        let emptyTurns = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         while (true) {
@@ -1207,6 +1208,17 @@ const layer = Layer.effect(
           }
           yield* sessions.updateMessage(msg)
 
+          if (!(yield* fsys.isDir(ctx.directory))) {
+            msg.error = new NamedError.Unknown({
+              message: `Project folder is unavailable: ${ctx.directory}. Reconnect this chat to an existing project folder before continuing.`,
+            }).toObject()
+            msg.finish = "error"
+            msg.time.completed = Date.now()
+            yield* sessions.updateMessage(msg)
+            yield* events.publish(Session.Event.Error, { sessionID, error: msg.error })
+            break
+          }
+
           const finalizeInterruptedAssistant = Effect.gen(function* () {
             if (msg.time.completed) return
             msg.error ??= MessageV2.fromError(new DOMException("Aborted", "AbortError"), {
@@ -1321,6 +1333,27 @@ const layer = Layer.effect(
               model,
               toolChoice: format.type === "json_schema" ? "required" : undefined,
             })
+
+            const parts = yield* MessageV2.parts(handle.message.id).pipe(
+              Effect.provideService(Database.Service, database),
+            )
+            const empty = !parts.some((part) => part.type === "tool" || (part.type === "text" && part.text.trim()))
+            emptyTurns = handle.message.finish === "unknown" && empty ? emptyTurns + 1 : 0
+            if (
+              emptyTurns >= 3 ||
+              (handle.message.finish === "stop" && empty && structured === undefined && !handle.message.error)
+            ) {
+              handle.message.error = new NamedError.Unknown({
+                message:
+                  emptyTurns >= 3
+                    ? "The provider returned three consecutive empty responses without a finish reason. Stopped to prevent an endless loop. Retry this message or select another model."
+                    : "The provider completed an empty response without an answer or tool call. Retry this message or select another model.",
+              }).toObject()
+              handle.message.finish = "error"
+              yield* sessions.updateMessage(handle.message)
+              yield* events.publish(Session.Event.Error, { sessionID, error: handle.message.error })
+              return "break" as const
+            }
 
             if (structured !== undefined) {
               handle.message.structured = structured

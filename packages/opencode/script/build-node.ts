@@ -1,8 +1,10 @@
 #!/usr/bin/env bun
 
 import { Script } from "@opencode-ai/script"
+import { $ } from "bun"
 import path from "path"
 import { fileURLToPath } from "url"
+import { nodeWebUI } from "./web-ui"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -11,6 +13,9 @@ const dir = path.resolve(__dirname, "..")
 process.chdir(dir)
 
 const generated = await import("./generate.ts")
+
+await $`OPENCODE_CHANNEL=${Script.channel} bun run --cwd ../app build`
+const webUI = await nodeWebUI(path.resolve(dir, "../app/dist"), path.join(dir, "dist/node"))
 
 await Bun.build({
   target: "node",
@@ -25,7 +30,7 @@ await Bun.build({
     OPENCODE_CHANNEL: `'${Script.channel}'`,
   },
   files: {
-    "opencode-web-ui.gen.ts": "",
+    "opencode-web-ui.gen.ts": webUI,
   },
 })
 

@@ -77,6 +77,8 @@ const MobileStatus = Schema.Struct({
   reason: Schema.optional(Schema.Literal("password-required")),
   url: Schema.optional(Schema.String),
   connectUrl: Schema.optional(Schema.String),
+  localUrl: Schema.optional(Schema.String),
+  localConnectUrl: Schema.optional(Schema.String),
   host: Schema.String,
   port: Schema.optional(Schema.Number),
   addresses: Schema.Array(Schema.String),

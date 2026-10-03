@@ -1,8 +1,9 @@
 import { request as httpsRequest } from "node:https"
-import { mkdtemp } from "node:fs/promises"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "bun:test"
+import { Path } from "@opencode-ai/core/global"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { ensureCertificate, readPem } from "../../src/aladdin/tls"
 import { withTimeout } from "../../src/util/timeout"
@@ -21,18 +22,24 @@ const original = {
 afterEach(async () => {
   Flag.OPENCODE_SERVER_PASSWORD = original.password
   Flag.OPENCODE_SERVER_USERNAME = original.username
-  process.env.OPENCODE_SERVER_PASSWORD = original.envPassword
-  process.env.OPENCODE_SERVER_USERNAME = original.envUsername
+  // Assigning undefined would store the literal string "undefined", which the
+  // subprocess harness would forward to spawned servers and turn into a
+  // non-empty required password.
+  if (original.envPassword === undefined) delete process.env.OPENCODE_SERVER_PASSWORD
+  else process.env.OPENCODE_SERVER_PASSWORD = original.envPassword
+  if (original.envUsername === undefined) delete process.env.OPENCODE_SERVER_USERNAME
+  else process.env.OPENCODE_SERVER_USERNAME = original.envUsername
   await disposeAllInstances()
   await resetDatabase()
 })
 
 // Certificates are validated strictly so the test proves what the phone will accept.
 function get(url: string, ca: string, authorization?: string) {
-  return new Promise<{ status: number; headers: Record<string, string | string[] | undefined> }>((resolve, reject) => {
+  return new Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }>((resolve, reject) => {
     const request = httpsRequest(url, { ca, rejectUnauthorized: true }, (response) => {
-      response.resume()
-      response.on("end", () => resolve({ status: response.statusCode ?? 0, headers: response.headers }))
+      const chunks: Buffer[] = []
+      response.on("data", (chunk) => chunks.push(Buffer.from(chunk)))
+      response.on("end", () => resolve({ status: response.statusCode ?? 0, headers: response.headers, body: Buffer.concat(chunks).toString("utf8") }))
     })
     if (authorization) request.setHeader("authorization", authorization)
     request.on("error", reject)
@@ -47,6 +54,9 @@ describe("HttpApi HTTPS listener", () => {
     process.env.OPENCODE_SERVER_PASSWORD = "mobile-secret"
     process.env.OPENCODE_SERVER_USERNAME = "opencode"
     const directory = await mkdtemp(path.join(tmpdir(), "aladdin-mobile-https-"))
+    const models = path.join(Path.home, "Library/Containers/com.liuliu.draw-things/Data/Documents/Models")
+    await mkdir(models, { recursive: true })
+    await writeFile(path.join(models, "isolated-test.safetensors"), "dummy")
     const certificate = await ensureCertificate(directory, ["192.168.50.20"])
     const listener = await Server.listen({
       hostname: "127.0.0.1",
@@ -65,6 +75,7 @@ describe("HttpApi HTTPS listener", () => {
         `Basic ${Buffer.from("opencode:mobile-secret").toString("base64")}`,
       )
       expect(authorized.status).toBe(200)
+      expect(JSON.parse(authorized.body).drawThingsModels).toContain("isolated-test.safetensors")
     } finally {
       await withTimeout(listener.stop(true), 10_000, "timed out stopping tls listener")
     }

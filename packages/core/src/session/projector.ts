@@ -48,7 +48,7 @@ function sessionRow(info: SessionV1.SessionInfo): typeof SessionTable.$inferInse
     parent_id: info.parentID,
     slug: info.slug,
     directory: info.directory,
-    path: info.path,
+    path: info.path ?? null,
     title: info.title,
     agent: info.agent,
     model: info.model,

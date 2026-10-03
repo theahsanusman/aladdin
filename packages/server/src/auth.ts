@@ -1,6 +1,7 @@
 export * as ServerAuth from "./auth"
 
 import { Config as EffectConfig, Context, Effect, Layer, Option, Redacted } from "effect"
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 
 export type Credentials = {
   password?: string
@@ -47,6 +48,39 @@ export function authorized(credentials: DecodedCredentials, config: Info) {
     credentials.username === config.username &&
     Redacted.value(credentials.password) === config.password.value
   )
+}
+
+const BROWSER_COOKIE = "aladdin_browser"
+
+export function browserCookie(config: Info) {
+  const nonce = randomBytes(16).toString("hex")
+  return `${BROWSER_COOKIE}=${nonce}.${browserSignature(nonce, config)}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=2592000`
+}
+
+export function browserAuthorized(headers: Readonly<Record<string, string | undefined>>, config: Info) {
+  if (!required(config)) return false
+  // A same-site sibling origin must not gain control using an ambient cookie.
+  if (headers["sec-fetch-site"] && !["same-origin", "none"].includes(headers["sec-fetch-site"])) return false
+  if (headers.origin) {
+    if (!URL.canParse(headers.origin) || new URL(headers.origin).host !== headers.host) return false
+  }
+  const value = headers.cookie
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${BROWSER_COOKIE}=`))
+    ?.slice(BROWSER_COOKIE.length + 1)
+  if (!value || !/^[a-f0-9]{32}\.[a-f0-9]{64}$/.test(value)) return false
+  const [nonce, signature] = value.split(".")
+  return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(browserSignature(nonce, config), "hex"))
+}
+
+function browserSignature(nonce: string, config: Info) {
+  return createHmac(
+    "sha256",
+    Option.getOrElse(config.password, () => ""),
+  )
+    .update(`${BROWSER_COOKIE}:${config.username}:${nonce}`)
+    .digest("hex")
 }
 
 export function header(credentials?: Credentials) {

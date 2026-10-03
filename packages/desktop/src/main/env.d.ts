@@ -7,6 +7,15 @@ interface ImportMeta {
 }
 
 declare module "virtual:opencode-server" {
+  export const restoreMobileAccess: (
+    data?: string,
+    options?: { enabledByDefault?: boolean; port?: number },
+  ) => Promise<{
+    enabled: boolean
+    available: boolean
+    host: string
+    addresses: string[]
+  }>
   export namespace Server {
     export const listen: typeof import("../../../opencode/dist/types/src/node").Server.listen
     export type Listener = import("../../../opencode/dist/types/src/node").Server.Listener

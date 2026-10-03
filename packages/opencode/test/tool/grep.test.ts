@@ -14,6 +14,7 @@ import { Truncate } from "@/tool/truncate"
 import { Agent } from "../../src/agent/agent"
 import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { TaskExecution } from "@opencode-ai/core/task/execution"
 import { testEffect } from "../lib/effect"
 import { Permission } from "../../src/permission"
 import type * as Tool from "../../src/tool/tool"
@@ -24,7 +25,15 @@ import { Filesystem } from "@/util/filesystem"
 
 const toolLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   LayerNode.compile(
-    LayerNode.group([CrossSpawnSpawner.node, FSUtil.node, Ripgrep.node, Truncate.node, Agent.node, Git.node]),
+    LayerNode.group([
+      CrossSpawnSpawner.node,
+      FSUtil.node,
+      Ripgrep.node,
+      Truncate.node,
+      Agent.node,
+      Git.node,
+      TaskExecution.node,
+    ]),
   )
 
 const it = testEffect(toolLayer())

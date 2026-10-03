@@ -9,6 +9,7 @@ test("exposes every standard HTTP API group", () => {
     "location",
     "agents",
     "sessions",
+    "tasks",
     "messages",
     "models",
     "providers",
@@ -23,6 +24,7 @@ test("exposes every standard HTTP API group", () => {
     "questions",
     "references",
     "projectCopies",
+    "usage",
   ])
   expect(Object.keys(client.messages)).toEqual(["list"])
   expect(Object.keys(client.integrations)).toEqual([

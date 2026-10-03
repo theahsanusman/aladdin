@@ -1,4 +1,5 @@
 import { ServerAuth } from "@/server/auth"
+import { browserAuthorized, browserCookie } from "@opencode-ai/server/auth"
 import { Effect, Encoding, Layer, Redacted } from "effect"
 import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiError, HttpApiMiddleware } from "effect/unstable/httpapi"
@@ -44,12 +45,21 @@ function validateCredential<A, E, R>(
 ) {
   return Effect.gen(function* () {
     if (!ServerAuth.required(config)) return yield* effect
-    if (!ServerAuth.authorized(credential, config)) {
+    const request = yield* HttpServerRequest.HttpServerRequest
+    const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
+    if (
+      !ServerAuth.authorized(credential, config) &&
+      (token || request.headers.authorization || !browserAuthorized(request.headers, config))
+    ) {
       yield* HttpEffect.appendPreResponseHandler((_request, response) =>
         Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
       )
       return yield* new HttpApiError.Unauthorized({})
     }
+    if (token)
+      yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+        Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", browserCookie(config))),
+      )
     return yield* effect
   })
 }
@@ -88,14 +98,25 @@ function validateRawCredential<A, E, R>(
   config: ServerAuth.Info,
 ) {
   if (!ServerAuth.required(config)) return effect
-  if (!ServerAuth.authorized(credential, config))
-    return Effect.succeed(
-      HttpServerResponse.empty({
-        status: UNAUTHORIZED,
-        headers: { "www-authenticate": WWW_AUTHENTICATE },
-      }),
+  return Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest
+    const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
+    if (
+      !ServerAuth.authorized(credential, config) &&
+      (token || request.headers.authorization || !browserAuthorized(request.headers, config))
     )
-  return effect
+      return yield* Effect.succeed(
+        HttpServerResponse.empty({
+          status: UNAUTHORIZED,
+          headers: { "www-authenticate": WWW_AUTHENTICATE },
+        }),
+      )
+    if (token)
+      yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+        Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", browserCookie(config))),
+      )
+    return yield* effect
+  })
 }
 
 export const authorizationRouterMiddleware = HttpRouter.middleware()(

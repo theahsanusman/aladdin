@@ -54,7 +54,7 @@ async function start(command: StartCommand) {
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
-    const { Server } = await import("virtual:opencode-server")
+    const { Server, restoreMobileAccess } = await import("virtual:opencode-server")
 
     listener = await Server.listen({
       port: command.port,
@@ -63,6 +63,9 @@ async function start(command: StartCommand) {
       password: command.password,
       cors: ["oc://renderer"],
     })
+    await restoreMobileAccess(undefined, { enabledByDefault: true }).catch((error) =>
+      console.error("Could not restore Aladdin Wi-Fi access", error),
+    )
     parentPort.postMessage({ type: "ready" })
   } catch (error) {
     parentPort.postMessage({ type: "error", error: serializeError(error) })
@@ -84,6 +87,7 @@ function prepareSidecarEnv(password: string, userDataPath: string) {
   Object.assign(process.env, {
     OPENCODE_SERVER_USERNAME: "opencode",
     OPENCODE_SERVER_PASSWORD: password,
+    ALADDIN_ALLOW_UNAUTHENTICATED_LAN: password === "" ? "1" : "0",
     XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
   })
 }

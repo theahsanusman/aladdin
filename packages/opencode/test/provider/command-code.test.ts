@@ -62,3 +62,44 @@ test("leaves unrelated requests unchanged", () => {
   const request = { body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }) }
   expect(commandCodeResponsesRequest("https://api.commandcode.ai/provider/v1/chat/completions", request)).toBe(request)
 })
+
+test.each(["high", "max"])("omits unsupported reasoning summary for %s", (effort) => {
+  const request = commandCodeResponsesRequest("https://api.commandcode.ai/provider/v1/responses", {
+    body: JSON.stringify({
+      model: "deepseek/deepseek-v4.1-flash",
+      input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      reasoning: { effort, summary: "auto" },
+    }),
+  })
+
+  expect(JSON.parse(request.body as string)).toEqual({
+    model: "deepseek/deepseek-v4.1-flash",
+    input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+    reasoning: { effort },
+  })
+})
+
+test.each(["high", "max"])("normalizes the SDK reasoning payload for %s", async (effort) => {
+  const requests: unknown[] = []
+  const sdk = createOpenAI({
+    apiKey: "test",
+    baseURL: "https://api.commandcode.ai/provider/v1",
+    fetch: Object.assign(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        requests.push(JSON.parse(commandCodeResponsesRequest(url, init ?? {}).body as string))
+        return Response.json({ error: { message: "captured" } }, { status: 400 })
+      },
+      { preconnect: fetch.preconnect },
+    ),
+  })
+
+  await Promise.resolve(
+    sdk.responses("deepseek/deepseek-v4.1-flash").doGenerate({
+      prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+      providerOptions: { openai: { forceReasoning: true, reasoningEffort: effort, reasoningSummary: "auto" } },
+    }),
+  ).catch(() => {})
+
+  expect(requests).toHaveLength(1)
+  expect((requests[0] as { reasoning: unknown }).reasoning).toEqual({ effort })
+})

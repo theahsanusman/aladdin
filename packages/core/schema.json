@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8fb8c91e-8cc9-4080-81ea-3960b7ad109d",
+  "id": "487b7f4e-2cb6-4b32-9c58-02f96cd14001",
   "prevIds": [
-    "1b012c4f-786b-40f6-824a-ed0afa66f38b"
+    "c6fd275f-0dfa-4cd4-85c0-dad1eb46d43d"
   ],
   "ddl": [
     {
@@ -12,6 +12,10 @@
     },
     {
       "name": "data_migration",
+      "entityType": "tables"
+    },
+    {
+      "name": "task_interaction",
       "entityType": "tables"
     },
     {
@@ -88,6 +92,22 @@
     },
     {
       "name": "session_share",
+      "entityType": "tables"
+    },
+    {
+      "name": "task_attempt",
+      "entityType": "tables"
+    },
+    {
+      "name": "task_ledger_event",
+      "entityType": "tables"
+    },
+    {
+      "name": "task_ledger",
+      "entityType": "tables"
+    },
+    {
+      "name": "task_team",
       "entityType": "tables"
     },
     {
@@ -189,6 +209,176 @@
       "name": "time_completed",
       "entityType": "columns",
       "table": "data_migration"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "format",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "request_id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "owner_session_id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "task_id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "attempt_id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "worker_session_id",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "generation",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "payload",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "state",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "decision",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "reason",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "table": "task_interaction"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_decided",
+      "entityType": "columns",
+      "table": "task_interaction"
     },
     {
       "type": "integer",
@@ -1881,6 +2071,346 @@
       "table": "session_share"
     },
     {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "task_id",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "owner_session_id",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "worker_session_id",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "input_message_id",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "runtime_epoch",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "generation",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slot",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "evidence",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_interrupted",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_released",
+      "entityType": "columns",
+      "table": "task_attempt"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "seq",
+      "entityType": "columns",
+      "table": "task_ledger_event"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "task_id",
+      "entityType": "columns",
+      "table": "task_ledger_event"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "owner_session_id",
+      "entityType": "columns",
+      "table": "task_ledger_event"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "task_ledger_event"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "data",
+      "entityType": "columns",
+      "table": "task_ledger_event"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "owner_session_id",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "directory",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "dispatch_key",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "brief",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "generation",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "queue_seq",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "owner_session_id",
+      "entityType": "columns",
+      "table": "task_team"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "paused",
+      "entityType": "columns",
+      "table": "task_team"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "task_team"
+    },
+    {
       "columns": [
         "project_id"
       ],
@@ -1894,6 +2424,38 @@
       "name": "fk_workspace_project_id_project_id_fk",
       "entityType": "fks",
       "table": "workspace"
+    },
+    {
+      "columns": [
+        "attempt_id"
+      ],
+      "tableTo": "task_attempt",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_interaction_attempt_id_task_attempt_id_fk",
+      "entityType": "fks",
+      "table": "task_interaction"
+    },
+    {
+      "columns": [
+        "task_id",
+        "owner_session_id"
+      ],
+      "tableTo": "task_ledger",
+      "columnsTo": [
+        "id",
+        "owner_session_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_interaction_task_id_owner_session_id_task_ledger_id_owner_session_id_fk",
+      "entityType": "fks",
+      "table": "task_interaction"
     },
     {
       "columns": [
@@ -2107,6 +2669,85 @@
     },
     {
       "columns": [
+        "task_id",
+        "owner_session_id"
+      ],
+      "tableTo": "task_ledger",
+      "columnsTo": [
+        "id",
+        "owner_session_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_attempt_task_id_owner_session_id_task_ledger_id_owner_session_id_fk",
+      "entityType": "fks",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        "task_id",
+        "owner_session_id"
+      ],
+      "tableTo": "task_ledger",
+      "columnsTo": [
+        "id",
+        "owner_session_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_ledger_event_task_id_owner_session_id_task_ledger_id_owner_session_id_fk",
+      "entityType": "fks",
+      "table": "task_ledger_event"
+    },
+    {
+      "columns": [
+        "owner_session_id"
+      ],
+      "tableTo": "session",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_ledger_owner_session_id_session_id_fk",
+      "entityType": "fks",
+      "table": "task_ledger"
+    },
+    {
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_ledger_project_id_project_id_fk",
+      "entityType": "fks",
+      "table": "task_ledger"
+    },
+    {
+      "columns": [
+        "owner_session_id"
+      ],
+      "tableTo": "session",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_task_team_owner_session_id_session_id_fk",
+      "entityType": "fks",
+      "table": "task_team"
+    },
+    {
+      "columns": [
         "email",
         "url"
       ],
@@ -2151,6 +2792,15 @@
       "nameExplicit": false,
       "name": "data_migration_pk",
       "table": "data_migration",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "task_interaction_pk",
+      "table": "task_interaction",
       "entityType": "pks"
     },
     {
@@ -2296,6 +2946,96 @@
       "name": "session_share_pk",
       "table": "session_share",
       "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "task_attempt_pk",
+      "table": "task_attempt",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "seq"
+      ],
+      "nameExplicit": false,
+      "name": "task_ledger_event_pk",
+      "table": "task_ledger_event",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "task_ledger_pk",
+      "table": "task_ledger",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "owner_session_id"
+      ],
+      "nameExplicit": false,
+      "name": "task_team_pk",
+      "table": "task_team",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "kind",
+          "isExpression": false
+        },
+        {
+          "value": "request_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_interaction_request_idx",
+      "entityType": "indexes",
+      "table": "task_interaction"
+    },
+    {
+      "columns": [
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_interaction_owner_idx",
+      "entityType": "indexes",
+      "table": "task_interaction"
+    },
+    {
+      "columns": [
+        {
+          "value": "attempt_id",
+          "isExpression": false
+        },
+        {
+          "value": "state",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_interaction_attempt_idx",
+      "entityType": "indexes",
+      "table": "task_interaction"
     },
     {
       "columns": [
@@ -2670,6 +3410,282 @@
       "name": "todo_session_idx",
       "entityType": "indexes",
       "table": "todo"
+    },
+    {
+      "columns": [
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        },
+        {
+          "value": "slot",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"task_attempt\".\"time_released\" IS NULL",
+      "origin": "manual",
+      "name": "task_attempt_live_slot_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "task_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"task_attempt\".\"time_released\" IS NULL",
+      "origin": "manual",
+      "name": "task_attempt_live_task_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "task_id",
+          "isExpression": false
+        },
+        {
+          "value": "generation",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_attempt_generation_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "worker_session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_attempt_worker_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "input_message_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_attempt_input_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "runtime_epoch",
+          "isExpression": false
+        },
+        {
+          "value": "time_released",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_attempt_epoch_idx",
+      "entityType": "indexes",
+      "table": "task_attempt"
+    },
+    {
+      "columns": [
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        },
+        {
+          "value": "seq",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_ledger_event_owner_seq_idx",
+      "entityType": "indexes",
+      "table": "task_ledger_event"
+    },
+    {
+      "columns": [
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        },
+        {
+          "value": "dispatch_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_ledger_owner_dispatch_idx",
+      "entityType": "indexes",
+      "table": "task_ledger"
+    },
+    {
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "task_ledger_id_owner_idx",
+      "entityType": "indexes",
+      "table": "task_ledger"
+    },
+    {
+      "columns": [
+        {
+          "value": "owner_session_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "queue_seq",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_ledger_ready_idx",
+      "entityType": "indexes",
+      "table": "task_ledger"
+    },
+    {
+      "columns": [
+        {
+          "value": "queue_seq",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "task_ledger_queue_seq_idx",
+      "entityType": "indexes",
+      "table": "task_ledger"
+    },
+    {
+      "value": "\"kind\" IN ('question', 'permission')",
+      "name": "task_interaction_kind_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"format\" IN ('current', 'v1')",
+      "name": "task_interaction_format_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"generation\" > 0",
+      "name": "task_interaction_generation_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"time_created\" >= 0 AND \"time_updated\" >= 0 AND (\"expires_at\" IS NULL OR \"expires_at\" >= 0)",
+      "name": "task_interaction_time_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"kind\" != 'permission' OR \"expires_at\" IS NOT NULL",
+      "name": "task_interaction_permission_expiry_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"state\" IN ('pending', 'decided', 'expired', 'invalidated')",
+      "name": "task_interaction_state_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "(\"state\" = 'pending' AND \"decision\" IS NULL AND \"time_decided\" IS NULL)\n    OR (\"state\" != 'pending' AND \"time_decided\" IS NOT NULL AND (\"state\" != 'decided' OR \"decision\" IS NOT NULL))",
+      "name": "task_interaction_settlement_check",
+      "entityType": "checks",
+      "table": "task_interaction"
+    },
+    {
+      "value": "\"slot\" IN (1, 2, 3)",
+      "name": "task_attempt_slot_check",
+      "entityType": "checks",
+      "table": "task_attempt"
+    },
+    {
+      "value": "\"generation\" > 0",
+      "name": "task_attempt_generation_check",
+      "entityType": "checks",
+      "table": "task_attempt"
+    },
+    {
+      "value": "\"status\" IN ('starting', 'running', 'waiting_for_user', 'verifying', 'cancelling', 'interrupted', 'completed', 'failed', 'cancelled')",
+      "name": "task_attempt_status_check",
+      "entityType": "checks",
+      "table": "task_attempt"
+    },
+    {
+      "value": "(\"time_released\" IS NULL AND \"status\" NOT IN ('completed', 'failed', 'cancelled')) OR (\"time_released\" IS NOT NULL AND \"status\" IN ('completed', 'failed', 'cancelled'))",
+      "name": "task_attempt_release_check",
+      "entityType": "checks",
+      "table": "task_attempt"
+    },
+    {
+      "value": "\"generation\" >= 0",
+      "name": "task_ledger_generation_check",
+      "entityType": "checks",
+      "table": "task_ledger"
+    },
+    {
+      "value": "\"queue_seq\" > 0",
+      "name": "task_ledger_queue_check",
+      "entityType": "checks",
+      "table": "task_ledger"
+    },
+    {
+      "value": "\"status\" IN ('queued', 'starting', 'running', 'waiting_for_user', 'verifying', 'cancelling', 'interrupted', 'completed', 'failed', 'cancelled')",
+      "name": "task_ledger_status_check",
+      "entityType": "checks",
+      "table": "task_ledger"
+    },
+    {
+      "value": "\"paused\" IN (0, 1)",
+      "name": "task_team_paused_check",
+      "entityType": "checks",
+      "table": "task_team"
     }
   ],
   "renames": []

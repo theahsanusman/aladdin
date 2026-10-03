@@ -152,10 +152,12 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 if (root instanceof HTMLElement) {
   void loadInitialLocale().then((locale) => {
     const auth = authFromToken(new URLSearchParams(location.search).get("auth_token"))
+    if (auth) writeDefaultServerUrl(getCurrentUrl())
     clearAuthToken()
     const server: ServerConnection.Http = {
       type: "http",
       authToken: !!auth,
+      browserSession: true,
       http: {
         url: getCurrentUrl(),
         ...auth,

@@ -78,6 +78,8 @@ const getBase = (appId: string): Configuration => ({
     icon: `resources/icons/icon.icns`,
     extendInfo: {
       NSMicrophoneUsageDescription: "Aladdin uses the microphone to transcribe your voice messages locally.",
+      NSLocalNetworkUsageDescription: "Aladdin connects to your local network so you can access your chats from devices on the same Wi-Fi.",
+      NSBonjourServices: ["_http._tcp"],
     },
     hardenedRuntime: true,
     gatekeeperAssess: false,

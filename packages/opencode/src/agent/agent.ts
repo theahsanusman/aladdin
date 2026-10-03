@@ -14,6 +14,8 @@ import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+import PROMPT_MICHAEL from "./prompt/michael.md" with { type: "text" }
+import PROMPT_DISPATCHER from "./prompt/dispatcher.md" with { type: "text" }
 import { Permission } from "@/permission"
 import { PermissionTrusted } from "@opencode-ai/core/permission/trusted"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
@@ -151,6 +153,27 @@ const layer = Layer.effect(
               }),
               user,
             ),
+            mode: "primary",
+            native: true,
+          },
+          dispatcher: {
+            name: "dispatcher",
+            description:
+              "Michael coordinates up to three detached workers per chat and stays available for conversation.",
+            options: {},
+            permission: Permission.fromConfig({
+              "*": "deny",
+              task_dispatch: "allow",
+              question: "allow",
+              todowrite: "allow",
+              skill: "allow",
+              websearch: "allow",
+              webfetch: "allow",
+              read: "allow",
+              glob: "allow",
+              grep: "allow",
+            }),
+            prompt: PROMPT_DISPATCHER,
             mode: "primary",
             native: true,
           },
@@ -294,6 +317,27 @@ const layer = Layer.effect(
           item.permission = Permission.merge(item.permission, Permission.fromConfig(value.permission ?? {}))
         }
 
+        // Preserve the legacy ID for saved chats, while exposing Michael Lead for new selection.
+        const michael = agents.michael?.prompt ?? PROMPT_MICHAEL
+        if (agents.dispatcher) {
+          const dispatcher = agents.dispatcher
+          const lead = agents["michael-lead"] ?? dispatcher
+          const extra = lead.prompt?.replace(michael.trim(), "").replace(PROMPT_DISPATCHER.trim(), "").trim()
+          dispatcher.prompt = [michael, extra, PROMPT_DISPATCHER].filter(Boolean).join("\n\n")
+          dispatcher.permission = Permission.merge(
+            agents.michael?.permission ?? Permission.merge(defaults, user),
+            Permission.fromConfig({
+              question: "allow",
+              task_dispatch: "allow",
+              task: "deny",
+              plan_enter: "deny",
+              plan_exit: "deny",
+            }),
+          )
+          dispatcher.hidden = true
+          agents["michael-lead"] = { ...dispatcher, name: "michael-lead", hidden: false }
+        }
+
         // Product policy: Truncate output plus the system temp and Downloads
         // directories stay available to every agent unless a rule explicitly
         // denies one of these exact patterns. These rules are appended last so
@@ -342,7 +386,10 @@ const layer = Layer.effect(
             if (agent.hidden === true) throw new Error(`default agent "${c.default_agent}" is hidden`)
             return agent
           }
-          const visible = Object.values(agents).find((a) => a.mode !== "subagent" && a.hidden !== true)
+          // The coordinator is explicitly selected; preserve existing default-agent fallback.
+          const visible = Object.values(agents).find(
+            (a) => a.name !== "dispatcher" && a.name !== "michael-lead" && a.mode !== "subagent" && a.hidden !== true,
+          )
           if (!visible) throw new Error("no primary visible agent found")
           return visible
         })

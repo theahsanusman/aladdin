@@ -5,6 +5,10 @@ import { Context, Deferred, Effect, Layer, Schema } from "effect"
 import { Question } from "@opencode-ai/schema/question"
 import { EventV2 } from "./event"
 import { SessionSchema } from "./session/schema"
+import { TaskLedger } from "./task/ledger"
+import { TaskInteractionStore } from "./task/interaction"
+import { TaskInteraction } from "@opencode-ai/schema/task-interaction"
+import { TaskExecution } from "./task/execution"
 
 export const ID = Question.ID
 export type ID = typeof ID.Type
@@ -65,6 +69,7 @@ export class Service extends Context.Service<Service, Interface>()("@opencode/v2
 interface Pending {
   readonly request: Request
   readonly deferred: Deferred.Deferred<ReadonlyArray<Answer>, RejectedError>
+  readonly interaction?: TaskInteraction.Info
 }
 
 /**
@@ -76,6 +81,9 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const events = yield* EventV2.Service
+    const ledger = yield* TaskLedger.Service
+    const interactions = yield* TaskInteractionStore.Service
+    const execution = yield* TaskExecution.Service
     const pending = new Map<ID, Pending>()
 
     yield* Effect.addFinalizer(() =>
@@ -96,7 +104,23 @@ const layer = Layer.effect(
           const id = ID.ascending()
           const deferred = yield* Deferred.make<ReadonlyArray<Answer>, RejectedError>()
           const request: Request = { id, ...input }
-          pending.set(id, { request, deferred })
+          const attempt = yield* ledger.worker(input.sessionID).pipe(Effect.orDie)
+          const opened = attempt
+            ? yield* interactions
+                .open({
+                  kind: "question",
+                  format: "current",
+                  generation: attempt.generation,
+                  payload: Schema.decodeUnknownSync(TaskInteraction.Payload)(Schema.encodeSync(Request)(request)),
+                  timeCreated: Date.now(),
+                })
+                .pipe(Effect.orDie)
+            : undefined
+          pending.set(id, {
+            request,
+            deferred,
+            ...(opened?._tag === "worker" ? { interaction: opened.interaction } : {}),
+          })
           return yield* events.publish(Event.Asked, request).pipe(
             Effect.andThen(restore(Deferred.await(deferred))),
             Effect.ensuring(
@@ -114,6 +138,15 @@ const layer = Layer.effect(
         Effect.gen(function* () {
           const existing = pending.get(input.requestID)
           if (!existing) return yield* new NotFoundError({ requestID: input.requestID })
+          if (existing.interaction)
+            yield* interactions
+              .decide({
+                ownerSessionID: existing.interaction.ownerSessionID,
+                id: existing.interaction.id,
+                generation: existing.interaction.generation,
+                decision: { kind: "question", answers: input.answers },
+              })
+              .pipe(Effect.mapError(() => new NotFoundError({ requestID: input.requestID })))
           yield* events.publish(Event.Replied, {
             sessionID: existing.request.sessionID,
             requestID: existing.request.id,
@@ -130,6 +163,15 @@ const layer = Layer.effect(
         Effect.gen(function* () {
           const existing = pending.get(requestID)
           if (!existing) return yield* new NotFoundError({ requestID })
+          if (existing.interaction)
+            yield* interactions
+              .decide({
+                ownerSessionID: existing.interaction.ownerSessionID,
+                id: existing.interaction.id,
+                generation: existing.interaction.generation,
+                decision: { kind: "question-rejection" },
+              })
+              .pipe(Effect.mapError(() => new NotFoundError({ requestID })))
           yield* events.publish(Event.Rejected, {
             sessionID: existing.request.sessionID,
             requestID: existing.request.id,
@@ -144,10 +186,14 @@ const layer = Layer.effect(
       return Array.from(pending.values(), (item) => item.request)
     })
 
-    return Service.of({ ask, reply, reject, list })
+    return Service.of({ ask: (input) => execution.withWait(input.sessionID, ask(input)), reply, reject, list })
   }),
 )
 
 export const locationLayer = layer
 
-export const node = makeLocationNode({ service: Service, layer, deps: [EventV2.node] })
+export const node = makeLocationNode({
+  service: Service,
+  layer,
+  deps: [EventV2.node, TaskLedger.node, TaskInteractionStore.node, TaskExecution.node],
+})

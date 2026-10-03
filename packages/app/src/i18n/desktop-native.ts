@@ -319,6 +319,18 @@ export const DESKTOP_NATIVE_ENGLISH = {
 
   "desktop.picker.error.notSelected": "File was not selected by the picker",
   "desktop.picker.error.sizeLimit": "Selected attachments exceed the {{limit}} MB limit",
+
+  // Appended keys must stay at the end: hr, hu, is, and lt store desktop
+  // native translations positionally against DESKTOP_NATIVE_KEYS order.
+  "desktop.tray.cpu": "CPU: {{value}}",
+  "desktop.tray.memory": "Memory: {{used}} of {{total}}",
+  "desktop.tray.load": "Load Average: {{value}}",
+  "desktop.tray.disk": "Disk Free: {{free}} of {{total}}",
+  "desktop.tray.thermal": "CPU Speed Limit: {{value}}",
+  "desktop.tray.appCpu": "Aladdin CPU: {{value}}",
+  "desktop.tray.appGpu": "Aladdin GPU: {{value}}",
+  "desktop.tray.appMemory": "Aladdin Memory: {{value}}",
+  "desktop.tray.open": "Open Aladdin",
 } as const
 
 export type DesktopNativeKey = keyof typeof DESKTOP_NATIVE_ENGLISH

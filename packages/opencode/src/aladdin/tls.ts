@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { hostname as systemHostName, networkInterfaces } from "node:os"
 import path from "node:path"
+import { Process } from "@/util/process"
 
 const CA_DAYS = 3_650
 // Apple rejects TLS server certificates with a validity longer than 825 days, including ones issued
@@ -72,7 +73,17 @@ export async function ensureCertificate(directory: string, addresses?: string[])
   const leafConfig = path.join(work, "leaf.cnf")
   await writeFile(
     caConfig,
-    ["[req]", "distinguished_name = dn", "prompt = no", "[dn]", "CN = Aladdin Local CA", "[ext]", "basicConstraints = critical,CA:TRUE", "keyUsage = critical,keyCertSign,cRLSign", ""].join("\n"),
+    [
+      "[req]",
+      "distinguished_name = dn",
+      "prompt = no",
+      "[dn]",
+      "CN = Aladdin Local CA",
+      "[ext]",
+      "basicConstraints = critical,CA:TRUE",
+      "keyUsage = critical,keyCertSign,cRLSign",
+      "",
+    ].join("\n"),
   )
   await writeFile(
     leafConfig,
@@ -87,20 +98,57 @@ export async function ensureCertificate(directory: string, addresses?: string[])
 
   if (!existsSync(files.ca) || !existsSync(files.caKey)) {
     await openssl([
-      "req", "-x509", "-newkey", "rsa:2048", "-sha256", "-nodes",
-      "-days", String(CA_DAYS), "-keyout", files.caKey, "-out", files.ca,
-      "-config", caConfig, "-extensions", "ext",
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-sha256",
+      "-nodes",
+      "-days",
+      String(CA_DAYS),
+      "-keyout",
+      files.caKey,
+      "-out",
+      files.ca,
+      "-config",
+      caConfig,
+      "-extensions",
+      "ext",
     ])
   }
 
   const csr = path.join(work, "server.csr")
   await openssl([
-    "req", "-new", "-newkey", "rsa:2048", "-sha256", "-nodes",
-    "-keyout", files.key, "-out", csr, "-subj", "/CN=Aladdin Local Server",
+    "req",
+    "-new",
+    "-newkey",
+    "rsa:2048",
+    "-sha256",
+    "-nodes",
+    "-keyout",
+    files.key,
+    "-out",
+    csr,
+    "-subj",
+    "/CN=Aladdin Local Server",
   ])
   await openssl([
-    "x509", "-req", "-sha256", "-in", csr, "-CA", files.ca, "-CAkey", files.caKey,
-    "-CAcreateserial", "-out", files.cert, "-days", String(LEAF_DAYS), "-extfile", leafConfig,
+    "x509",
+    "-req",
+    "-sha256",
+    "-in",
+    csr,
+    "-CA",
+    files.ca,
+    "-CAkey",
+    files.caKey,
+    "-CAcreateserial",
+    "-out",
+    files.cert,
+    "-days",
+    String(LEAF_DAYS),
+    "-extfile",
+    leafConfig,
   ])
   await rm(work, { recursive: true, force: true })
   await rm(path.join(directory, "aladdin-ca.srl"), { force: true })
@@ -113,7 +161,9 @@ export async function verifyCertificate(certificate: Certificate) {
 }
 
 export async function describeCertificate(file: string) {
-  const names = await openssl(["x509", "-in", file, "-noout", "-ext", "subjectAltName"])
+  // macOS ships LibreSSL, whose x509 command does not support OpenSSL's -ext.
+  const description = await openssl(["x509", "-in", file, "-noout", "-text"])
+  const names = description.match(/X509v3 Subject Alternative Name:[^\n]*\n\s*([^\n]+)/)?.[1] ?? ""
   const dates = await openssl(["x509", "-in", file, "-noout", "-dates"])
   return { names: names.trim(), dates: dates.trim() }
 }
@@ -129,12 +179,10 @@ export function certificateExists(directory: string) {
 
 async function openssl(args: string[]) {
   const binary = process.env.ALADDIN_OPENSSL ?? "openssl"
-  const child = Bun.spawn([binary, ...args], { stdout: "pipe", stderr: "pipe" })
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ])
-  if (code !== 0) throw new Error(`openssl ${args[0]} failed: ${stderr.trim() || `exit ${code}`}`)
-  return stdout
+  // Process.run keeps this working in every runtime the server ships in: the
+  // desktop bundles the server for Node, where `Bun.spawn` does not exist.
+  const result = await Process.run([binary, ...args], { nothrow: true })
+  const stderr = result.stderr.toString().trim()
+  if (result.code !== 0) throw new Error(`openssl ${args[0]} failed: ${stderr || `exit ${result.code}`}`)
+  return result.stdout.toString()
 }

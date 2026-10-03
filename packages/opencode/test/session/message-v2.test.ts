@@ -1363,6 +1363,44 @@ describe("session.message-v2.toModelMessage", () => {
   })
 })
 
+test("drops empty OpenAI reasoning placeholders while preserving encrypted reasoning", async () => {
+  const input: SessionV1.WithParts[] = [
+    {
+      info: assistantInfo("empty", "parent"),
+      parts: [
+        {
+          ...basePart("empty", "p1"),
+          type: "reasoning",
+          time: { start: 0, end: 1 },
+          text: "",
+          metadata: { openai: { itemId: "rs_empty", reasoningEncryptedContent: null } },
+        },
+      ],
+    },
+    {
+      info: assistantInfo("encrypted", "parent"),
+      parts: [
+        {
+          ...basePart("encrypted", "p2"),
+          type: "reasoning",
+          time: { start: 0, end: 1 },
+          text: "",
+          metadata: { openai: { itemId: "rs_valid", reasoningEncryptedContent: "encrypted" } },
+        },
+      ],
+    },
+  ]
+  const result = await MessageV2.toModelMessages(input, model)
+  expect(result).toHaveLength(1)
+  expect(result[0].content).toEqual([
+    {
+      type: "reasoning",
+      text: "",
+      providerOptions: { openai: { itemId: "rs_valid", reasoningEncryptedContent: "encrypted" } },
+    },
+  ])
+})
+
 describe("session.message-v2.fromError", () => {
   test("serializes context_length_exceeded as ContextOverflowError", () => {
     const input = {

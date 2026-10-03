@@ -95,6 +95,13 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     agent: input.agent,
     permission: input.session.permission,
   })) {
+    if (
+      ["dispatcher", "michael-lead"].includes(input.agent.name) &&
+      !["task_dispatch", "question", "todowrite", "skill", "websearch", "webfetch", "read", "glob", "grep"].includes(
+        item.id,
+      )
+    )
+      continue
     const schema = ProviderTransform.schema(input.model, ToolJsonSchema.fromTool(item))
     tools[item.id] = tool({
       description: item.description,
@@ -132,6 +139,9 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
       },
     })
   }
+
+  // Coordinator turns cannot become blocking shell, legacy subagent or MCP runs.
+  if (["dispatcher", "michael-lead"].includes(input.agent.name)) return tools
 
   const hasMcpResourceServer = Object.values(yield* mcp.clients()).some(
     (client) => !!client.getServerCapabilities()?.resources,

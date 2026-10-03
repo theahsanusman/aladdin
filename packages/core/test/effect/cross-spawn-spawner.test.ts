@@ -229,6 +229,36 @@ describe("cross-spawn spawner", () => {
   })
 
   describe("process control", () => {
+    fx.live("kills surviving descendants after the process leader exits", () =>
+      Effect.gen(function* () {
+        if (process.platform === "win32") return
+        const tmp = yield* Effect.acquireRelease(
+          Effect.promise(() => tmpdir()),
+          (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+        )
+        const ready = path.join(tmp.path, "ready")
+        const handle = yield* js(
+          `const {spawn}=require('node:child_process'); const child=spawn(process.execPath,['-e',${JSON.stringify(`process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(${JSON.stringify(ready)},String(process.pid));setInterval(()=>{},1000)`)}],{stdio:'ignore'});setInterval(()=>{},1000)`,
+        )
+        const pid = yield* Effect.promise(async () => {
+          const end = Date.now() + 5000
+          while (Date.now() < end) {
+            const text = await fs.readFile(ready, "utf8").catch(() => "")
+            if (text) return Number(text)
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          }
+          throw new Error("Descendant never signalled readiness")
+        })
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            if (alive(pid)) process.kill(pid, "SIGKILL")
+          }),
+        )
+        yield* handle.kill({ forceKillAfter: 100 })
+        expect(yield* Effect.promise(() => gone(pid, 1000))).toBe(true)
+      }),
+    )
+
     fx.effect(
       "kills a running process",
       Effect.gen(function* () {
