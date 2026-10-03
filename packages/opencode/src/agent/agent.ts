@@ -164,6 +164,7 @@ const layer = Layer.effect(
             permission: Permission.fromConfig({
               "*": "deny",
               task_dispatch: "allow",
+              task_inspect: "allow",
               question: "allow",
               todowrite: "allow",
               skill: "allow",
@@ -322,13 +323,18 @@ const layer = Layer.effect(
         if (agents.dispatcher) {
           const dispatcher = agents.dispatcher
           const lead = agents["michael-lead"] ?? dispatcher
-          const extra = lead.prompt?.replace(michael.trim(), "").replace(PROMPT_DISPATCHER.trim(), "").trim()
+          // This app-managed role comes from the current build, never an older copied agent file.
+          const extra = lead.prompt
+            ?.replace(michael.trim(), "")
+            .replace(/(?:^|\n)# Michael Lead role\r?\n[\s\S]*/, "")
+            .trim()
           dispatcher.prompt = [michael, extra, PROMPT_DISPATCHER].filter(Boolean).join("\n\n")
           dispatcher.permission = Permission.merge(
             agents.michael?.permission ?? Permission.merge(defaults, user),
             Permission.fromConfig({
               question: "allow",
               task_dispatch: "allow",
+              task_inspect: "allow",
               task: "deny",
               plan_enter: "deny",
               plan_exit: "deny",

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { describe, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
@@ -17,7 +17,7 @@ import { RuntimeFlags } from "../../src/effect/runtime-flags"
 import { ServerAuth } from "../../src/server/auth"
 import { authorizationRouterMiddleware } from "../../src/server/routes/instance/httpapi/middleware/authorization"
 import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
-import { serveEmbeddedUIEffect, serveUIEffect } from "../../src/server/shared/ui"
+import { embeddedWebUiDisabled, serveEmbeddedUIEffect, serveUIEffect } from "../../src/server/shared/ui"
 import { testEffect } from "../lib/effect"
 
 const testStateLayer = Layer.effectDiscard(
@@ -184,6 +184,27 @@ function responseText(response: Response) {
 }
 
 describe("HttpApi UI fallback", () => {
+  // The desktop main process sets OPENCODE_DISABLE_EMBEDDED_WEB_UI for its own
+  // listener, and every listener inherits it. An explicit serveWebUI must still
+  // serve the bundle, otherwise the loopback sidecar keeps proxying a stale
+  // hosted frontend while mobile works.
+  test("explicit serveWebUI wins over the host flag that disables the embedded UI", () => {
+    expect(embeddedWebUiDisabled(true, true)).toBe(false)
+    expect(embeddedWebUiDisabled(undefined, true)).toBe(true)
+    expect(embeddedWebUiDisabled(undefined, false)).toBe(false)
+    expect(embeddedWebUiDisabled(false, false)).toBe(true)
+  })
+
+  // The sidecar is an Electron utility-process entry: importing it outside a
+  // child process throws on the parent port and it pulls a virtual server
+  // module, so guard the option it hands to Server.listen at the source.
+  test("desktop loopback sidecar opts back into the bundled web UI", async () => {
+    const source = await Bun.file(new URL("../../../desktop/src/main/sidecar.ts", import.meta.url)).text()
+    const listen = source.match(/Server\.listen\(\{[\s\S]*?\}\)/)?.[0]
+    expect(listen).toBeDefined()
+    expect(listen).toContain("serveWebUI: true")
+  })
+
   it.live("serves the web UI through the HTTP API app", () =>
     Effect.gen(function* () {
       let proxiedUrl: string | undefined

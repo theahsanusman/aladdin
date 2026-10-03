@@ -930,6 +930,7 @@ it.instance("Michael coordinator admits research and skills without inline mutat
     const inputs = yield* llm.inputs
     const tools = inputs[0]?.tools as { function: { name: string } }[]
     expect(tools.map((tool) => tool.function.name)).toContain("task_dispatch")
+    expect(tools.map((tool) => tool.function.name)).toContain("task_inspect")
     for (const name of ["read", "grep", "glob", "skill", "websearch", "webfetch"]) {
       expect(tools.map((tool) => tool.function.name)).toContain(name)
     }

@@ -9,11 +9,19 @@ import { absoluteColumn } from "../database/path"
 import { SessionTable } from "../session/sql"
 import { ProjectTable } from "../project/sql"
 
-export const TeamTable = sqliteTable("task_team", {
-  owner_session_id: text().$type<SessionID>().primaryKey().notNull().references(() => SessionTable.id, { onDelete: "restrict" }),
-  paused: integer({ mode: "boolean" }).notNull().default(false),
-  time_updated: integer().notNull(),
-}, (table) => [check("task_team_paused_check", sql`${table.paused} IN (0, 1)`)])
+export const TeamTable = sqliteTable(
+  "task_team",
+  {
+    owner_session_id: text()
+      .$type<SessionID>()
+      .primaryKey()
+      .notNull()
+      .references(() => SessionTable.id, { onDelete: "restrict" }),
+    paused: integer({ mode: "boolean" }).notNull().default(false),
+    time_updated: integer().notNull(),
+  },
+  (table) => [check("task_team_paused_check", sql`${table.paused} IN (0, 1)`)],
+)
 
 export const TaskTable = sqliteTable(
   "task_ledger",
@@ -36,6 +44,9 @@ export const TaskTable = sqliteTable(
     queue_seq: integer().notNull(),
     time_created: integer().notNull(),
     time_updated: integer().notNull(),
+    // Soft dismissal: deleted jobs leave every board, list, and count but keep
+    // their row, attempts, evidence, child transcripts, and dispatch-key identity.
+    time_dismissed: integer(),
   },
   (table) => [
     uniqueIndex("task_ledger_owner_dispatch_idx").on(table.owner_session_id, table.dispatch_key),

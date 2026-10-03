@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-Recover the existing Analytics and agency chats, implement a root chat with at most three detached workers per chat, and expose the shared chat controls to a browser on the same Wi-Fi. No commit, push, deployment or user-app restart was performed. The final Michael build is installed. Normal activation of that build, a physical phone check and an elapsed 24-hour soak remain unverified. The final-build section below supersedes earlier package hashes and implementation receipts.
+The focused R19–R22 update is now installed and its activation, signature, database migration, retained chat identities, login preference, and both bundled browser listeners are verified. The latest section below supersedes earlier package hashes and pending-activation statements. Historical receipts remain dated evidence, not claims that every later build passed their checks. Physical-phone interaction, original image-heavy upstream failures, and the elapsed 24-hour soak remain unverified.
 
 Unlazy Tree 3 has four leaves, each using the original 45-minute whole-task budget: existing-chat recovery; cleanup and desktop parity; detached-worker admission and interactions; lifecycle, coding, UI and release verification. Iterative review found and repaired empty provider replay, missing project placement, process cleanup races, stale host registrations after reload, short-lived PTY events, missing worker notices and cramped phone controls.
 
@@ -141,3 +141,46 @@ Passwordless access is an explicit local opt-out, requested by the user. Desktop
 Current HTTPS root, bundled asset, health, mobile status and both existing chat records returned 200 without an Authorization header or login challenge. The Codex browser does not trust the private certificate authority; no browser security warning was bypassed. The same live backend rendered the existing Analytics chat in a fresh browser through its loopback HTTP address, with no console errors. The redundant `ai.opencode.web` legacy launch service was stopped and disabled, leaving the app-owned loopback and phone listeners running. Physical-phone interaction is not asserted.
 
 The original image-heavy email chat empty response is still unresolved. Focused provider/history tests passed 47/47, and a live MiMo V2.6 Flash/Max test with six harmless 923x2000 screenshots completed normally. The original history has valid local serialization, but synthetic success does not prove that private failing content works. Automatic approval review rejected replaying that private original chat and its images to Command Code without specific authorization. No speculative provider patch or removal of the empty-response guard was made. The unresolved provider failure, occupied-port timeout and elapsed soak acceptance remain open; this update does not claim universal production reliability.
+
+## R19–R22 focused update and verified activation
+
+Verified on 2026-10-03 against the signed update with backend version `0.0.0-dev-202610031654`.
+
+- Finished worker jobs can be dismissed from Workers and result cards. The server rejects unfinished/wrong-owner dismissal, makes repeated dismissal idempotent, publishes change notices, and preserves the task, attempts, evidence, child transcript, files, and exact dispatch-key identity. A nullable `time_dismissed` migration hides dismissed jobs from displayed boards, lists, and counts; exact re-admission and explicit retry restore visibility.
+- Job details, persistent result details, and technical cancellation traces start collapsed. Actions remain on the logical end of the title row at 390 CSS pixels, including forced English RTL. A real render caught long unbroken result titles overflowing and the activity actions wrapping below ordinary short titles; both were corrected and remeasured. The five-sample worker-toggle median was 1.3 ms before the final header correction and 1.5 ms afterward. This narrow microcheck is not a new full timeline benchmark.
+- Dispatch advertises an object brief with a required execution snapshot. V1 keeps strictly validated serialized-brief compatibility without advertising a string alternative. The read-only `task_inspect` tool is exposed to the lead, returns owned queue counts/pause state or one persisted report, and does not wait or poll. Legacy polling `task_status` remains absent.
+- Loopback explicitly opts into `serveWebUI: true`, matching the Wi-Fi listener despite the host's embedded-UI disable flag. The two installed listeners serve the same current bundle, not the hosted fallback.
+
+### Current verification
+
+| Check | Recorded result |
+| --- | --- |
+| Focused core ledger/execution/migration/dispatch tests | 48 passed, 0 failed |
+| Agent, dispatch parameters, inspection, and registry tests | 69 passed, 0 failed |
+| Worker, provider stream, task/UI HTTP, and prompt integration | 100 passed, 1 existing skip, 0 failed |
+| App unit / browser-condition suites | 813 / 42 passed, 0 failed; browser-condition tests are not Playwright |
+| Relevant type checks | Core, Schema, Protocol, Server, Client, legacy SDK, opencode, app, and desktop passed |
+| Changed-source formatting and diff whitespace | Passed |
+| Production build / signed archive | Passed; deep strict signature verification passed |
+| Real MiMo Max and None | Both admitted an object brief, executed native shell/read work in isolated data, completed, and returned factual persisted inspection |
+| Rendered browser checks | Desktop and 390-pixel widths, collapsed details, keyboard deletion, exact worker activity/return navigation, reload persistence, and two-client deletion |
+| Exact signed candidate | Rendered the new controls; deleting a result preserved the task, report, and three-message worker transcript |
+| Installed activation | Matching signed hash, applied dismissal column, four existing chat identities retained, passwordless preference retained, healthy loopback and Wi-Fi |
+
+The Max case took 35.2 seconds and reported 14 reasoning tokens on the first lead result; None took 36.1 seconds and reported zero reasoning tokens. Both worker snapshots retained `michael`, the selected MiMo model, and their exact lead variant. These bounded dummy cases used synthetic instructions, not private agent files or original private history, and do not certify long-context upstream reliability.
+
+The broad backend run was **not entirely green**: 3,734 passed, 22 skipped, one todo, and one existing Node SQLite-warning/empty-stderr assertion failure. Repository lint also retains an unrelated client-test error. Neither assertion was weakened. No Playwright, translation generation, dependency installation, or private-history replay was performed for this update.
+
+### Installed artifact and access
+
+- ASAR SHA-256: `a0ff5277668e7e2c2b4c2db4e4f796c4ceaf2dd4a327852ed05127556ff4e32b`.
+- Signer: `Apple Development: Ahsan Usman (2KG65UJYX2)`; channel remains `dev`.
+- Rollback bundle: `/Applications/.Aladdin-before-r19-r22.app`.
+- Current phone address: `https://192.168.100.15:47820/`; loopback port is dynamic.
+- Both listeners served `/assets/index-Nfn5-Luw.js`, SHA-256 `f395984bd0c3af718b64a8c3469312b2c2db922bd6b7fd7a31f2dc5fe09ec3fb`.
+
+The running bundle and process were preserved while staging. The user's first normal restart did not activate because the temporary installer counted surviving Crashpad as active application work. That check was corrected. Temporary launchd jobs also retried after activation and overwrote the installer status; all three installer/restart jobs were removed. The installer now recognizes an already-installed hash, and the restart helper has an exclusive once-only claim plus an already-installed guard. Seven installer safety tests pass. The final running application has the expected signed hash and healthy listeners; no restart jobs remain. No user process was force-killed. Preserve these installer failures as release-harness findings, not as hidden successful restart receipts.
+
+Local non-sensitive receipts are under the temporary `opencode/r19-r22` verification directory (`live-receipt.json`, `signed-parity.json`, `signed-rendered.json`, `signed-result-delete.json`, and `installed-receipt.json`). Staging/activation receipts are in the ignored desktop `dist/next-launch-r19-r22` directory. The private continuation tracker, provider credentials, probes, accidental declarations, unexecuted Playwright spec, and unrelated translation edits are excluded from publication.
+
+The final fresh Chrome connection was unavailable because its DevTools port file was absent. Rendered evidence above comes from the exact signed candidate before activation; installed asset/signature/API parity was then checked directly. No Chrome consent or certificate-warning bypass was attempted. Physical-phone controls, the deeper reliability/security phase, and the elapsed soak remain open. Source/Git handoff is recorded separately after remote verification.

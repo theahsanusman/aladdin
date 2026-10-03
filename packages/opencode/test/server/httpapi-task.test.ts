@@ -444,6 +444,47 @@ if (process.env.ALADDIN_TASK_HTTPAPI_ISOLATED === "1")
             generation: old.generation,
             evidence: "The synthetic old host never executed provider work; fixture ownership is released",
           })
+
+          // Deleting finished work is a durable soft dismissal: the board drops
+          // it, the record stays readable, and repeating it changes nothing.
+          const boardOf = (sessionID: string) =>
+            http(`/api/session/${sessionID}/task-board`, directory).pipe(
+              Fx.andThen(body<{ data: { task: { id: string } }[]; counts: Record<string, number> }>),
+            )
+          const doneID = dispatched.get("chat-0-task-0") ?? ""
+          expect(doneID).not.toBe("")
+          const before = yield* countsOf(chats[0], directory)
+          const removed = yield* post(`/api/session/${chats[0]}/task/${doneID}/dismiss`, directory, {})
+          expect(removed.status).toBe(200)
+          expect((yield* body<{ data: { id: string } }>(removed)).data.id).toBe(doneID)
+          const afterDelete = yield* boardOf(chats[0])
+          expect(afterDelete.data.map((item) => item.task.id)).not.toContain(doneID)
+          expect(afterDelete.counts.completed ?? 0).toBe((before.completed ?? 0) - 1)
+          const keptRecord = yield* http(`/api/session/${chats[0]}/task/${doneID}`, directory)
+          expect((yield* body<{ data: { task: { id: string; status: string } } }>(keptRecord)).data.task).toMatchObject(
+            { id: doneID, status: "completed" },
+          )
+          expect((yield* post(`/api/session/${chats[0]}/task/${doneID}/dismiss`, directory, {})).status).toBe(200)
+
+          // Unfinished, foreign, and unknown jobs are all refused.
+          yield* post(`/api/session/${chats[0]}/task/pause`, directory, {})
+          const pending = yield* dispatchTask(chats[0], "chat-0-delete-pending", 50, directory)
+          expect((yield* post(`/api/session/${chats[0]}/task/${pending}/dismiss`, directory, {})).status).toBe(409)
+          expect(
+            (yield* post(`/api/session/${chats[1]}/task/${pending}/dismiss`, directory, {})).status,
+          ).toBeGreaterThanOrEqual(400)
+          expect(
+            (yield* post(`/api/session/${chats[0]}/task/tsk_unknown_job/dismiss`, directory, {})).status,
+          ).toBeGreaterThanOrEqual(400)
+
+          // A deleted cancelled job returns through its exact dispatch key.
+          expect((yield* post(`/api/session/${chats[0]}/task/${pending}/cancel`, directory, {})).status).toBe(200)
+          expect((yield* post(`/api/session/${chats[0]}/task/${pending}/dismiss`, directory, {})).status).toBe(200)
+          expect((yield* boardOf(chats[0])).data.map((item) => item.task.id)).not.toContain(pending)
+          expect(yield* dispatchTask(chats[0], "chat-0-delete-pending", 50, directory)).toBe(pending)
+          expect((yield* boardOf(chats[0])).data.map((item) => item.task.id)).toContain(pending)
+          expect((yield* post(`/api/session/${chats[0]}/task/${pending}/cancel`, directory, {})).status).toBe(200)
+          yield* post(`/api/session/${chats[0]}/task/resume`, directory, {})
         }),
       30_000,
     )

@@ -19,3 +19,14 @@ test("shows worker reports and failure reasons without internal cleanup data", (
   expect(workerResultText("Request failed")).toBe("Request failed")
   expect(workerResultText(JSON.stringify({ cleanup: "Internal" }))).toBeUndefined()
 })
+
+test("keeps a worker failure readable while its full diagnostic evidence remains intact", () => {
+  const text = JSON.stringify({
+    result: {
+      error: "TimeoutError: Worker exceeded its runtime\n    at TaskExecution.make (file:///app.asar/node.js:123)",
+    },
+    cleanup: "Stopped",
+  })
+  expect(workerResultText(text)).toBe("TimeoutError: Worker exceeded its runtime")
+  expect(JSON.parse(text).result.error).toContain("file:///app.asar/node.js:123")
+})

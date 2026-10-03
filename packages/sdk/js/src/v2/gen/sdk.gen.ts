@@ -446,6 +446,8 @@ import type {
   V2TaskBoardResponses,
   V2TaskCancelErrors,
   V2TaskCancelResponses,
+  V2TaskDismissErrors,
+  V2TaskDismissResponses,
   V2TaskDispatchErrors,
   V2TaskDispatchResponses,
   V2TaskEventsErrors,
@@ -6816,6 +6818,34 @@ export class Task extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+
+  /**
+   * Delete a finished worker job from this chat's views without erasing its record
+   */
+  public dismiss<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      taskID: TaskId
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "taskID" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<V2TaskDismissResponses, V2TaskDismissErrors, ThrowOnError>({
+      url: "/api/session/{sessionID}/task/{taskID}/dismiss",
+      ...options,
+      ...params,
     })
   }
 

@@ -203,15 +203,18 @@ describe("i18n plural parity", () => {
 
 async function dictionary(file: string) {
   const module: unknown = await import(file)
-  if (typeof module !== "object" || module === null || !("dict" in module) || !isDictionary(module.dict)) {
+  if (typeof module !== "object" || module === null || !("dict" in module)) {
     throw new Error(`Invalid translation dictionary: ${file}`)
   }
-  return module.dict
-}
-
-function isDictionary(value: unknown): value is Record<string, string> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
-  return Object.values(value).every((item) => typeof item === "string")
+  if (typeof module.dict !== "object" || module.dict === null || Array.isArray(module.dict)) {
+    throw new Error(`Invalid translation dictionary: ${file}`)
+  }
+  return Object.fromEntries(
+    Object.entries(module.dict).map(([key, value]) => {
+      if (typeof value !== "string") throw new Error(`Invalid translation value: ${file} (${key})`)
+      return [key, value]
+    }),
+  )
 }
 
 function placeholders(value: string) {

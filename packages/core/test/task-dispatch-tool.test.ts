@@ -29,6 +29,64 @@ const it = testEffect(
     ],
   ),
 )
+const record = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
+// Providers resolve local $defs references themselves, so follow them here too
+// and assert on the shape a model actually receives.
+const resolve = (value: unknown, defs: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const schema = record(value)
+  const ref = schema?.$ref
+  return typeof ref === "string" && ref.startsWith("#/$defs/") ? record(defs[ref.slice("#/$defs/".length)]) : schema
+}
+
+it.live("canonical dispatch advertises one structured brief object and refuses a serialized one", () =>
+  Effect.gen(function* () {
+    const tools = yield* ToolRegistry.Service
+    const materialized = yield* tools.materialize()
+    const definition = materialized.definitions.find((item) => item.name === TaskDispatchTool.name)
+    // The root must stay an object schema: providers reject a tool input that is
+    // only a `$ref`, even when the definition it points at is an object.
+    expect(definition?.inputSchema.type).toBe("object")
+    expect(definition?.inputSchema.$ref).toBeUndefined()
+    const defs = record(definition?.inputSchema.$defs) ?? {}
+    const brief = resolve(record(resolve(definition?.inputSchema, defs)?.properties)?.brief, defs)
+    expect(brief?.type).toBe("object")
+    expect(brief?.anyOf).toBeUndefined()
+    expect(brief?.required).toEqual(
+      expect.arrayContaining(["title", "objective", "scope", "output", "checks", "constraints", "execution"]),
+    )
+    const result = yield* materialized.settle({
+      sessionID: SessionID.make("ses_dispatch_serialized"),
+      agent: AgentV2.ID.make("michael-lead"),
+      assistantMessageID: SessionMessage.ID.create(),
+      call: {
+        type: "tool-call",
+        id: "dispatch",
+        name: TaskDispatchTool.name,
+        input: {
+          dispatchKey: "serialized",
+          brief: JSON.stringify({
+            title: "Report",
+            objective: "Explain facts",
+            scope: ["Facts"],
+            output: "Report",
+            checks: ["Nonempty"],
+            constraints: [],
+            execution: {
+              engine: "v2",
+              mode: "report",
+              agent: "build",
+              model: { id: "model", providerID: "provider" },
+              maxCalls: 1,
+              wallClockMs: 1000,
+            },
+          }),
+        },
+      },
+    })
+    expect(result.result.type).toBe("error")
+  }),
+)
 it.live("canonical dispatch tool derives root ownership and returns without waiting for a worker", () =>
   Effect.gen(function* () {
     const database = yield* Database.Service

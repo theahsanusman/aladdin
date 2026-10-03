@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "487b7f4e-2cb6-4b32-9c58-02f96cd14001",
+  "id": "11e07f15-0f5f-4012-a62b-dac17b3728c2",
   "prevIds": [
-    "c6fd275f-0dfa-4cd4-85c0-dad1eb46d43d"
+    "487b7f4e-2cb6-4b32-9c58-02f96cd14001"
   ],
   "ddl": [
     {
@@ -2377,6 +2377,16 @@
       "default": null,
       "generated": null,
       "name": "time_updated",
+      "entityType": "columns",
+      "table": "task_ledger"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_dismissed",
       "entityType": "columns",
       "table": "task_ledger"
     },

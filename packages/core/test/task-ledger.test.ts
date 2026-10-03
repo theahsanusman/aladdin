@@ -86,14 +86,18 @@ describe("TaskLedger", () => {
       const ledger = yield* TaskLedger.Service
       const events = yield* EventV2.Service
       const observed: string[] = []
-      const off = yield* events.listen((event) => Effect.gen(function* () {
-        if (event.type !== "task.changed" && event.type !== "task.team.changed") return
-        observed.push(event.type)
-        if (event.type === "task.changed") {
-          const input = Schema.decodeUnknownSync(Schema.Struct({ sessionID: SessionID, taskID: TaskLedger.Task.ID }))(event.data)
-          expect(yield* ledger.get({ ownerSessionID: input.sessionID, taskID: input.taskID })).toBeDefined()
-        }
-      }).pipe(Effect.orDie))
+      const off = yield* events.listen((event) =>
+        Effect.gen(function* () {
+          if (event.type !== "task.changed" && event.type !== "task.team.changed") return
+          observed.push(event.type)
+          if (event.type === "task.changed") {
+            const input = Schema.decodeUnknownSync(Schema.Struct({ sessionID: SessionID, taskID: TaskLedger.Task.ID }))(
+              event.data,
+            )
+            expect(yield* ledger.get({ ownerSessionID: input.sessionID, taskID: input.taskID })).toBeDefined()
+          }
+        }).pipe(Effect.orDie),
+      )
       yield* Effect.addFinalizer(() => off)
       const task = yield* admit(ledger)
       expect(observed).toEqual(["task.changed"])
@@ -666,4 +670,66 @@ describe("TaskLedger", () => {
       }),
     )
   })
+
+  it.live("hides deleted finished jobs from board, list, and counts while keeping their records", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const database = yield* Database.Service
+      const ledger = yield* TaskLedger.Service
+      const events = yield* EventV2.Service
+      const task = yield* admit(ledger)
+      const other = yield* admit(ledger, a, "second")
+      const foreign = yield* admit(ledger, b, "other")
+      expect(yield* Effect.flip(ledger.dismiss({ ownerSessionID: a, taskID: task.id }))).toMatchObject({
+        code: "invalid_transition",
+      })
+      expect(yield* Effect.flip(ledger.dismiss({ ownerSessionID: a, taskID: foreign.id }))).toMatchObject({
+        code: "not_found",
+      })
+      const observed: string[] = []
+      const off = yield* events.listen((event) =>
+        Effect.sync(() => {
+          if (event.type === "task.changed") observed.push(event.type)
+        }),
+      )
+      yield* Effect.addFinalizer(() => off)
+      yield* ledger.cancel({ ownerSessionID: a, taskID: task.id })
+      expect(yield* ledger.dismiss({ ownerSessionID: a, taskID: task.id })).toMatchObject({
+        id: task.id,
+        status: "cancelled",
+      })
+      // Repeating the removal must succeed without changing anything again.
+      expect(yield* ledger.dismiss({ ownerSessionID: a, taskID: task.id })).toMatchObject({ id: task.id })
+      expect(observed).toEqual(["task.changed", "task.changed"])
+      const board = yield* ledger.board(a)
+      expect(board.data.map((item) => item.task.id)).toEqual([other.id])
+      expect(board.counts).toEqual({ queued: 1 })
+      expect((yield* ledger.list(a)).map((item) => item.id)).toEqual([other.id])
+      expect(yield* ledger.get({ ownerSessionID: a, taskID: task.id })).toMatchObject({ status: "cancelled" })
+      expect(yield* ledger.details({ ownerSessionID: a, taskID: task.id })).toMatchObject({ task: { id: task.id } })
+      expect(yield* database.db.get(sql`SELECT COUNT(*) AS count FROM task_ledger`)).toEqual({ count: 3 })
+    }),
+  )
+
+  it.live("returns a deleted job when its exact dispatch or settled retry comes back", () =>
+    Effect.gen(function* () {
+      yield* setup
+      const ledger = yield* TaskLedger.Service
+      const task = yield* admit(ledger)
+      const attempt = yield* claimed(ledger)
+      yield* ledger.transition(attempt, "running")
+      yield* ledger.settle(attempt, { outcome: "failed", evidence: "Worker failed its checks" })
+      yield* ledger.dismiss({ ownerSessionID: a, taskID: task.id })
+      expect((yield* ledger.board(a)).data).toEqual([])
+      expect(yield* admit(ledger)).toMatchObject({ id: task.id })
+      expect((yield* ledger.board(a)).data.map((item) => item.task.id)).toEqual([task.id])
+      yield* ledger.dismiss({ ownerSessionID: a, taskID: task.id })
+      expect((yield* ledger.board(a)).data).toEqual([])
+      expect(yield* ledger.retry({ ownerSessionID: a, taskID: task.id, generation: attempt.generation })).toMatchObject(
+        { id: task.id, status: "queued" },
+      )
+      expect((yield* ledger.board(a)).data.map((item) => item.task.id)).toEqual([task.id])
+      expect((yield* ledger.details({ ownerSessionID: a, taskID: task.id })).evidence).toBe("Worker failed its checks")
+    }),
+  )
 })

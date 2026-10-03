@@ -134,9 +134,12 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
           return
         }
         yield* input.invalidate(attempt, current.status === "cancelling" ? "Task cancelled" : "Worker execution ended")
-        const evidence = Exit.isSuccess(outcome)
-          ? outcome.value
-          : { error: Cause.pretty(outcome.cause).slice(0, 4_000) }
+        const evidence =
+          current.status === "cancelling"
+            ? { error: "Task cancelled by user" }
+            : Exit.isSuccess(outcome)
+              ? outcome.value
+              : { error: Cause.pretty(outcome.cause).slice(0, 4_000) }
         const valid =
           Exit.isSuccess(outcome) &&
           outcome.value.summary.trim().length > 0 &&
@@ -147,7 +150,13 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
               outcome.value.checks.filter((item) => item.check === check && item.passed && item.evidence.trim())
                 .length === 1,
           )
-        const serialized = JSON.stringify({ result: evidence, cleanup: cleanup.value })
+        const serialized = JSON.stringify({
+          result: evidence,
+          cleanup: cleanup.value,
+          ...(current.status === "cancelling" && Exit.isFailure(outcome)
+            ? { diagnostics: Cause.pretty(outcome.cause).slice(0, 4_000) }
+            : {}),
+        })
         yield* input.ledger.settle(attempt, {
           outcome:
             current.status === "cancelling"
@@ -593,7 +602,7 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
         return yield* new Error({
           message: "Review native worker side effects before retrying; work is not replayed automatically",
         })
-      if (task.status === "interrupted") {
+      if (task.status === "interrupted" || task.status === "cancelling") {
         const attempt = (yield* input.ledger.live()).find((item) => item.taskID === task.id)
         if (!attempt || attempt.runtimeEpoch === epoch || active.has(task.id))
           return yield* new Error({ message: "The current host still owns worker cleanup" })
@@ -604,16 +613,26 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
         if (task.brief.execution?.mode === "coding" && !owned.reviewedChanges)
           return yield* new Error({ message: "Review workspace changes before retrying interrupted coding work" })
         yield* input.invalidate(attempt, "Interrupted worker explicitly recovered")
-        yield* input.ledger.reconcile({
+        const recovered = yield* input.ledger.reconcile({
           ...owned,
           evidence: JSON.stringify({
-            result: { error: "Previous worker interrupted; user explicitly requested a new attempt" },
+            result: {
+              error:
+                task.status === "cancelling"
+                  ? "Task cancelled by user; previous worker host stopped"
+                  : "Previous worker interrupted; user explicitly requested a new attempt",
+            },
             cleanup:
               alive === false
                 ? "Operating system confirmed previous host exited"
                 : "User confirmed previous host stopped and reviewed required side effects",
           }),
         })
+        // Recovering a cancelled attempt releases its slot without replaying its work.
+        if (recovered.status === "cancelled") {
+          yield* wake(owned.ownerSessionID)
+          return recovered
+        }
       }
       const next = yield* input.ledger.retry(owned)
       yield* wake(owned.ownerSessionID)

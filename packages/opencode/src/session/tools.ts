@@ -30,12 +30,20 @@ const MCP_RESOURCE_TOOLS = {
   read: "read_mcp_resource",
 } as const
 const MAX_MCP_RESOURCE_BLOB_BYTES = 10 * 1024 * 1024
-const SUPPORTED_MCP_RESOURCE_ATTACHMENT_MIMES = new Set([
-  "application/pdf",
-  "image/gif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
+const SUPPORTED_MCP_RESOURCE_ATTACHMENT_MIMES = new Set(["application/pdf", "image/gif", "image/png", "image/webp"])
+// The coordinating lead keeps only its orchestration tools; everything else it
+// would ask for (shell, edit, write, task) belongs to its workers.
+const LEAD_TOOLS = new Set([
+  "task_dispatch",
+  "task_inspect",
+  "question",
+  "todowrite",
+  "skill",
+  "websearch",
+  "webfetch",
+  "read",
+  "glob",
+  "grep",
 ])
 
 export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
@@ -95,13 +103,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     agent: input.agent,
     permission: input.session.permission,
   })) {
-    if (
-      ["dispatcher", "michael-lead"].includes(input.agent.name) &&
-      !["task_dispatch", "question", "todowrite", "skill", "websearch", "webfetch", "read", "glob", "grep"].includes(
-        item.id,
-      )
-    )
-      continue
+    if (["dispatcher", "michael-lead"].includes(input.agent.name) && !LEAD_TOOLS.has(item.id)) continue
     const schema = ProviderTransform.schema(input.model, ToolJsonSchema.fromTool(item))
     tools[item.id] = tool({
       description: item.description,

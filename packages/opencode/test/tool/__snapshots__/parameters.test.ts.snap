@@ -468,3 +468,17 @@ exports[`tool parameters JSON Schema (wire shape) write 1`] = `
   "type": "object",
 }
 `;
+
+exports[`tool parameters JSON Schema (wire shape) task_inspect 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "taskID": {
+      "minLength": 5,
+      "pattern": "^tsk_",
+      "type": "string",
+    },
+  },
+  "type": "object",
+}
+`;

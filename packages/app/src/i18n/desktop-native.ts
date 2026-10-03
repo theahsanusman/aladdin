@@ -215,7 +215,13 @@ export function desktopNativePluralCategories(locale: DesktopNativeLocale) {
 
 function locale(value: string) {
   try {
-    return new Intl.Locale(value).maximize()
+    const parsed = new Intl.Locale(value)
+    // Bun's ICU currently maximizes pa-PK to pa-Aran-PK (Nastaliq) while
+    // Electron/Node maximize it to pa-Arab-PK. Both use the Arabic-script
+    // Punjabi bundle, but the script labels otherwise fail the exact match.
+    if (parsed.language === "pa" && parsed.region === "PK" && (!parsed.script || parsed.script === "Aran"))
+      return new Intl.Locale("pa-Arab-PK")
+    return parsed.maximize()
   } catch {
     return undefined
   }

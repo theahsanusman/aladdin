@@ -13599,6 +13599,56 @@ export type V2TaskRetryResponses = {
 
 export type V2TaskRetryResponse = V2TaskRetryResponses[keyof V2TaskRetryResponses]
 
+export type V2TaskDismissData = {
+  body?: never
+  path: {
+    sessionID: string
+    taskID: TaskId
+  }
+  query?: never
+  url: "/api/session/{sessionID}/task/{taskID}/dismiss"
+}
+
+export type V2TaskDismissErrors = {
+  /**
+   * InvalidRequestError
+   */
+  400: InvalidRequestError
+  /**
+   * UnauthorizedError
+   */
+  401: UnauthorizedError
+  /**
+   * SessionNotFoundError
+   */
+  404: SessionNotFoundError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+  /**
+   * UnknownError
+   */
+  500: UnknownError1
+  /**
+   * ServiceUnavailableError
+   */
+  503: ServiceUnavailableError
+}
+
+export type V2TaskDismissError = V2TaskDismissErrors[keyof V2TaskDismissErrors]
+
+export type V2TaskDismissResponses = {
+  /**
+   * Success
+   */
+  200: {
+    data: TaskInfo
+  }
+}
+
+export type V2TaskDismissResponse = V2TaskDismissResponses[keyof V2TaskDismissResponses]
+
 export type V2TaskPauseData = {
   body?: never
   path: {

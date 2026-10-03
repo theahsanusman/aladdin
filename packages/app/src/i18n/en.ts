@@ -1,8 +1,24 @@
 import { DESKTOP_NATIVE_ENGLISH } from "./desktop-native"
 
 export const dict = {
+  "session.workers.cancelledMessage": "Task cancelled. Work already performed may remain in the project.",
+  "session.workers.technicalDetails": "Technical details",
+  "session.workers.finishCancellation": "Finish cancellation",
+  "session.workers.cancellationRecovery":
+    "If cancellation is stuck after a crash, confirm the previous worker stopped and review its changes before finishing cancellation.",
   ...DESKTOP_NATIVE_ENGLISH,
   "session.workers.title": "Workers",
+  "session.workers.details": "Job details",
+  "session.workers.viewActivity": "View activity",
+  "session.workers.viewPreviousActivity": "View previous attempt",
+  "session.workers.activityPending": "Activity will appear when this worker starts.",
+  "session.workers.activityUnavailable": "This worker's activity is unavailable in this chat.",
+  "session.workers.agentValue": "Worker agent: {{agent}}",
+  "session.workers.reasoning": "Reasoning effort: {{effort}}",
+  "session.workers.defaultReasoning": "Default",
+  "session.workers.scope": "Scope",
+  "session.workers.output": "Expected output",
+  "session.workers.constraints": "Constraints",
   "session.workers.results": "Worker results",
   "session.workers.checksResult": "Verification evidence",
   "session.workers.reconnecting": "Reconnecting to workers. Showing the last saved results.",
@@ -17,6 +33,8 @@ export const dict = {
   "session.workers.pause": "Pause queue",
   "session.workers.resume": "Resume queue",
   "session.workers.cancel": "Cancel task",
+  "session.workers.delete": "Delete",
+  "session.workers.deleteTask": "Delete worker job {{title}}",
   "session.workers.refresh": "Refresh tasks",
   "session.workers.empty": "No tasks yet. Each chat has its own team of up to three workers.",
   "session.workers.unavailable": "Workers are unavailable on this server.",

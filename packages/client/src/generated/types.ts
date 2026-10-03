@@ -2144,6 +2144,55 @@ export type TasksRetryOutput = {
   }
 }["data"]
 
+export type TasksDismissInput = {
+  readonly sessionID: { readonly sessionID: string; readonly taskID: string }["sessionID"]
+  readonly taskID: { readonly sessionID: string; readonly taskID: string }["taskID"]
+}
+
+export type TasksDismissOutput = {
+  readonly data: {
+    readonly id: string
+    readonly ownerSessionID: string
+    readonly projectID: string
+    readonly location: { readonly directory: string; readonly workspaceID?: string }
+    readonly dispatchKey: string
+    readonly brief: {
+      readonly title: string
+      readonly objective: string
+      readonly scope: ReadonlyArray<string>
+      readonly output: string
+      readonly checks: ReadonlyArray<string>
+      readonly constraints: ReadonlyArray<string>
+      readonly execution?: {
+        readonly engine: "v1" | "v2"
+        readonly agent: string
+        readonly model: { readonly id: string; readonly providerID: string; readonly variant?: string }
+        readonly mode: "native" | "report" | "research" | "coding"
+        readonly paths?: ReadonlyArray<string>
+        readonly baseRevision?: string
+        readonly maxCalls: number
+        readonly maxToolCalls?: number
+        readonly wallClockMs: number
+      }
+    }
+    readonly status:
+      | "queued"
+      | "starting"
+      | "running"
+      | "waiting_for_user"
+      | "verifying"
+      | "cancelling"
+      | "interrupted"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly generation: number
+    readonly queueSequence: number
+    readonly timeCreated: number
+    readonly timeUpdated: number
+  }
+}["data"]
+
 export type TasksPauseInput = { readonly sessionID: { readonly sessionID: string }["sessionID"] }
 
 export type TasksPauseOutput = {

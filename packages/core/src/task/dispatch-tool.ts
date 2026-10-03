@@ -23,14 +23,11 @@ const layer = Layer.effectDiscard(
         [name]: Tool.make({
           description:
             "Admit Michael work to this root chat's durable queue and return immediately. Native mode uses Michael's normal tools and chat permissions; report/research are restricted and coding uses an isolated worktree. Snapshot the current engine, selected model/reasoning and budgets. Give workers separate file ownership and preserve user edits. Do not wait or poll.",
-          input: Schema.Struct({
-            dispatchKey: Task.Dispatch.fields.dispatchKey,
-            brief: Schema.Union([Task.Brief, Schema.fromJsonString(Task.Brief)]),
-          }),
+          input: Task.DispatchInput,
           output: Schema.Struct({ taskID: Task.ID, status: Task.Status }),
           execute: (input, context) =>
             Effect.gen(function* () {
-              if (input.brief.execution?.engine !== "v2")
+              if (input.brief.execution.engine !== "v2")
                 return yield* new ToolFailure({
                   message: "The canonical V2 dispatcher requires a V2 worker engine snapshot",
                 })

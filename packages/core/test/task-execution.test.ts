@@ -509,6 +509,54 @@ it.live("retains a cancelled slot until actual cleanup and fences late completio
     yield* Deferred.succeed(release, undefined)
     yield* Fiber.join(cancel)
     expect((yield* ledger.get({ ownerSessionID: a, taskID: task.id })).status).toBe("cancelled")
+    const detail = yield* ledger.details({ ownerSessionID: a, taskID: task.id })
+    expect(JSON.parse(detail.evidence ?? "{}")).toMatchObject({
+      result: { error: "Task cancelled by user" },
+      cleanup: "Stopped",
+    })
+    expect(yield* ledger.live()).toHaveLength(0)
+  }),
+)
+
+it.live("finishes an interrupted native cancellation after explicit review without replaying the worker", () =>
+  Effect.gen(function* () {
+    yield* setup
+    const ledger = yield* TaskLedger.Service
+    const task = yield* ledger.admit({
+      ownerSessionID: a,
+      dispatchKey: "cancel-dead-native",
+      brief: { ...brief, execution: { ...brief.execution, agent: "michael", mode: "native" } },
+    })
+    const attempt = yield* ledger.claim({ ownerSessionID: a, runtimeEpoch: "dead-native" })
+    if (!attempt) return yield* Effect.die("Missing fixture attempt")
+    yield* ledger.cancel({ ownerSessionID: a, taskID: task.id })
+    yield* ledger.interruptEpoch("dead-native")
+    const runtime = yield* TaskExecution.make({
+      ledger,
+      invalidate: () => Effect.void,
+      runtimeEpoch: "new-host",
+      hostAlive: () => Effect.succeed(false),
+    })
+    const current = yield* ledger.get({ ownerSessionID: a, taskID: task.id })
+    expect(current.status).toBe("cancelling")
+    expect(
+      yield* Effect.flip(
+        runtime.retry({ ownerSessionID: a, taskID: task.id, generation: current.generation, confirmStopped: true }),
+      ),
+    ).toMatchObject({ message: expect.stringContaining("Review native") })
+    const result = yield* runtime.retry({
+      ownerSessionID: a,
+      taskID: task.id,
+      generation: current.generation,
+      confirmStopped: true,
+      reviewedChanges: true,
+    })
+    expect(result.status).toBe("cancelled")
+    expect(result.generation).toBe(2)
+    expect(yield* ledger.live()).toHaveLength(0)
+    expect(
+      (yield* ledger.events({ ownerSessionID: a, after: 0 })).filter((event) => event.kind === "claimed"),
+    ).toHaveLength(1)
   }),
 )
 

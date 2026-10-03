@@ -109,6 +109,23 @@ describe("tool.registry", () => {
     }),
   )
 
+  it.instance("exposes task inspection only to the coordinating lead", () =>
+    Effect.gen(function* () {
+      const registry = yield* ToolRegistry.Service
+      const agents = yield* Agent.Service
+      const visible = (agent: Agent.Info) =>
+        registry
+          .tools({ providerID: ProviderV2.ID.opencode, modelID: ModelV2.ID.make("test"), agent })
+          .pipe(Effect.map((tools) => tools.map((tool) => tool.id)))
+      const build = yield* agents.get("build")
+      if (!build) throw new Error("build agent not found")
+      expect(yield* visible(build)).not.toContain("task_inspect")
+      const lead = yield* agents.get("michael-lead")
+      if (!lead) throw new Error("michael-lead agent not found")
+      expect(yield* visible(lead)).toContain("task_inspect")
+    }),
+  )
+
   it.instance("does not expose execute unless code mode is enabled", () =>
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service

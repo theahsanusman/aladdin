@@ -30,5 +30,5 @@ export function workerResultText(text: string) {
   if (Option.isNone(parsed)) return text
   const error = Option.getOrUndefined(failure(parsed.value))
   if (!error) return
-  return "result" in error ? error.result.error : error.error
+  return ("result" in error ? error.result.error : error.error).split(/\r?\n/, 1)[0]
 }

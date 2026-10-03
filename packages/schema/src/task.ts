@@ -69,6 +69,21 @@ export const Dispatch = Schema.Struct({
 }).annotate({ identifier: "Task.Dispatch" })
 export interface Dispatch extends Schema.Schema.Type<typeof Dispatch> {}
 
+// Dispatch input always carries an execution snapshot: the host refuses to run
+// unbudgeted work, so the model-visible schema must require it up front. Brief
+// itself keeps execution optional for previously admitted ledger-only records.
+export const DispatchBrief = Schema.Struct({
+  ...Brief.fields,
+  execution: Execution,
+}).annotate({ identifier: "Task.DispatchBrief" })
+export interface DispatchBrief extends Schema.Schema.Type<typeof DispatchBrief> {}
+
+export const DispatchInput = Schema.Struct({
+  dispatchKey: Dispatch.fields.dispatchKey,
+  brief: DispatchBrief,
+})
+export interface DispatchInput extends Schema.Schema.Type<typeof DispatchInput> {}
+
 export const Status = Schema.Literals([
   "queued",
   "starting",

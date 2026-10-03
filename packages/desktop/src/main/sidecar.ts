@@ -62,6 +62,11 @@ async function start(command: StartCommand) {
       username: "opencode",
       password: command.password,
       cors: ["oc://renderer"],
+      // The main process disables the embedded UI for its own listener because
+      // the renderer loads over oc://, but this loopback listener is also a
+      // browser entry point. Opt back into the current bundled frontend instead
+      // of proxying the older hosted one.
+      serveWebUI: true,
     })
     await restoreMobileAccess(undefined, { enabledByDefault: true }).catch((error) =>
       console.error("Could not restore Aladdin Wi-Fi access", error),

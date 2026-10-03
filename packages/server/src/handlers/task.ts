@@ -111,6 +111,13 @@ export const TaskHandler = HttpApiBuilder.group(Api, "server.task", (handlers) =
           }),
         ),
       )
+      .handle("task.dismiss", (ctx) =>
+        domain(
+          ledger
+            .dismiss({ ownerSessionID: ctx.params.sessionID, taskID: ctx.params.taskID })
+            .pipe(Effect.map((data) => ({ data }))),
+        ),
+      )
       .handle("task.pause", (ctx) =>
         domain(
           execution.pause(ctx.params.sessionID).pipe(

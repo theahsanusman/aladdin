@@ -1847,8 +1847,12 @@ const layer = Layer.effect(
             timeout: false,
           }).finally(() => headerTimeoutCtl?.clear())
 
-          if (!chunkAbortCtl) return res
-          return wrapSSE(res, chunkTimeout, chunkAbortCtl)
+          const response =
+            model.providerID === "commandcode" && model.api.npm === "@ai-sdk/openai"
+              ? CommandCode.commandCodeResponsesResponse(input, res)
+              : res
+          if (!chunkAbortCtl) return response
+          return wrapSSE(response, chunkTimeout, chunkAbortCtl)
         }
 
         const bundledLoader = BUNDLED_PROVIDERS[model.api.npm]

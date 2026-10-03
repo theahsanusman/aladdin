@@ -837,6 +837,32 @@ it.instance(
 )
 
 it.instance(
+  "Michael Lead replaces a stale managed role while retaining custom instructions and Michael",
+  () =>
+    Effect.gen(function* () {
+      const lead = yield* load((svc) => svc.get("michael-lead"))
+      expect(lead.prompt).toContain("Configured Michael")
+      expect(lead.prompt).toContain("Keep the user's extra review requirement")
+      expect(lead.prompt?.match(/^# Michael Lead role$/gm)).toHaveLength(1)
+      expect(lead.prompt).not.toContain("Workers cannot run arbitrary shell commands")
+      expect(lead.prompt).not.toContain("allowedPaths")
+      expect(lead.prompt).toContain("Native mode retains Michael")
+    }),
+  {
+    config: {
+      agent: {
+        michael: { prompt: "Configured Michael", mode: "primary" },
+        "michael-lead": {
+          prompt:
+            "Configured Michael\n\nKeep the user's extra review requirement\n\n# Michael Lead role\n\nWorkers cannot run arbitrary shell commands. Coding uses allowedPaths.",
+          mode: "primary",
+        },
+      },
+    },
+  },
+)
+
+it.instance(
   "Michael Lead uses Michael's tool permissions for shell and installed browser tools",
   () =>
     Effect.gen(function* () {
@@ -845,6 +871,7 @@ it.instance(
       expect(evalPerm(lead, "chrome-devtools_new_page")).toBe("allow")
       expect(evalPerm(lead, "edit")).toBe("deny")
       expect(evalPerm(lead, "task_dispatch")).toBe("allow")
+      expect(evalPerm(lead, "task_inspect")).toBe("allow")
       expect(evalPerm(lead, "task")).toBe("deny")
     }),
   {
@@ -852,7 +879,7 @@ it.instance(
       agent: {
         michael: {
           prompt: "Configured Michael",
-          permission: { bash: "ask", "chrome-devtools_*": "allow", edit: "deny" },
+          permission: { bash: "ask", "chrome-devtools_*": "allow", edit: "deny", task_inspect: "deny" },
         },
       },
     },

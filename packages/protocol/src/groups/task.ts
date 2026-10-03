@@ -78,6 +78,16 @@ export const makeTaskGroup = <I extends HttpApiMiddleware.AnyId, S>(middleware: 
           summary: "Explicitly retry a safely settled or reconciled worker failure",
         }),
       ),
+      HttpApiEndpoint.post("task.dismiss", "/api/session/:sessionID/task/:taskID/dismiss", {
+        params: item,
+        success: Schema.Struct({ data: Task.Info }),
+        error: errors,
+      }).annotateMerge(
+        OpenApi.annotations({
+          identifier: "v2.task.dismiss",
+          summary: "Delete a finished worker job from this chat's views without erasing its record",
+        }),
+      ),
       HttpApiEndpoint.post("task.pause", "/api/session/:sessionID/task/pause", {
         params,
         success: Schema.Struct({ data: Task.Team }),

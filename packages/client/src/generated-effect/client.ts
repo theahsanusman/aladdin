@@ -300,49 +300,60 @@ const Endpoint4_5 = (raw: RawClient["server.task"]) => (input: Endpoint4_5Input)
     Effect.map((value) => value.data),
   )
 
-type Endpoint4_6Request = Parameters<RawClient["server.task"]["task.pause"]>[0]
-type Endpoint4_6Input = { readonly sessionID: Endpoint4_6Request["params"]["sessionID"] }
+type Endpoint4_6Request = Parameters<RawClient["server.task"]["task.dismiss"]>[0]
+type Endpoint4_6Input = {
+  readonly sessionID: Endpoint4_6Request["params"]["sessionID"]
+  readonly taskID: Endpoint4_6Request["params"]["taskID"]
+}
 const Endpoint4_6 = (raw: RawClient["server.task"]) => (input: Endpoint4_6Input) =>
+  raw["task.dismiss"]({ params: { sessionID: input["sessionID"], taskID: input["taskID"] } }).pipe(
+    Effect.mapError(mapClientError),
+    Effect.map((value) => value.data),
+  )
+
+type Endpoint4_7Request = Parameters<RawClient["server.task"]["task.pause"]>[0]
+type Endpoint4_7Input = { readonly sessionID: Endpoint4_7Request["params"]["sessionID"] }
+const Endpoint4_7 = (raw: RawClient["server.task"]) => (input: Endpoint4_7Input) =>
   raw["task.pause"]({ params: { sessionID: input["sessionID"] } }).pipe(
     Effect.mapError(mapClientError),
     Effect.map((value) => value.data),
   )
 
-type Endpoint4_7Request = Parameters<RawClient["server.task"]["task.resume"]>[0]
-type Endpoint4_7Input = { readonly sessionID: Endpoint4_7Request["params"]["sessionID"] }
-const Endpoint4_7 = (raw: RawClient["server.task"]) => (input: Endpoint4_7Input) =>
+type Endpoint4_8Request = Parameters<RawClient["server.task"]["task.resume"]>[0]
+type Endpoint4_8Input = { readonly sessionID: Endpoint4_8Request["params"]["sessionID"] }
+const Endpoint4_8 = (raw: RawClient["server.task"]) => (input: Endpoint4_8Input) =>
   raw["task.resume"]({ params: { sessionID: input["sessionID"] } }).pipe(
     Effect.mapError(mapClientError),
     Effect.map((value) => value.data),
   )
 
-type Endpoint4_8Request = Parameters<RawClient["server.task"]["task.events"]>[0]
-type Endpoint4_8Input = {
-  readonly sessionID: Endpoint4_8Request["params"]["sessionID"]
-  readonly after?: Endpoint4_8Request["query"]["after"]
+type Endpoint4_9Request = Parameters<RawClient["server.task"]["task.events"]>[0]
+type Endpoint4_9Input = {
+  readonly sessionID: Endpoint4_9Request["params"]["sessionID"]
+  readonly after?: Endpoint4_9Request["query"]["after"]
 }
-const Endpoint4_8 = (raw: RawClient["server.task"]) => (input: Endpoint4_8Input) =>
+const Endpoint4_9 = (raw: RawClient["server.task"]) => (input: Endpoint4_9Input) =>
   raw["task.events"]({ params: { sessionID: input["sessionID"] }, query: { after: input["after"] } }).pipe(
     Effect.mapError(mapClientError),
     Effect.map((value) => value.data),
   )
 
-type Endpoint4_9Request = Parameters<RawClient["server.task"]["task.interactions"]>[0]
-type Endpoint4_9Input = { readonly sessionID: Endpoint4_9Request["params"]["sessionID"] }
-const Endpoint4_9 = (raw: RawClient["server.task"]) => (input: Endpoint4_9Input) =>
+type Endpoint4_10Request = Parameters<RawClient["server.task"]["task.interactions"]>[0]
+type Endpoint4_10Input = { readonly sessionID: Endpoint4_10Request["params"]["sessionID"] }
+const Endpoint4_10 = (raw: RawClient["server.task"]) => (input: Endpoint4_10Input) =>
   raw["task.interactions"]({ params: { sessionID: input["sessionID"] } }).pipe(
     Effect.mapError(mapClientError),
     Effect.map((value) => value.data),
   )
 
-type Endpoint4_10Request = Parameters<RawClient["server.task"]["task.answer"]>[0]
-type Endpoint4_10Input = {
-  readonly sessionID: Endpoint4_10Request["params"]["sessionID"]
-  readonly interactionID: Endpoint4_10Request["params"]["interactionID"]
-  readonly generation: Endpoint4_10Request["payload"]["generation"]
-  readonly decision: Endpoint4_10Request["payload"]["decision"]
+type Endpoint4_11Request = Parameters<RawClient["server.task"]["task.answer"]>[0]
+type Endpoint4_11Input = {
+  readonly sessionID: Endpoint4_11Request["params"]["sessionID"]
+  readonly interactionID: Endpoint4_11Request["params"]["interactionID"]
+  readonly generation: Endpoint4_11Request["payload"]["generation"]
+  readonly decision: Endpoint4_11Request["payload"]["decision"]
 }
-const Endpoint4_10 = (raw: RawClient["server.task"]) => (input: Endpoint4_10Input) =>
+const Endpoint4_11 = (raw: RawClient["server.task"]) => (input: Endpoint4_11Input) =>
   raw["task.answer"]({
     params: { sessionID: input["sessionID"], interactionID: input["interactionID"] },
     payload: { generation: input["generation"], decision: input["decision"] },
@@ -358,11 +369,12 @@ const adaptGroup4 = (raw: RawClient["server.task"]) => ({
   dispatch: Endpoint4_3(raw),
   cancel: Endpoint4_4(raw),
   retry: Endpoint4_5(raw),
-  pause: Endpoint4_6(raw),
-  resume: Endpoint4_7(raw),
-  events: Endpoint4_8(raw),
-  interactions: Endpoint4_9(raw),
-  answer: Endpoint4_10(raw),
+  dismiss: Endpoint4_6(raw),
+  pause: Endpoint4_7(raw),
+  resume: Endpoint4_8(raw),
+  events: Endpoint4_9(raw),
+  interactions: Endpoint4_10(raw),
+  answer: Endpoint4_11(raw),
 })
 
 type Endpoint5_0Request = Parameters<RawClient["server.message"]["session.messages"]>[0]

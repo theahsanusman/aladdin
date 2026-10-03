@@ -363,6 +363,7 @@ export default {
           \`queue_seq\` integer NOT NULL,
           \`time_created\` integer NOT NULL,
           \`time_updated\` integer NOT NULL,
+          \`time_dismissed\` integer,
           CONSTRAINT \`fk_task_ledger_owner_session_id_session_id_fk\` FOREIGN KEY (\`owner_session_id\`) REFERENCES \`session\`(\`id\`) ON DELETE RESTRICT,
           CONSTRAINT \`fk_task_ledger_project_id_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`project\`(\`id\`) ON DELETE RESTRICT,
           CONSTRAINT "task_ledger_generation_check" CHECK("generation" >= 0),

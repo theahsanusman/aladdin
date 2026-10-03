@@ -48,6 +48,16 @@ export function embeddedUI(disableEmbeddedWebUi: boolean) {
     import("opencode-web-ui.gen.ts").then((module) => module.default as Record<string, string>).catch(() => null))
 }
 
+/**
+ * A listener without an explicit choice follows the host flag, so a desktop main
+ * process can keep the embedded UI off for its own listener. An explicit choice
+ * always wins, which is how listeners that have no other frontend (the desktop
+ * loopback sidecar and mobile) opt back into the current bundle.
+ */
+export function embeddedWebUiDisabled(serveWebUI: boolean | undefined, disabledByHostFlag: boolean) {
+  return serveWebUI === undefined ? disabledByHostFlag : !serveWebUI
+}
+
 function notFound() {
   return HttpServerResponse.jsonUnsafe({ error: "Not Found" }, { status: 404 })
 }

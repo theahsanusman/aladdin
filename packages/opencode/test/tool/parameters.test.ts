@@ -21,6 +21,7 @@ import { Parameters as Read } from "../../src/tool/read"
 import { Parameters as Shell } from "../../src/tool/shell"
 import { Parameters as Skill } from "../../src/tool/skill"
 import { Parameters as Task } from "../../src/tool/task"
+import { Parameters as TaskInspect } from "../../src/task/inspect-v1"
 import { Parameters as Todo } from "../../src/tool/todo"
 import { Parameters as WebFetch } from "../../src/tool/webfetch"
 import { Parameters as WebSearch } from "../../src/tool/websearch"
@@ -48,6 +49,7 @@ describe("tool parameters", () => {
     test("read", () => expect(toJsonSchema(Read)).toMatchSnapshot())
     test("skill", () => expect(toJsonSchema(Skill)).toMatchSnapshot())
     test("task", () => expect(toJsonSchema(Task)).toMatchSnapshot())
+    test("task_inspect", () => expect(toJsonSchema(TaskInspect)).toMatchSnapshot())
     test("todo", () => expect(toJsonSchema(Todo)).toMatchSnapshot())
     test("webfetch", () => expect(toJsonSchema(WebFetch)).toMatchSnapshot())
     test("websearch", () => expect(toJsonSchema(WebSearch)).toMatchSnapshot())
@@ -245,6 +247,18 @@ describe("tool parameters", () => {
     })
     test("rejects missing prompt", () => {
       expect(accepts(Task, { description: "d", subagent_type: "general" })).toBe(false)
+    })
+  })
+
+  describe("task_inspect", () => {
+    test("accepts empty object", () => {
+      expect(parse(TaskInspect, {})).toEqual({})
+    })
+    test("accepts a single task id", () => {
+      expect(String(parse(TaskInspect, { taskID: "tsk_12345" }).taskID)).toBe("tsk_12345")
+    })
+    test("rejects a malformed task id", () => {
+      expect(accepts(TaskInspect, { taskID: "123" })).toBe(false)
     })
   })
 

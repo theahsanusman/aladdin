@@ -59,7 +59,9 @@ import { MCP } from "@/mcp"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { McpCatalog } from "@/mcp/catalog"
 import { TaskDispatchV1 } from "../task/dispatch-v1"
+import { TaskInspectV1 } from "../task/inspect-v1"
 import { TaskExecution } from "@opencode-ai/core/task/execution"
+import { TaskLedger } from "@opencode-ai/core/task/ledger"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }, agent?: string) {
   return (
@@ -108,6 +110,7 @@ const layer = Layer.effect(
     const invalid = yield* InvalidTool
     const task = yield* TaskTool
     const dispatch = yield* TaskDispatchV1.Tool
+    const inspect = yield* TaskInspectV1.Tool
     const read = yield* ReadTool
     const question = yield* QuestionTool
     const todo = yield* TodoWriteTool
@@ -226,6 +229,7 @@ const layer = Layer.effect(
           write: Tool.init(writetool),
           task: Tool.init(task),
           dispatch: Tool.init(dispatch),
+          inspect: Tool.init(inspect),
           fetch: Tool.init(webfetch),
           todo: Tool.init(todo),
           goal: Tool.init(goal),
@@ -252,6 +256,7 @@ const layer = Layer.effect(
             tool.write,
             tool.task,
             tool.dispatch,
+            tool.inspect,
             tool.fetch,
             tool.todo,
             tool.goal,
@@ -313,6 +318,11 @@ const layer = Layer.effect(
             input.agent.name,
           )
         }
+
+        // Only the coordinating lead owns a queue worth inspecting. Every other
+        // chat is either refused by the ledger or has no dispatched work, so
+        // advertising this there would only invite calls that end in an error.
+        if (tool.id === TaskInspectV1.Tool.id) return ["dispatcher", "michael-lead"].includes(input.agent.name)
 
         const usePatch =
           input.modelID.includes("gpt-") && !input.modelID.includes("oss") && !input.modelID.includes("gpt-4")
@@ -472,6 +482,7 @@ export const node = LayerNode.make({
     Database.node,
     Ripgrep.node,
     TaskExecution.node,
+    TaskLedger.node,
   ],
 })
 

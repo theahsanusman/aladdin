@@ -49,6 +49,8 @@ import type {
   TasksCancelOutput,
   TasksRetryInput,
   TasksRetryOutput,
+  TasksDismissInput,
+  TasksDismissOutput,
   TasksPauseInput,
   TasksPauseOutput,
   TasksResumeInput,
@@ -585,6 +587,17 @@ export function make(options: ClientOptions) {
               confirmStopped: input["confirmStopped"],
               reviewedChanges: input["reviewedChanges"],
             },
+            successStatus: 200,
+            declaredStatuses: [400, 404, 409, 503, 500, 401],
+            empty: false,
+          },
+          requestOptions,
+        ).then((value) => value.data),
+      dismiss: (input: TasksDismissInput, requestOptions?: RequestOptions) =>
+        request<{ readonly data: TasksDismissOutput }>(
+          {
+            method: "POST",
+            path: `/api/session/${encodeURIComponent(input.sessionID)}/task/${encodeURIComponent(input.taskID)}/dismiss`,
             successStatus: 200,
             declaredStatuses: [400, 404, 409, 503, 500, 401],
             empty: false,

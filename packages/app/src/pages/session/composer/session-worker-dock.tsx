@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, on, onCleanup, onMount } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
-import { useParams } from "@solidjs/router"
+import { useNavigate, useParams } from "@solidjs/router"
 import { Button } from "@opencode-ai/ui/button"
 import { useServerSDK } from "@/context/server-sdk"
 import { useSDK } from "@/context/sdk"
@@ -8,11 +8,12 @@ import { useSync } from "@/context/sync"
 import { useLocal } from "@/context/local"
 import { usePlatform } from "@/context/platform"
 import { useLanguage } from "@/context/language"
-import { workerEvidence } from "@/utils/worker-evidence"
+import { workerEvidence, workerResultText } from "@/utils/worker-evidence"
 import { workerNotice } from "@/utils/worker-notice"
 import { workerAgent, workerAgents } from "@/utils/worker-agents"
 import { createWorkerClient } from "@/utils/worker-client"
 import { workerInteractionMemo } from "@/utils/worker-interaction"
+import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
 import { showToast } from "@/utils/toast"
 import { Schema } from "effect"
 import { Question } from "@opencode-ai/schema/question"
@@ -34,6 +35,8 @@ const labels = {
   cancelled: "session.workers.state.cancelled",
 } as const
 const assigned = ["starting", "running", "waiting_for_user", "verifying", "cancelling", "interrupted"]
+// Finished jobs can be deleted from the board; every other job is still active.
+const settled = new Set(["completed", "failed", "cancelled"])
 type Board = Awaited<ReturnType<ReturnType<typeof createWorkerClient>["board"]>>
 type Interactions = Awaited<ReturnType<ReturnType<typeof createWorkerClient>["interactions"]>>
 const lines = (text: string) =>
@@ -44,6 +47,7 @@ const lines = (text: string) =>
 
 export function SessionWorkerDock() {
   const params = useParams()
+  const navigate = useNavigate()
   const server = useServerSDK()
   const sdk = useSDK()
   const sync = useSync()
@@ -157,6 +161,30 @@ export function SessionWorkerDock() {
     } finally {
       if (id === params.id) set("busy", "")
     }
+  }
+  const viewActivity = (item: Board["data"][number]) => {
+    const attempt = item.attempt
+    const id = params.id
+    if (!attempt || !id) return
+    const attemptID = attempt.id
+    const workerSessionID = attempt.workerSessionID
+    const taskID = item.task.id
+    const owner = server()
+    const href = params.serverKey
+      ? sessionHref(requireServerKey(params.serverKey), workerSessionID)
+      : legacySessionHref(item.task.location.directory, workerSessionID)
+    void action(`view:${taskID}`, async () => {
+      const session = await owner.api.session.get({ sessionID: workerSessionID })
+      if (
+        id !== params.id ||
+        owner !== server() ||
+        lifecycle.disposed ||
+        store.items.find((current) => current.task.id === taskID)?.attempt?.id !== attemptID
+      )
+        return
+      if (session.parentID !== id) throw new Error(language.t("session.workers.activityUnavailable"))
+      navigate(href)
+    })
   }
   const dispatch = async (event: SubmitEvent) => {
     event.preventDefault()
@@ -466,36 +494,132 @@ export function SessionWorkerDock() {
               <div class="max-h-72 overflow-auto flex flex-col gap-2">
                 <For each={store.items}>
                   {(item) => (
-                    <article class="rounded border border-border-weak-base p-2" data-task-id={item.task.id}>
-                      <div class="flex items-center gap-2">
-                        <bdi dir="auto" class="font-medium">
-                          {item.task.brief.title}
-                        </bdi>
-                        <span class="text-text-weak">{language.t(labels[item.task.status])}</span>
-                        <Show when={!(["completed", "failed", "cancelled"] as string[]).includes(item.task.status)}>
-                          <Button
-                            size="small"
-                            variant="ghost"
-                            class="ms-auto"
-                            disabled={!!store.busy}
-                            onClick={() =>
-                              void action(item.task.id, () =>
-                                api().cancel({ sessionID: params.id ?? "", taskID: item.task.id }),
-                              )
-                            }
-                          >
-                            {language.t("session.workers.cancel")}
-                          </Button>
-                        </Show>
+                    <article class="rounded border border-border-weak-base p-2 min-w-0" data-task-id={item.task.id}>
+                      <div class="flex items-start gap-2">
+                        <div class="flex flex-1 flex-wrap items-center gap-2 min-w-0">
+                          <bdi dir="auto" class="font-medium break-words min-w-0 max-w-full">
+                            {item.task.brief.title}
+                          </bdi>
+                          <span class="text-text-weak">{language.t(labels[item.task.status])}</span>
+                          <Show when={!item.attempt && !settled.has(item.task.status)}>
+                            <span class="text-12 text-text-weak" dir="auto">
+                              {language.t("session.workers.activityPending")}
+                            </span>
+                          </Show>
+                        </div>
+                        <span class="flex shrink-0 items-center gap-2">
+                          <Show when={item.attempt}>
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              disabled={!!store.busy}
+                              onClick={() => viewActivity(item)}
+                            >
+                              {language.t(
+                                item.attempt?.generation === item.task.generation
+                                  ? "session.workers.viewActivity"
+                                  : "session.workers.viewPreviousActivity",
+                              )}
+                            </Button>
+                          </Show>
+                          <Show when={!settled.has(item.task.status)}>
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              disabled={!!store.busy}
+                              onClick={() =>
+                                void action(item.task.id, () =>
+                                  api().cancel({ sessionID: params.id ?? "", taskID: item.task.id }),
+                                )
+                              }
+                            >
+                              {language.t("session.workers.cancel")}
+                            </Button>
+                          </Show>
+                          <Show when={settled.has(item.task.status)}>
+                            <Button
+                              size="small"
+                              variant="ghost"
+                              disabled={!!store.busy}
+                              aria-label={language.t("session.workers.deleteTask", { title: item.task.brief.title })}
+                              onClick={() =>
+                                void action(`dismiss:${item.task.id}`, () =>
+                                  api().dismiss({ sessionID: params.id ?? "", taskID: item.task.id }),
+                                )
+                              }
+                            >
+                              {language.t("session.workers.delete")}
+                            </Button>
+                          </Show>
+                        </span>
                       </div>
+                      <details class="mt-1 text-text-weak break-words" data-component="worker-job-details">
+                        <summary class="cursor-pointer">{language.t("session.workers.details")}</summary>
+                        <div class="flex flex-col gap-2 mt-2">
+                          <p class="whitespace-pre-wrap" dir="auto">
+                            {item.task.brief.objective}
+                          </p>
+                          <Show when={item.task.brief.execution} keyed>
+                            {(execution) => (
+                              <>
+                                <p>{language.t("session.workers.agentValue", { agent: execution.agent })}</p>
+                                <p>
+                                  {language.t("session.workers.model", {
+                                    model: `${execution.model.providerID}/${execution.model.id}`,
+                                  })}
+                                </p>
+                                <p>
+                                  {language.t("session.workers.reasoning", {
+                                    effort: execution.model.variant ?? language.t("session.workers.defaultReasoning"),
+                                  })}
+                                </p>
+                              </>
+                            )}
+                          </Show>
+                          <div>
+                            <p>{language.t("session.workers.scope")}</p>
+                            <ul class="list-disc ps-4">
+                              <For each={item.task.brief.scope}>{(scope) => <li dir="auto">{scope}</li>}</For>
+                            </ul>
+                          </div>
+                          <div>
+                            <p>{language.t("session.workers.output")}</p>
+                            <p dir="auto" class="whitespace-pre-wrap">
+                              {item.task.brief.output}
+                            </p>
+                          </div>
+                          <div>
+                            <p>{language.t("session.workers.checks")}</p>
+                            <ul class="list-disc ps-4">
+                              <For each={item.task.brief.checks}>{(check) => <li dir="auto">{check}</li>}</For>
+                            </ul>
+                          </div>
+                          <Show when={item.task.brief.constraints.length > 0}>
+                            <div>
+                              <p>{language.t("session.workers.constraints")}</p>
+                              <ul class="list-disc ps-4">
+                                <For each={item.task.brief.constraints}>
+                                  {(constraint) => <li dir="auto">{constraint}</li>}
+                                </For>
+                              </ul>
+                            </div>
+                          </Show>
+                        </div>
+                      </details>
                       <Show
                         when={
                           (root()?.agent !== "michael-lead" && root()?.agent !== "dispatcher") ||
                           item.task.brief.execution?.agent === "michael"
                         }
                       >
-                        <Show when={item.task.status === "interrupted"}>
-                          <p class="text-text-weak">{language.t("session.workers.interrupted")}</p>
+                        <Show when={item.task.status === "interrupted" || item.task.status === "cancelling"}>
+                          <p class="text-text-weak">
+                            {language.t(
+                              item.task.status === "cancelling"
+                                ? "session.workers.cancellationRecovery"
+                                : "session.workers.interrupted",
+                            )}
+                          </p>
                           <label class="flex items-start gap-2 mt-2">
                             <input
                               type="checkbox"
@@ -527,7 +651,9 @@ export function SessionWorkerDock() {
                         </Show>
                         <Show
                           when={
-                            (item.task.status === "interrupted" || item.task.status === "failed") &&
+                            (item.task.status === "interrupted" ||
+                              item.task.status === "failed" ||
+                              item.task.status === "cancelling") &&
                             item.task.brief.execution?.mode === "native"
                           }
                         >
@@ -545,14 +671,20 @@ export function SessionWorkerDock() {
                             {language.t("session.workers.reviewedChanges")}
                           </label>
                         </Show>
-                        <Show when={item.task.status === "failed" || item.task.status === "interrupted"}>
+                        <Show
+                          when={
+                            item.task.status === "failed" ||
+                            item.task.status === "interrupted" ||
+                            item.task.status === "cancelling"
+                          }
+                        >
                           <Button
                             size="small"
                             variant="ghost"
                             disabled={
                               !!store.busy ||
                               (item.task.brief.execution?.mode === "native" && !store.recovery[item.id]?.reviewed) ||
-                              (item.task.status === "interrupted" &&
+                              ((item.task.status === "interrupted" || item.task.status === "cancelling") &&
                                 (!store.recovery[item.id]?.stopped ||
                                   (item.task.brief.execution?.mode === "coding" && !store.recovery[item.id]?.reviewed)))
                             }
@@ -568,23 +700,40 @@ export function SessionWorkerDock() {
                               )
                             }
                           >
-                            {language.t("session.workers.retry")}
+                            {language.t(
+                              item.task.status === "cancelling"
+                                ? "session.workers.finishCancellation"
+                                : "session.workers.retry",
+                            )}
                           </Button>
                         </Show>
                       </Show>
-                      <Show when={item.evidence}>
-                        <details open class="mt-1">
-                          <summary>{language.t("session.workers.result")}</summary>
+                      <Show when={item.task.status === "cancelled"}>
+                        <p class="mt-1 text-12 text-text-weak" dir="auto">
+                          {language.t("session.workers.cancelledMessage")}
+                        </p>
+                        <Show when={item.evidence}>
+                          <details class="mt-1 text-text-weak break-words">
+                            <summary class="cursor-pointer">{language.t("session.workers.technicalDetails")}</summary>
+                            <pre dir="auto" class="whitespace-pre-wrap break-words max-h-52 overflow-auto">
+                              {item.evidence}
+                            </pre>
+                          </details>
+                        </Show>
+                      </Show>
+                      <Show when={item.task.status !== "cancelled" && item.evidence}>
+                        <details class="mt-1 text-text-weak break-words" data-component="worker-job-result">
+                          <summary class="cursor-pointer">{language.t("session.workers.result")}</summary>
                           <Show
                             when={workerEvidence(item.evidence ?? "")}
                             keyed
                             fallback={
-                              <pre
+                              <p
                                 dir="auto"
                                 class="whitespace-pre-wrap break-words max-h-52 overflow-auto text-text-weak"
                               >
-                                {item.evidence}
-                              </pre>
+                                {workerResultText(item.evidence ?? "")}
+                              </p>
                             }
                           >
                             {(result) => (
@@ -606,6 +755,12 @@ export function SessionWorkerDock() {
                               </div>
                             )}
                           </Show>
+                          <details class="mt-2 text-text-weak">
+                            <summary>{language.t("session.workers.technicalDetails")}</summary>
+                            <pre dir="auto" class="whitespace-pre-wrap break-words max-h-52 overflow-auto">
+                              {item.evidence}
+                            </pre>
+                          </details>
                         </details>
                       </Show>
                     </article>

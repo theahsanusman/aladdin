@@ -21,6 +21,10 @@ type TaskRow = typeof TaskTable.$inferSelect
 type AttemptRow = typeof AttemptTable.$inferSelect
 type OwnedTask = { readonly ownerSessionID: SessionID; readonly taskID: Task.ID }
 type ActiveStatus = "running" | "waiting_for_user" | "verifying"
+// Settled outcomes. Only these jobs may be deleted from a chat's views.
+const terminal: Task.Status[] = ["completed", "failed", "cancelled"]
+// A dismissed job stays fully recorded; it is only excluded from reads.
+const notDismissed = isNull(TaskTable.time_dismissed)
 
 export class Error extends Schema.TaggedErrorClass<Error>()("TaskLedger.Error", {
   code: Schema.Literals([
@@ -43,16 +47,44 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const database = yield* Database.Service
     const events = yield* EventV2.Service
-    return make(database.db, (task: Task.Info) => events.publish(TaskNotice.Event.Changed, { sessionID: task.ownerSessionID, taskID: task.id }, { location: task.location }), (team: Task.Team) => Effect.gen(function* () {
-      const row = yield* database.db.select().from(SessionTable).where(eq(SessionTable.id, team.ownerSessionID)).get().pipe(Effect.orDie)
-      if (!row) return yield* Effect.die("Task team lost its root Session")
-      yield* events.publish(TaskNotice.Event.TeamChanged, { sessionID: team.ownerSessionID }, { location: { directory: AbsolutePath.make(row.directory), ...(row.workspace_id === null ? {} : { workspaceID: row.workspace_id }) } })
-    }))
+    return make(
+      database.db,
+      (task: Task.Info) =>
+        events.publish(
+          TaskNotice.Event.Changed,
+          { sessionID: task.ownerSessionID, taskID: task.id },
+          { location: task.location },
+        ),
+      (team: Task.Team) =>
+        Effect.gen(function* () {
+          const row = yield* database.db
+            .select()
+            .from(SessionTable)
+            .where(eq(SessionTable.id, team.ownerSessionID))
+            .get()
+            .pipe(Effect.orDie)
+          if (!row) return yield* Effect.die("Task team lost its root Session")
+          yield* events.publish(
+            TaskNotice.Event.TeamChanged,
+            { sessionID: team.ownerSessionID },
+            {
+              location: {
+                directory: AbsolutePath.make(row.directory),
+                ...(row.workspace_id === null ? {} : { workspaceID: row.workspace_id }),
+              },
+            },
+          )
+        }),
+    )
   }),
 )
 export const node = makeGlobalNode({ service: Service, layer, deps: [Database.node, EventV2.node] })
 
-function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.Effect<void>, notifyTeam: (team: Task.Team) => Effect.Effect<void>) {
+function make(
+  db: Database.Interface["db"],
+  notify: (task: Task.Info) => Effect.Effect<void>,
+  notifyTeam: (team: Task.Team) => Effect.Effect<void>,
+) {
   const write = <A, E, R>(body: (tx: Transaction) => Effect.Effect<A, E, R>) =>
     db.transaction(body, { behavior: "immediate" }).pipe(
       Effect.retry({
@@ -155,6 +187,7 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
         generation: task.generation,
         queue_seq: task.queue_seq,
         time_updated: task.time_updated,
+        time_dismissed: task.time_dismissed,
       })
       .where(eq(TaskTable.id, task.id))
     if (attempt)
@@ -204,7 +237,14 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
               new Error({ code: "conflict", message: "Dispatch key was already used for a different task brief" }),
             )
           }
-          return info(existing)
+          if (existing.time_dismissed === null) return info(existing)
+          // Re-admitting a deleted job restores it to this chat's views.
+          const restored = DateTime.toEpochMillis(yield* DateTime.now)
+          yield* tx
+            .update(TaskTable)
+            .set({ time_dismissed: null, time_updated: restored })
+            .where(eq(TaskTable.id, existing.id))
+          return info({ ...existing, time_dismissed: null, time_updated: restored })
         }
         const now = DateTime.toEpochMillis(yield* DateTime.now)
         const row = yield* tx
@@ -240,7 +280,11 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
     return yield* write((tx) =>
       Effect.gen(function* () {
         yield* root(tx, input.ownerSessionID)
-        const team = yield* tx.select().from(TeamTable).where(eq(TeamTable.owner_session_id, input.ownerSessionID)).get()
+        const team = yield* tx
+          .select()
+          .from(TeamTable)
+          .where(eq(TeamTable.owner_session_id, input.ownerSessionID))
+          .get()
         if (team?.paused) return
         const previous = yield* tx
           .select()
@@ -395,6 +439,29 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
     )
   })
 
+  // Deletion is a durable soft dismissal, not a row removal: finished work
+  // leaves every board, list, and count while keeping its record, attempts,
+  // evidence, child transcript, and exact dispatch-key identity. It publishes
+  // the same task notice as a transition so other clients refresh their views.
+  const dismiss = Effect.fn("TaskLedger.dismiss")(function* (input: OwnedTask) {
+    return yield* write((tx) =>
+      Effect.gen(function* () {
+        const task = yield* owned(tx, input)
+        if (!terminal.includes(task.status))
+          return yield* Effect.fail(
+            new Error({ code: "invalid_transition", message: "Only a finished worker job can be deleted" }),
+          )
+        if (task.time_dismissed !== null) return { task: info(task), changed: false }
+        const now = DateTime.toEpochMillis(yield* DateTime.now)
+        yield* tx
+          .update(TaskTable)
+          .set({ time_dismissed: now, time_updated: now })
+          .where(and(eq(TaskTable.id, task.id), eq(TaskTable.owner_session_id, task.owner_session_id)))
+        return { task: info({ ...task, time_dismissed: now, time_updated: now }), changed: true }
+      }),
+    )
+  })
+
   const retry = Effect.fn("TaskLedger.retry")(function* (input: OwnedTask & { readonly generation: number }) {
     yield* decode(Task.Generation, input.generation)
     return yield* write((tx) =>
@@ -413,6 +480,7 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
             status: "queued",
             queue_seq: yield* queueSequence(tx),
             time_updated: DateTime.toEpochMillis(yield* DateTime.now),
+            time_dismissed: null,
           },
           "retried",
         )
@@ -519,21 +587,39 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
     transition: (token: Task.Attempt, status: ActiveStatus) => transition(token, status).pipe(Effect.tap(notify)),
     settle: (token: Task.Attempt, input: Task.Settlement) => settle(token, input).pipe(Effect.tap(notify)),
     cancel: (input: OwnedTask) => cancel(input).pipe(Effect.tap(notify)),
+    dismiss: (input: OwnedTask) =>
+      dismiss(input).pipe(
+        Effect.tap((result) => (result.changed ? notify(result.task) : Effect.void)),
+        Effect.map((result) => result.task),
+      ),
     retry: (input: OwnedTask & { readonly generation: number }) => retry(input).pipe(Effect.tap(notify)),
-    reconcile: (input: OwnedTask & { readonly generation: number; readonly evidence: string }) => reconcile(input).pipe(Effect.tap(notify)),
-    interruptEpoch: (epoch: string) => interruptEpoch(epoch).pipe(Effect.tap((tasks) => Effect.forEach(tasks, notify, { discard: true }))),
-    team: Effect.fn("TaskLedger.team")((ownerSessionID: SessionID) => db.transaction((tx) => Effect.gen(function* () {
-      yield* root(tx, ownerSessionID)
-      const team = yield* tx.select().from(TeamTable).where(eq(TeamTable.owner_session_id, ownerSessionID)).get()
-      return Task.Team.make({ ownerSessionID, paused: team?.paused ?? false, timeUpdated: team?.time_updated ?? 0 })
-    }))),
-    setPaused: Effect.fn("TaskLedger.setPaused")((ownerSessionID: SessionID, paused: boolean) => write((tx) => Effect.gen(function* () {
-      yield* root(tx, ownerSessionID)
-      yield* decode(Schema.Boolean, paused)
-      const timeUpdated = DateTime.toEpochMillis(yield* DateTime.now)
-      yield* tx.insert(TeamTable).values({ owner_session_id: ownerSessionID, paused, time_updated: timeUpdated }).onConflictDoUpdate({ target: TeamTable.owner_session_id, set: { paused, time_updated: timeUpdated } })
-      return Task.Team.make({ ownerSessionID, paused, timeUpdated })
-    })).pipe(Effect.tap(notifyTeam))),
+    reconcile: (input: OwnedTask & { readonly generation: number; readonly evidence: string }) =>
+      reconcile(input).pipe(Effect.tap(notify)),
+    interruptEpoch: (epoch: string) =>
+      interruptEpoch(epoch).pipe(Effect.tap((tasks) => Effect.forEach(tasks, notify, { discard: true }))),
+    team: Effect.fn("TaskLedger.team")((ownerSessionID: SessionID) =>
+      db.transaction((tx) =>
+        Effect.gen(function* () {
+          yield* root(tx, ownerSessionID)
+          const team = yield* tx.select().from(TeamTable).where(eq(TeamTable.owner_session_id, ownerSessionID)).get()
+          return Task.Team.make({ ownerSessionID, paused: team?.paused ?? false, timeUpdated: team?.time_updated ?? 0 })
+        }),
+      ),
+    ),
+    setPaused: Effect.fn("TaskLedger.setPaused")((ownerSessionID: SessionID, paused: boolean) =>
+      write((tx) =>
+        Effect.gen(function* () {
+          yield* root(tx, ownerSessionID)
+          yield* decode(Schema.Boolean, paused)
+          const timeUpdated = DateTime.toEpochMillis(yield* DateTime.now)
+          yield* tx
+            .insert(TeamTable)
+            .values({ owner_session_id: ownerSessionID, paused, time_updated: timeUpdated })
+            .onConflictDoUpdate({ target: TeamTable.owner_session_id, set: { paused, time_updated: timeUpdated } })
+          return Task.Team.make({ ownerSessionID, paused, timeUpdated })
+        }),
+      ).pipe(Effect.tap(notifyTeam)),
+    ),
     worker: Effect.fn("TaskLedger.worker")((workerSessionID: SessionID) =>
       db
         .select()
@@ -602,25 +688,88 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
     get: Effect.fn("TaskLedger.get")((input: OwnedTask) =>
       db.transaction((tx) => owned(tx, input).pipe(Effect.map(info))),
     ),
-    details: Effect.fn("TaskLedger.details")((input: OwnedTask) => db.transaction((tx) => Effect.gen(function* () {
-      const task = yield* owned(tx, input)
-      const attempt = yield* tx.select().from(AttemptTable).where(eq(AttemptTable.task_id, task.id)).orderBy(sql`${AttemptTable.generation} DESC`).limit(1).get()
-      return Task.Details.make({ task: info(task), ...(attempt ? { attempt: intent(attempt) } : {}), ...(attempt?.evidence == null ? {} : { evidence: attempt.evidence }) })
-    }))),
-    board: Effect.fn("TaskLedger.board")((ownerSessionID: SessionID) => db.transaction((tx) => Effect.gen(function* () {
-      yield* root(tx, ownerSessionID)
-      const team = yield* tx.select().from(TeamTable).where(eq(TeamTable.owner_session_id, ownerSessionID)).get()
-      const grouped = yield* tx.select({ status: TaskTable.status, count: sql<number>`COUNT(*)` }).from(TaskTable).where(eq(TaskTable.owner_session_id, ownerSessionID)).groupBy(TaskTable.status).all()
-      const terminal: Task.Status[] = ["completed", "failed", "cancelled"]
-      const assigned = yield* tx.select().from(TaskTable).where(and(eq(TaskTable.owner_session_id, ownerSessionID), notInArray(TaskTable.status, ["queued", ...terminal]))).orderBy(asc(TaskTable.queue_seq)).all()
-      const queued = yield* tx.select().from(TaskTable).where(and(eq(TaskTable.owner_session_id, ownerSessionID), eq(TaskTable.status, "queued"))).orderBy(asc(TaskTable.queue_seq)).limit(20).all()
-      const settled = yield* tx.select().from(TaskTable).where(and(eq(TaskTable.owner_session_id, ownerSessionID), inArray(TaskTable.status, terminal))).orderBy(desc(TaskTable.time_updated), desc(TaskTable.queue_seq)).limit(20).all()
-      const data = yield* Effect.forEach([...assigned, ...queued, ...settled], (task) => Effect.gen(function* () {
-        const attempt = yield* tx.select().from(AttemptTable).where(eq(AttemptTable.task_id, task.id)).orderBy(desc(AttemptTable.generation)).limit(1).get()
-        return Task.Details.make({ task: info(task), ...(attempt ? { attempt: intent(attempt) } : {}), ...(attempt?.evidence == null ? {} : { evidence: attempt.evidence }) })
-      }))
-      return Task.Board.make({ data, team: { ownerSessionID, paused: team?.paused ?? false, timeUpdated: team?.time_updated ?? 0 }, counts: Object.fromEntries(grouped.map((row) => [row.status, row.count])) })
-    }))),
+    details: Effect.fn("TaskLedger.details")((input: OwnedTask) =>
+      db.transaction((tx) =>
+        Effect.gen(function* () {
+          const task = yield* owned(tx, input)
+          const attempt = yield* tx
+            .select()
+            .from(AttemptTable)
+            .where(eq(AttemptTable.task_id, task.id))
+            .orderBy(sql`${AttemptTable.generation} DESC`)
+            .limit(1)
+            .get()
+          return Task.Details.make({
+            task: info(task),
+            ...(attempt ? { attempt: intent(attempt) } : {}),
+            ...(attempt?.evidence == null ? {} : { evidence: attempt.evidence }),
+          })
+        }),
+      ),
+    ),
+    board: Effect.fn("TaskLedger.board")((ownerSessionID: SessionID) =>
+      db.transaction((tx) =>
+        Effect.gen(function* () {
+          yield* root(tx, ownerSessionID)
+          const team = yield* tx.select().from(TeamTable).where(eq(TeamTable.owner_session_id, ownerSessionID)).get()
+          const grouped = yield* tx
+            .select({ status: TaskTable.status, count: sql<number>`COUNT(*)` })
+            .from(TaskTable)
+            .where(and(eq(TaskTable.owner_session_id, ownerSessionID), notDismissed))
+            .groupBy(TaskTable.status)
+            .all()
+          const assigned = yield* tx
+            .select()
+            .from(TaskTable)
+            .where(
+              and(
+                eq(TaskTable.owner_session_id, ownerSessionID),
+                notDismissed,
+                notInArray(TaskTable.status, ["queued", ...terminal]),
+              ),
+            )
+            .orderBy(asc(TaskTable.queue_seq))
+            .all()
+          const queued = yield* tx
+            .select()
+            .from(TaskTable)
+            .where(and(eq(TaskTable.owner_session_id, ownerSessionID), notDismissed, eq(TaskTable.status, "queued")))
+            .orderBy(asc(TaskTable.queue_seq))
+            .limit(20)
+            .all()
+          const settled = yield* tx
+            .select()
+            .from(TaskTable)
+            .where(
+              and(eq(TaskTable.owner_session_id, ownerSessionID), notDismissed, inArray(TaskTable.status, terminal)),
+            )
+            .orderBy(desc(TaskTable.time_updated), desc(TaskTable.queue_seq))
+            .limit(20)
+            .all()
+          const data = yield* Effect.forEach([...assigned, ...queued, ...settled], (task) =>
+            Effect.gen(function* () {
+              const attempt = yield* tx
+                .select()
+                .from(AttemptTable)
+                .where(eq(AttemptTable.task_id, task.id))
+                .orderBy(desc(AttemptTable.generation))
+                .limit(1)
+                .get()
+              return Task.Details.make({
+                task: info(task),
+                ...(attempt ? { attempt: intent(attempt) } : {}),
+                ...(attempt?.evidence == null ? {} : { evidence: attempt.evidence }),
+              })
+            }),
+          )
+          return Task.Board.make({
+            data,
+            team: { ownerSessionID, paused: team?.paused ?? false, timeUpdated: team?.time_updated ?? 0 },
+            counts: Object.fromEntries(grouped.map((row) => [row.status, row.count])),
+          })
+        }),
+      ),
+    ),
     list: Effect.fn("TaskLedger.list")((ownerSessionID: SessionID, after = 0) =>
       db.transaction((tx) =>
         Effect.gen(function* () {
@@ -629,7 +778,7 @@ function make(db: Database.Interface["db"], notify: (task: Task.Info) => Effect.
           return (yield* tx
             .select()
             .from(TaskTable)
-            .where(and(eq(TaskTable.owner_session_id, ownerSessionID), gt(TaskTable.queue_seq, after)))
+            .where(and(eq(TaskTable.owner_session_id, ownerSessionID), notDismissed, gt(TaskTable.queue_seq, after)))
             .orderBy(asc(TaskTable.queue_seq))
             .limit(100)
             .all()).map(info)

@@ -73,7 +73,7 @@ import { SessionExecution } from "@opencode-ai/core/session/execution"
 import * as SessionExecutionLocal from "@opencode-ai/core/session/execution/local"
 import { lazy } from "@/util/lazy"
 import { CorsConfig, isAllowedCorsOrigin, type CorsOptions } from "@opencode-ai/server/cors"
-import { serveUIEffect } from "@/server/shared/ui"
+import { embeddedWebUiDisabled, serveUIEffect } from "@/server/shared/ui"
 import { ServerAuth } from "@/server/auth"
 import { InstanceHttpApi, RootHttpApi } from "./api"
 import { Api } from "@opencode-ai/server/api"
@@ -217,7 +217,7 @@ const uiRoute = (serveWebUI?: boolean) =>
         serveUIEffect(request, {
           fs,
           client,
-          disableEmbeddedWebUi: serveWebUI === undefined ? flags.disableEmbeddedWebUi : !serveWebUI,
+          disableEmbeddedWebUi: embeddedWebUiDisabled(serveWebUI, flags.disableEmbeddedWebUi),
         }),
       )
     }),
