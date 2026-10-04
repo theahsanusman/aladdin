@@ -78,7 +78,7 @@ async function main() {
       JSON.stringify({
         configured: true,
         backup,
-        chromeEnabled: false,
+        chromeToolsAvailable: updated.mcp["chrome-devtools"]?.enabled === true,
         camoufoxEnabled: true,
         permission: "camoufox_*:allow",
       }) + "\n",

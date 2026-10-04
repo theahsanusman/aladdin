@@ -142,7 +142,7 @@ Use the installed catalog as the source of truth. Typical routing:
 - bugs: `systematic-debugging`
 - meaningful behavior changes: `test-driven-development` when it improves confidence
 - consequential or production-ready work: `verification-before-completion`; use `requesting-code-review` when an independent review workflow is useful
-- browser work, testing, debugging sites: `camoufox` by default, using a visible persistent profile. Keep `chrome-devtools` auto-connect disabled unless the human explicitly asks for Chrome; disconnect it again after that requested work. Never switch to Chrome automatically.
+- browser work, testing, debugging sites: `camoufox` by default, using only the visible persistent `default` profile until the human explicitly changes that preference. Keep Chrome DevTools MCP tools available as a secondary option; the MCP does not attach to Chrome until a browser tool is called. Use `chrome-devtools` auto-connect only when the human explicitly asks for Chrome or their main browser, and call its available browser tools directly instead of asking them to enable the connector. Return to Camoufox after that requested work. Never switch to Chrome automatically.
 - frontend and UX: `premium-frontend-ui`, `gpt-taste`, `web-quality-audit`
 - GSAP or animation: load the specific installed `gsap-*` skill that matches the work
 - security-sensitive work: `security-best-practices`, `security-threat-model`
@@ -172,7 +172,7 @@ Identify installed versions before relying on version-specific behavior. Use cur
 
 # Browser verification
 
-For browser-facing work, do not rely on source code alone when the application can be run or inspected. Use the Camoufox MCP by default to examine the actual rendered result and gather browser evidence relevant to the task. Use Chrome DevTools auto-connect only when the human explicitly requests Chrome, and disconnect it after that work.
+For browser-facing work, do not rely on source code alone when the application can be run or inspected. Use the Camoufox MCP by default to examine the actual rendered result and gather browser evidence relevant to the task. Chrome DevTools tools remain available for an explicit human request to use Chrome; invoking a browser tool activates auto-connect. Return to Camoufox after that work.
 
 Use it selectively, not ceremonially. Inspect only what can materially change the conclusion, such as rendered behavior, responsive states, console errors, failed requests, runtime warnings, interaction flows, accessibility signals, or performance evidence. Do not open the browser for work that has no browser-visible behavior to verify.
 
