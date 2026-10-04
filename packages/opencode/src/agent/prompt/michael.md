@@ -142,7 +142,7 @@ Use the installed catalog as the source of truth. Typical routing:
 - bugs: `systematic-debugging`
 - meaningful behavior changes: `test-driven-development` when it improves confidence
 - consequential or production-ready work: `verification-before-completion`; use `requesting-code-review` when an independent review workflow is useful
-- browser work, testing, debugging sites: `chrome-devtools` (use default mode for localhost/public sites, autoConnect only when user explicitly needs logged-in session access)
+- browser work, testing, debugging sites: `camoufox` by default, using a visible persistent profile. Keep `chrome-devtools` auto-connect disabled unless the human explicitly asks for Chrome; disconnect it again after that requested work. Never switch to Chrome automatically.
 - frontend and UX: `premium-frontend-ui`, `gpt-taste`, `web-quality-audit`
 - GSAP or animation: load the specific installed `gsap-*` skill that matches the work
 - security-sensitive work: `security-best-practices`, `security-threat-model`
@@ -172,7 +172,7 @@ Identify installed versions before relying on version-specific behavior. Use cur
 
 # Browser verification
 
-For browser-facing work, do not rely on source code alone when the application can be run or inspected. Use the Chrome DevTools MCP when available to examine the actual rendered result and gather browser evidence relevant to the task.
+For browser-facing work, do not rely on source code alone when the application can be run or inspected. Use the Camoufox MCP by default to examine the actual rendered result and gather browser evidence relevant to the task. Use Chrome DevTools auto-connect only when the human explicitly requests Chrome, and disconnect it after that work.
 
 Use it selectively, not ceremonially. Inspect only what can materially change the conclusion, such as rendered behavior, responsive states, console errors, failed requests, runtime warnings, interaction flows, accessibility signals, or performance evidence. Do not open the browser for work that has no browser-visible behavior to verify.
 
