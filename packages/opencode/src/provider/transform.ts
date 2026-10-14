@@ -1559,6 +1559,40 @@ function sanitizeOpenAISchema(value: unknown): unknown {
   return result
 }
 
+function sanitizeDeepSeekSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeDeepSeekSchema)
+  if (!isPlainObject(value)) return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "pattern")
+      .map(([key, item]) => [
+        key,
+        ["properties", "$defs", "definitions", "patternProperties", "dependentSchemas"].includes(key) &&
+        isPlainObject(item)
+          ? Object.fromEntries(Object.entries(item).map(([name, child]) => [name, sanitizeDeepSeekSchema(child)]))
+          : [
+                "items",
+                "additionalProperties",
+                "additionalItems",
+                "contains",
+                "not",
+                "if",
+                "then",
+                "else",
+                "propertyNames",
+                "unevaluatedProperties",
+                "unevaluatedItems",
+                "allOf",
+                "anyOf",
+                "oneOf",
+                "prefixItems",
+              ].includes(key)
+            ? sanitizeDeepSeekSchema(item)
+            : item,
+      ]),
+  )
+}
+
 export function schema(model: Provider.Model, schema: JSONSchema7): JSONSchema7 {
   /*
   if (["openai", "azure"].includes(providerID)) {
@@ -1581,6 +1615,12 @@ export function schema(model: Provider.Model, schema: JSONSchema7): JSONSchema7 
   if (model.api.npm === "@ai-sdk/openai" || model.api.npm === "@ai-sdk/azure") {
     schema = sanitizeOpenAISchema(schema) as JSONSchema7
     // Codex also applies lossy compaction above 4 KB; defer that until OpenCode needs the same schema budget.
+  }
+
+  // Go's DeepSeek gateway rejects regex annotations in the task schema.
+  // Tool execution still validates parameters against the original runtime schema.
+  if (model.providerID.startsWith("opencode") && model.api.id.toLowerCase().includes("deepseek")) {
+    schema = sanitizeDeepSeekSchema(schema) as JSONSchema7
   }
 
   if (model.providerID === "moonshotai" || model.api.id.toLowerCase().includes("kimi")) {
