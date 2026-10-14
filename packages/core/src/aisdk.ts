@@ -6,6 +6,7 @@ import { Cause, Context, Effect, Layer, Schema, Scope } from "effect"
 import { ModelV2 } from "./model"
 import { ProviderV2 } from "./provider"
 import { State } from "./state"
+import { ProviderPrivacy } from "@opencode-ai/llm/route"
 
 type SDK = any
 
@@ -79,7 +80,10 @@ function prepareOptions(model: ModelV2.Info, pkg: string) {
   }
   if (model.api.type === "aisdk" && model.api.url) options.baseURL = model.api.url
 
-  const customFetch = options.fetch
+  const customFetch = ProviderPrivacy.wrapFetch(
+    typeof options.fetch === "function" ? options.fetch : fetch,
+    model.providerID,
+  )
   const chunkTimeout = options.chunkTimeout
   delete options.chunkTimeout
   options.fetch = async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
@@ -110,7 +114,7 @@ function prepareOptions(model: ModelV2.Info, pkg: string) {
       }
     }
 
-    const res = await (typeof customFetch === "function" ? customFetch : fetch)(input, {
+    const res = await customFetch(input, {
       ...opts,
       timeout: false,
     })

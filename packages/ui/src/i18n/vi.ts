@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Thay đổi phiên",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Đã đạt đến giới hạn sử dụng. Để tiếp tục sử dụng mô hình này ngay bây giờ, hãy cho phép sử dụng từ số dư khả dụng của bạn",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Mở cài đặt",
+  "dialog.usageExceeded.switchAccount": "Chuyển tài khoản",
   "ui.sessionTurn.status.delegating": "Phân công công việc",
   "ui.sessionTurn.status.planning": "Lập kế hoạch các bước tiếp theo",
   "ui.sessionTurn.status.gatheringContext": "Khám phá",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Chọn tác nhân",
   "ui.promptInput.chooseModel": "Chọn mô hình",
   "ui.promptInput.chooseVariant": "Chọn biến thể mô hình",
+  "ui.promptInput.permissionMode": "Chế độ quyền",
   "ui.promptInput.send": "Gửi",
   "ui.promptInput.stop": "Dừng",
   "ui.tabs.close": "Đóng tab",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Đã sao chép",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} tok/s trung bình",
   "ui.message.interrupted": "Bị gián đoạn",
   "ui.message.queued": "Đã xếp hàng",
   "ui.message.attachment.alt": "tệp đính kèm",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Đã di chuyển",
   "ui.patch.action.patched": "Đã vá",
   "ui.question.subtitle.answered": "{{count}} đã trả lời",
+  "ui.question.subtitle.timeout": "{{count}} được giả định khi hết hạn",
+  "ui.question.subtitle.unattended": "{{count}} được giả định khi không có người",
+  "ui.question.subtitle.skipped": "{{count}} đã bỏ qua",
+  "ui.question.source.timeout":
+    "Đã hết hạn trước khi có câu trả lời; tùy chọn đầu tiên (được đề xuất) đã được giả định.",
+  "ui.question.source.unattended": "Không có người dùng nào; tùy chọn đầu tiên (được đề xuất) đã được giả định.",
+  "ui.question.source.skipped": "Đã bỏ qua; tác nhân tiếp tục theo phán đoán của riêng mình.",
   "ui.question.answer.none": "(không có câu trả lời)",
   "ui.question.review.notAnswered": "(chưa trả lời)",
   "ui.question.multiHint": "Chọn tất cả các câu trả lời phù hợp",

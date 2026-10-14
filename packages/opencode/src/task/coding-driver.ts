@@ -74,7 +74,9 @@ export const make = Effect.fn("TaskCodingDriver.make")(function* (input: {
       )
         return {
           summary: `Verification failed; patch ${artifact.digest} retained in ${worker.workspace.directory}`,
-          checks,
+          // Withholding integration is a real outcome, so an unconfirmed check fails
+          // the task here instead of being tolerated as unverified.
+          checks: checks.map((item) => ({ check: item.check, passed: item.passed, evidence: item.evidence })),
         }
       yield* input.authorize(task, attempt, artifact)
       // Recheck fencing after an arbitrarily long native authorization wait.

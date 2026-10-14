@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "تغييرات الجلسة",
@@ -86,6 +85,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "تم الوصول إلى حد الاستخدام. لمتابعة استخدام هذا النموذج الآن، قم بتفعيل الاستخدام من رصيدك المتاح",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "فتح الإعدادات",
+  "dialog.usageExceeded.switchAccount": "تبديل الحساب",
 
   "ui.sessionTurn.status.delegating": "جارٍ تفويض العمل",
   "ui.sessionTurn.status.planning": "تخطيط الخطوات التالية",
@@ -148,6 +148,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "اختيار وكيل",
   "ui.promptInput.chooseModel": "اختيار نموذج",
   "ui.promptInput.chooseVariant": "اختيار متغير النموذج",
+  "ui.promptInput.permissionMode": "وضع الأذونات",
   "ui.promptInput.send": "إرسال",
   "ui.promptInput.stop": "إيقاف",
 
@@ -206,6 +207,7 @@ export const dict = {
   "ui.message.revertMessage": "التراجع عن الرسالة",
   "ui.message.copyResponse": "نسخ الرد",
   "ui.message.copied": "تم النسخ!",
+  "ui.message.speed": "متوسط {{value}} tok/s",
   "ui.message.interrupted": "تمت المقاطعة",
   "ui.message.queued": "في قائمة الانتظار",
   "ui.message.attachment.alt": "مرفق",
@@ -216,6 +218,12 @@ export const dict = {
   "ui.patch.action.patched": "تم تطبيق رقعة",
 
   "ui.question.subtitle.answered": "تمت الإجابة عن {{count}}",
+  "ui.question.subtitle.timeout": "افتراض {{count}} عند انتهاء المهلة",
+  "ui.question.subtitle.unattended": "افتراض {{count}} دون إشراف",
+  "ui.question.subtitle.skipped": "تم تخطي {{count}}",
+  "ui.question.source.timeout": "انتهت المهلة قبل تلقي إجابة؛ وتم افتراض الخيار الأول (الموصى به).",
+  "ui.question.source.unattended": "لم يكن هناك مستخدم متاح؛ وتم افتراض الخيار الأول (الموصى به).",
+  "ui.question.source.skipped": "تم التخطي؛ ويواصل الوكيل وفق تقديره الخاص.",
   "ui.question.answer.none": "(لا توجد إجابة)",
   "ui.question.review.notAnswered": "(لم تتم الإجابة)",
   "ui.question.multiHint": "حدد كل ما ينطبق",

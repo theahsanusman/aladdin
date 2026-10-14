@@ -32,6 +32,7 @@ import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 import { CommandCode } from "./command-code"
+import { ProviderPrivacy } from "@opencode-ai/llm/route"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
 
@@ -1814,7 +1815,7 @@ const layer = Layer.effect(
         const existing = s.sdk.get(key)
         if (existing) return existing
 
-        const customFetch = options["fetch"]
+        const customFetch = ProviderPrivacy.wrapFetch(options["fetch"] ?? fetch, model.providerID)
         const chunkTimeout = options["chunkTimeout"] ?? 300_000
         const headerTimeout = options["headerTimeout"] ?? 300_000
         delete options["chunkTimeout"]
@@ -1837,10 +1838,13 @@ const layer = Layer.effect(
           const combined = signals.length === 0 ? null : signals.length === 1 ? signals[0] : AbortSignal.any(signals)
           if (combined) opts.signal = combined
 
-          const request =
+          const request = CommandCode.enforceZdr(
+            input,
             model.providerID === "commandcode" && model.api.npm === "@ai-sdk/openai"
               ? CommandCode.commandCodeResponsesRequest(input, opts)
-              : opts
+              : opts,
+            model.providerID,
+          )
           const res = await fetchFn(input, {
             ...request,
             // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682

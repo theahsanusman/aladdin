@@ -14,6 +14,7 @@ import { Permission } from "../../src/permission"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { Plugin } from "../../src/plugin"
 import { Provider } from "../../src/provider/provider"
+import { SessionTools } from "../../src/session/tools"
 import { Skill } from "../../src/skill"
 import { Truncate } from "../../src/tool/truncate"
 
@@ -857,6 +858,28 @@ it.instance(
             "Configured Michael\n\nKeep the user's extra review requirement\n\n# Michael Lead role\n\nWorkers cannot run arbitrary shell commands. Coding uses allowedPaths.",
           mode: "primary",
         },
+      },
+    },
+  },
+)
+
+it.instance(
+  "Michael Lead prompt advertises exactly the tools its coordinator policy supplies",
+  () =>
+    Effect.gen(function* () {
+      const lead = yield* load((svc) => svc.get("michael-lead"))
+      const marker = lead.prompt?.match(/^Advertised tools for this role: (.+)$/m)?.[1]
+      expect(marker).toBeDefined()
+      const advertised = new Set((marker ?? "").match(/`[^`]+`/g)?.map((name) => name.slice(1, -1)) ?? [])
+      expect([...advertised].sort()).toEqual([...SessionTools.LEAD_TOOLS].sort())
+      expect(lead.prompt).not.toContain("including shell and installed MCP/browser tools")
+      expect(lead.prompt).toContain("are never supplied to you")
+      expect(lead.prompt).toContain("`bash`")
+    }),
+  {
+    config: {
+      agent: {
+        michael: { prompt: "Configured Michael", mode: "primary" },
       },
     },
   },

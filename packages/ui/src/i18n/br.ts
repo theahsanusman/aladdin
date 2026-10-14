@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Alterações da sessão",
@@ -83,6 +82,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Limite de uso atingido. Para continuar usando este modelo agora, ative o uso a partir do seu saldo disponível",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Abrir configurações",
+  "dialog.usageExceeded.switchAccount": "Trocar conta",
 
   "ui.sessionTurn.status.delegating": "Delegando trabalho",
   "ui.sessionTurn.status.planning": "Planejando próximos passos",
@@ -136,6 +136,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Escolher agente",
   "ui.promptInput.chooseModel": "Escolher modelo",
   "ui.promptInput.chooseVariant": "Escolher variante do modelo",
+  "ui.promptInput.permissionMode": "Modo de permissão",
   "ui.promptInput.send": "Enviar",
   "ui.promptInput.stop": "Parar",
 
@@ -204,6 +205,12 @@ export const dict = {
   "ui.patch.action.patched": "Patch aplicado",
 
   "ui.question.subtitle.answered": "{{count}} respondidas",
+  "ui.question.subtitle.timeout": "{{count}} presumidas no prazo",
+  "ui.question.subtitle.unattended": "{{count}} presumidas sem supervisão",
+  "ui.question.subtitle.skipped": "{{count}} ignoradas",
+  "ui.question.source.timeout": "O prazo expirou antes de uma resposta; a primeira opção (recomendada) foi presumida.",
+  "ui.question.source.unattended": "Nenhum usuário estava disponível; a primeira opção (recomendada) foi presumida.",
+  "ui.question.source.skipped": "Ignorada; o agente prossegue com seu próprio julgamento.",
   "ui.question.answer.none": "(sem resposta)",
   "ui.question.review.notAnswered": "(não respondida)",
   "ui.question.multiHint": "Selecione todas que se aplicam",
@@ -221,4 +228,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Copiar erro",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} tok/s em média",
 }

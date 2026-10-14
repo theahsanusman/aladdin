@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-05T08:34:08.793Z",
+  "endpoint": "http://127.0.0.1:9222",
+  "checks": {
+    "officialMcpConnectedWithoutSharingPrompt": true,
+    "wrapperRejectsEndpointOverridesAndAutoConnect": true,
+    "syntheticSessionEstablished": true,
+    "renderedProfileIsAgentDirectory": true,
+    "syncDisabledByBrowserFlag": true,
+    "syncVerification": "active browser command line contains --disable-sync",
+    "normalOutsideMcp": true,
+    "incognitoOutsideMcp": true,
+    "guest-profileOutsideMcp": true,
+    "simultaneousIndependentChromeProcesses": true,
+    "personalChromeHasNoRemoteDebuggingFlags": true,
+    "differentEntireUserDataDirectories": true,
+    "unexpectedPortOwnerRejectedBeforeAnyBrowserRequest": true,
+    "agentCanCloseAndAutomaticallyReopen": true,
+    "httpOnlyPersistentCookieSurvivesRestart": true,
+    "localStorageSurvivesRestart": true,
+    "finalLoopbackListenerAndOwnerValidated": true,
+    "businessAccountSignIn": "not attempted; human signs into secondary accounts manually"
+  }
+}

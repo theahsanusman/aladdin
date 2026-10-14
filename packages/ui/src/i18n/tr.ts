@@ -3,7 +3,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Oturum değişiklikleri",
@@ -88,6 +87,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Kullanım sınırına ulaşıldı. Bu modeli şimdi kullanmaya devam etmek için mevcut bakiyenizden kullanımı etkinleştirin.",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Ayarları aç",
+  "dialog.usageExceeded.switchAccount": "Hesap değiştir",
 
   "ui.sessionTurn.status.delegating": "Görev devrediliyor",
   "ui.sessionTurn.status.planning": "Sonraki adımlar planlanıyor",
@@ -138,6 +138,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Ajan seç",
   "ui.promptInput.chooseModel": "Model seç",
   "ui.promptInput.chooseVariant": "Model varyantı seç",
+  "ui.promptInput.permissionMode": "İzin modu",
   "ui.promptInput.send": "Gönder",
   "ui.promptInput.stop": "Durdur",
 
@@ -206,6 +207,12 @@ export const dict = {
   "ui.patch.action.patched": "Yamalandı",
 
   "ui.question.subtitle.answered": "{{count}} yanıtlandı",
+  "ui.question.subtitle.timeout": "{{count}} son tarihte varsayıldı",
+  "ui.question.subtitle.unattended": "{{count}} gözetimsiz varsayıldı",
+  "ui.question.subtitle.skipped": "{{count}} atlandı",
+  "ui.question.source.timeout": "Yanıttan önce son tarih geçti; ilk (önerilen) seçenek varsayıldı.",
+  "ui.question.source.unattended": "Kullanılabilir kullanıcı yoktu; ilk (önerilen) seçenek varsayıldı.",
+  "ui.question.source.skipped": "Atlandı; ajan kendi değerlendirmesiyle devam eder.",
   "ui.question.answer.none": "(yanıt yok)",
   "ui.question.review.notAnswered": "(yanıtlanmadı)",
   "ui.question.multiHint": "Uygun olan tüm yanıtları seçin",
@@ -223,4 +230,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Hatayı kopyala",
   "ui.message.duration.seconds": "{{count}} sn",
   "ui.message.duration.minutesSeconds": "{{minutes}} dk {{seconds}} sn",
+  "ui.message.speed": "{{value}} ort. tok/s",
 } satisfies Partial<Record<Keys, string>>

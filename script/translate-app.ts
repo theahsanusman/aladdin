@@ -377,10 +377,13 @@ async function inspect(locale: Locale) {
 
 async function dictionary(file: string) {
   const module: unknown = await import(pathToFileURL(path.join(root, file)).href)
-  if (typeof module !== "object" || module === null || !("dict" in module) || !isDictionary(module.dict)) {
+  if (typeof module !== "object" || module === null || !("dict" in module)) throw new Error(`Invalid translation dictionary: ${file}`)
+  if (typeof module.dict !== "object" || module.dict === null || Array.isArray(module.dict)) {
     throw new Error(`Invalid translation dictionary: ${file}`)
   }
-  return module.dict
+  // Locales that store desktop native keys positionally yield undefined values
+  // whenever DESKTOP_NATIVE_ENGLISH grows; an unset key is simply a missing one.
+  return Object.fromEntries(Object.entries(module.dict).filter(([, value]) => typeof value === "string"))
 }
 
 async function commandTemplate() {
@@ -504,11 +507,6 @@ function changed(drift: Drift) {
 
 function isLocale(value: string): value is Locale {
   return Object.hasOwn(languages, value)
-}
-
-function isDictionary(value: unknown): value is Dictionary {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false
-  return Object.values(value).every((item) => typeof item === "string")
 }
 
 function pluralFamilies(dictionary: Dictionary) {

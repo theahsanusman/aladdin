@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Perubahan sesi",
@@ -83,6 +82,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Batas penggunaan tercapai. Untuk terus menggunakan model ini sekarang, aktifkan penggunaan dari saldo Anda yang tersedia",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Buka pengaturan",
+  "dialog.usageExceeded.switchAccount": "Ganti akun",
 
   "ui.sessionTurn.status.delegating": "Mendelegasikan pekerjaan",
   "ui.sessionTurn.status.planning": "Merencanakan langkah selanjutnya",
@@ -138,6 +138,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Pilih agen",
   "ui.promptInput.chooseModel": "Pilih model",
   "ui.promptInput.chooseVariant": "Pilih varian model",
+  "ui.promptInput.permissionMode": "Mode izin",
   "ui.promptInput.send": "Kirim",
   "ui.promptInput.stop": "Hentikan",
 
@@ -204,6 +205,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Tersalin",
   "ui.message.duration.seconds": "{{count}}dtk",
   "ui.message.duration.minutesSeconds": "{{minutes}}mnt {{seconds}}dtk",
+  "ui.message.speed": "{{value}} rata-rata tok/s",
   "ui.message.interrupted": "Dihentikan",
   "ui.message.queued": "Dalam antrean",
   "ui.message.attachment.alt": "lampiran",
@@ -214,6 +216,14 @@ export const dict: Record<string, string> = {
   "ui.patch.action.patched": "Ditambal",
 
   "ui.question.subtitle.answered": "{{count}} dijawab",
+  "ui.question.subtitle.timeout": "{{count}} diasumsikan saat tenggat",
+  "ui.question.subtitle.unattended": "{{count}} diasumsikan tanpa pengawasan",
+  "ui.question.subtitle.skipped": "{{count}} dilewati",
+  "ui.question.source.timeout":
+    "Tenggat terlewat sebelum ada jawaban; opsi pertama (yang direkomendasikan) diasumsikan.",
+  "ui.question.source.unattended":
+    "Tidak ada pengguna yang tersedia; opsi pertama (yang direkomendasikan) diasumsikan.",
+  "ui.question.source.skipped": "Dilewati; agen melanjutkan dengan pertimbangannya sendiri.",
   "ui.question.answer.none": "(tidak ada jawaban)",
   "ui.question.review.notAnswered": "(belum dijawab)",
   "ui.question.multiHint": "Pilih semua jawaban yang sesuai",

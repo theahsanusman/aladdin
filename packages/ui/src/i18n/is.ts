@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Breytingar setunnar",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Notkunarmörkum náð. Til að halda áfram að nota þetta líkan núna skaltu virkja notkun úr tiltæku stöðunni þinni",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Opna stillingar",
+  "dialog.usageExceeded.switchAccount": "Skipta um reikning",
   "ui.sessionTurn.status.delegating": "Framselja vinnu",
   "ui.sessionTurn.status.planning": "Skipuleggja næstu skref",
   "ui.sessionTurn.status.gatheringContext": "Að kanna",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Veldu fulltrúa",
   "ui.promptInput.chooseModel": "Veldu líkan",
   "ui.promptInput.chooseVariant": "Veldu gerð afbrigði",
+  "ui.promptInput.permissionMode": "Heimildasnið",
   "ui.promptInput.send": "Senda",
   "ui.promptInput.stop": "Stöðva",
   "ui.tabs.close": "Loka flipa",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Afritað",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} að meðaltali tákn/s",
   "ui.message.interrupted": "Truflað",
   "ui.message.queued": "Í biðröð",
   "ui.message.attachment.alt": "viðhengi",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Flutt",
   "ui.patch.action.patched": "Pjatlað",
   "ui.question.subtitle.answered": "{{count}} svaraði",
+  "ui.question.subtitle.timeout": "{{count}} gert ráð fyrir við frest",
+  "ui.question.subtitle.unattended": "{{count}} gert ráð fyrir án eftirlits",
+  "ui.question.subtitle.skipped": "{{count}} sleppt",
+  "ui.question.source.timeout":
+    "Fresturinn rann út áður en svar barst; gert var ráð fyrir fyrsta (ráðlagða) valkostinum.",
+  "ui.question.source.unattended": "Enginn notandi var tiltækur; gert var ráð fyrir fyrsta (ráðlagða) valkostinum.",
+  "ui.question.source.skipped": "Sleppt; fulltrúinn heldur áfram að eigin mati.",
   "ui.question.answer.none": "(ekkert svar)",
   "ui.question.review.notAnswered": "(ekki svarað)",
   "ui.question.multiHint": "Veldu öll svör sem eiga við",

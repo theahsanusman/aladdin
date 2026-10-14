@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "සැසි වෙනස්කම්",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "භාවිත සීමාව ළඟා විය. දැන් මෙම ආකෘතිය දිගටම භාවිතා කිරීමට, ඔබගේ පවතින ශේෂයෙන් භාවිතය සබල කරන්න",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "සැකසුම් විවෘත කරන්න",
+  "dialog.usageExceeded.switchAccount": "ගිණුම මාරු කරන්න",
   "ui.sessionTurn.status.delegating": "වැඩ පැවරීම",
   "ui.sessionTurn.status.planning": "ඉදිරි පියවර සැලසුම් කිරීම",
   "ui.sessionTurn.status.gatheringContext": "ගවේෂණය",
@@ -184,6 +184,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "පිටපත් කර ඇත",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}මි {{seconds}}ත",
+  "ui.message.speed": "{{value}} සාමාන්‍ය ටෝක්/තත්",
   "ui.message.interrupted": "බාධා කළා",
   "ui.message.queued": "පෝලිමේ",
   "ui.message.attachment.alt": "ඇමුණුම",
@@ -192,9 +193,16 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "මාරු කළා",
   "ui.patch.action.patched": "පැච් කළා",
   "ui.question.subtitle.answered": "{{count}} පිළිතුරු දෙන ලදී",
+  "ui.question.subtitle.timeout": "{{count}} නියමිත වේලාවට උපකල්පනය කරන ලදී",
+  "ui.question.subtitle.unattended": "{{count}} නොසැලකිල්ලෙන් උපකල්පනය කරන ලදී",
+  "ui.question.subtitle.skipped": "{{count}} මඟ හරින ලදී",
+  "ui.question.source.timeout": "පිළිතුරකට පෙර නියමිත වේලාව ඉක්මවා ගියේය; පළමු (නිර්දේශිත) විකල්පය උපකල්පනය කරන ලදී.",
+  "ui.question.source.unattended": "පරිශීලකයෙකු නොසිටියේය; පළමු (නිර්දේශිත) විකල්පය උපකල්පනය කරන ලදී.",
+  "ui.question.source.skipped": "මඟ හරින ලදී; නියෝජිතයා තමන්ගේම විනිශ්චය සමඟ ඉදිරියට යයි.",
   "ui.question.answer.none": "(පිළිතුරක් නැත)",
   "ui.question.review.notAnswered": "(පිළිතුරු නොදී)",
   "ui.question.multiHint": "අදාළ සියලු පිළිතුරු තෝරන්න",
   "ui.question.singleHint": "එක් පිළිතුරක් තෝරන්න",
   "ui.question.custom.placeholder": "ඔබේ පිළිතුර ටයිප් කරන්න...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

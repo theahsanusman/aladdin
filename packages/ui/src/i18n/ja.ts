@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "セッションの変更",
@@ -81,6 +80,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "使用制限に達しました。今すぐこのモデルを使い続けるには、利用可能な残高からの使用を有効にしてください",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "設定を開く",
+  "dialog.usageExceeded.switchAccount": "アカウントを切り替え",
 
   "ui.sessionTurn.status.delegating": "作業を委任中",
   "ui.sessionTurn.status.planning": "次のステップを計画中",
@@ -131,6 +131,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "エージェントを選択",
   "ui.promptInput.chooseModel": "モデルを選択",
   "ui.promptInput.chooseVariant": "モデルバリアントを選択",
+  "ui.promptInput.permissionMode": "権限モード",
   "ui.promptInput.send": "送信",
   "ui.promptInput.stop": "停止",
 
@@ -199,6 +200,12 @@ export const dict = {
   "ui.patch.action.patched": "パッチ適用済み",
 
   "ui.question.subtitle.answered": "{{count}}件回答済み",
+  "ui.question.subtitle.timeout": "期限内に{{count}}件を推定",
+  "ui.question.subtitle.unattended": "無人で{{count}}件を推定",
+  "ui.question.subtitle.skipped": "{{count}}件スキップ",
+  "ui.question.source.timeout": "回答前に期限が過ぎたため、最初（推奨）のオプションが適用されました。",
+  "ui.question.source.unattended": "利用可能なユーザーがいなかったため、最初（推奨）のオプションが適用されました。",
+  "ui.question.source.skipped": "スキップされました。エージェントは独自の判断で続行します。",
   "ui.question.answer.none": "(回答なし)",
   "ui.question.review.notAnswered": "(未回答)",
   "ui.question.multiHint": "該当するものをすべて選択",
@@ -216,4 +223,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "エラーをコピー",
   "ui.message.duration.seconds": "{{count}}秒",
   "ui.message.duration.minutesSeconds": "{{minutes}}分 {{seconds}}秒",
+  "ui.message.speed": "平均 {{value}} tok/s",
 }

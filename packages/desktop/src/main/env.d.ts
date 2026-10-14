@@ -7,6 +7,8 @@ interface ImportMeta {
 }
 
 declare module "virtual:opencode-server" {
+  // `enabledByDefault: false` forces mobile access OFF on launch, ignoring any saved "enabled"
+  // marker, so a network listener never lingers from a previous session.
   export const restoreMobileAccess: (
     data?: string,
     options?: { enabledByDefault?: boolean; port?: number },

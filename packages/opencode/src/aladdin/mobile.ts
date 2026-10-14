@@ -52,15 +52,6 @@ export function directory(data: string) {
   return path.join(data, "aladdin", "mobile")
 }
 
-// The phone cannot type Basic credentials comfortably, and the security middleware already accepts the
-// same credentials as an `auth_token` query parameter. Embedding them in the link is not an escalation:
-// only a caller that already authenticated with the server password can read this response.
-function connectToken() {
-  const password = Flag.OPENCODE_SERVER_PASSWORD
-  if (!password) return
-  return Buffer.from(`${Flag.OPENCODE_SERVER_USERNAME ?? "opencode"}:${password}`).toString("base64")
-}
-
 export function mobilePasswordRequired() {
   return !Flag.OPENCODE_SERVER_PASSWORD && process.env.ALADDIN_ALLOW_UNAUTHENTICATED_LAN !== "1"
 }
@@ -68,21 +59,14 @@ export function mobilePasswordRequired() {
 function statusFor(input: { passwordRequired: boolean; data: string; current?: Running }): MobileStatus {
   const authority = input.current?.certificateAuthority ?? certificateExists(directory(input.data))
   const host = localHostName()
-  const token = input.current ? connectToken() : undefined
   return {
     enabled: !!input.current,
     available: !input.passwordRequired,
     reason: input.passwordRequired ? "password-required" : undefined,
     url: input.current ? `https://${host}:${input.current.port}` : undefined,
-    connectUrl:
-      input.current && token
-        ? `https://${host}:${input.current.port}/?auth_token=${encodeURIComponent(token)}`
-        : undefined,
+    connectUrl: input.current ? `https://${host}:${input.current.port}` : undefined,
     localUrl: input.current ? `https://localhost:${input.current.port}` : undefined,
-    localConnectUrl:
-      input.current && token
-        ? `https://localhost:${input.current.port}/?auth_token=${encodeURIComponent(token)}`
-        : undefined,
+    localConnectUrl: input.current ? `https://localhost:${input.current.port}` : undefined,
     host,
     port: input.current?.port,
     addresses: localAddresses(),
@@ -103,6 +87,10 @@ export async function restoreMobileAccess(
   options: { enabledByDefault?: boolean; port?: number } = {},
 ): Promise<MobileStatus> {
   const input = { passwordRequired: mobilePasswordRequired(), data, port: options.port }
+  // `enabledByDefault: false` is an explicit "do not auto-enable on launch": it overrides any
+  // previously saved "enabled" marker so a network listener never lingers from a past session.
+  // The user re-enables it from settings, which calls enableMobileAccess directly.
+  if (options.enabledByDefault === false) return mobileAccessStatus(input)
   const saved = await readFile(path.join(directory(data), "access.enabled"), "utf8").catch((error: unknown) => {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return
     throw error

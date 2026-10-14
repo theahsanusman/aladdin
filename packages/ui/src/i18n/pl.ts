@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Zmiany w sesji",
@@ -83,6 +82,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Osiągnięto limit użycia. Aby kontynuować korzystanie z tego modelu teraz, włącz użycie z dostępnego salda",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Otwórz ustawienia",
+  "dialog.usageExceeded.switchAccount": "Przełącz konto",
 
   "ui.sessionTurn.status.delegating": "Delegowanie pracy",
   "ui.sessionTurn.status.planning": "Planowanie kolejnych kroków",
@@ -140,6 +140,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Wybierz agenta",
   "ui.promptInput.chooseModel": "Wybierz model",
   "ui.promptInput.chooseVariant": "Wybierz wariant modelu",
+  "ui.promptInput.permissionMode": "Tryb uprawnień",
   "ui.promptInput.send": "Wyślij",
   "ui.promptInput.stop": "Zatrzymaj",
 
@@ -198,6 +199,7 @@ export const dict = {
   "ui.message.revertMessage": "Cofnij wiadomość",
   "ui.message.copyResponse": "Kopiuj odpowiedź",
   "ui.message.copied": "Skopiowano!",
+  "ui.message.speed": "{{value}} śr. tokenów/s",
   "ui.message.interrupted": "Przerwano",
   "ui.message.queued": "W kolejce",
   "ui.message.attachment.alt": "załącznik",
@@ -208,6 +210,12 @@ export const dict = {
   "ui.patch.action.patched": "Załatano",
 
   "ui.question.subtitle.answered": "Liczba odpowiedzi: {{count}}",
+  "ui.question.subtitle.timeout": "{{count}} przyjętych po upływie terminu",
+  "ui.question.subtitle.unattended": "{{count}} przyjętych bez udziału użytkownika",
+  "ui.question.subtitle.skipped": "{{count}} pominiętych",
+  "ui.question.source.timeout": "Termin upłynął przed udzieleniem odpowiedzi; przyjęto pierwszą (zalecaną) opcję.",
+  "ui.question.source.unattended": "Nie było dostępnego użytkownika; przyjęto pierwszą (zalecaną) opcję.",
+  "ui.question.source.skipped": "Pominięto; agent postępuje według własnego uznania.",
   "ui.question.answer.none": "(brak odpowiedzi)",
   "ui.question.review.notAnswered": "(bez odpowiedzi)",
   "ui.question.multiHint": "Zaznacz wszystkie pasujące",

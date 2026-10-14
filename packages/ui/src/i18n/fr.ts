@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Modifications de la session",
@@ -84,6 +83,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Limite d'utilisation atteinte. Pour continuer à utiliser ce modèle maintenant, activez l'utilisation de votre solde disponible.",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Ouvrir les paramètres",
+  "dialog.usageExceeded.switchAccount": "Changer de compte",
 
   "ui.sessionTurn.status.delegating": "Délégation du travail",
   "ui.sessionTurn.status.planning": "Planification des prochaines étapes",
@@ -138,6 +138,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Choisir l'agent",
   "ui.promptInput.chooseModel": "Choisir le modèle",
   "ui.promptInput.chooseVariant": "Choisir la variante du modèle",
+  "ui.promptInput.permissionMode": "Mode de permission",
   "ui.promptInput.send": "Envoyer",
   "ui.promptInput.stop": "Arrêter",
 
@@ -196,6 +197,7 @@ export const dict = {
   "ui.message.revertMessage": "Réinitialiser à ce point",
   "ui.message.copyResponse": "Copier la réponse",
   "ui.message.copied": "Copié !",
+  "ui.message.speed": "{{value}} tok/s en moyenne",
   "ui.message.interrupted": "Interrompu",
   "ui.message.queued": "En file d'attente",
   "ui.message.attachment.alt": "pièce jointe",
@@ -206,6 +208,14 @@ export const dict = {
   "ui.patch.action.patched": "Correctif appliqué",
 
   "ui.question.subtitle.answered": "Réponses : {{count}}",
+  "ui.question.subtitle.timeout": "{{count}} supposées à l'échéance",
+  "ui.question.subtitle.unattended": "{{count}} supposées sans surveillance",
+  "ui.question.subtitle.skipped": "{{count}} ignorées",
+  "ui.question.source.timeout":
+    "Le délai a expiré avant une réponse ; la première option (recommandée) a été supposée.",
+  "ui.question.source.unattended":
+    "Aucun utilisateur n'était disponible ; la première option (recommandée) a été supposée.",
+  "ui.question.source.skipped": "Ignorée ; l'agent poursuit selon son propre jugement.",
   "ui.question.answer.none": "(pas de réponse)",
   "ui.question.review.notAnswered": "(non répondu)",
   "ui.question.multiHint": "Sélectionnez tout ce qui s'applique",

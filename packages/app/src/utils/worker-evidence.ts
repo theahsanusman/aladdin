@@ -4,7 +4,15 @@ const decode = Schema.decodeUnknownOption(
   Schema.Struct({
     result: Schema.Struct({
       summary: Schema.String,
-      checks: Schema.Array(Schema.Struct({ check: Schema.String, passed: Schema.Boolean, evidence: Schema.String })),
+      checks: Schema.Array(
+        Schema.Struct({
+          check: Schema.String,
+          passed: Schema.Boolean,
+          evidence: Schema.String,
+          // Nobody confirmed the check; it is not a rejection of the worker's claim.
+          unverified: Schema.optional(Schema.Boolean),
+        }),
+      ),
     }),
   }),
 )

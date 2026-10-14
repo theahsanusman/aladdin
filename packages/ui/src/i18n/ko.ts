@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "세션 변경 사항",
@@ -108,6 +107,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "에이전트 선택",
   "ui.promptInput.chooseModel": "모델 선택",
   "ui.promptInput.chooseVariant": "모델 변형 선택",
+  "ui.promptInput.permissionMode": "권한 모드",
   "ui.promptInput.send": "전송",
   "ui.promptInput.stop": "중지",
 
@@ -218,4 +218,12 @@ export const dict = {
   "ui.sessionTurn.diffs.showAll": "모두 표시",
   "ui.sessionTurn.diffs.showLess": "간략히 표시",
   "ui.sessionTurn.diffs.more": "+{{count}}개 더 보기",
+  "dialog.usageExceeded.switchAccount": "계정 전환",
+  "ui.message.speed": "평균 {{value}} tok/s",
+  "ui.question.subtitle.timeout": "{{count}}개 마감 시점에 가정됨",
+  "ui.question.subtitle.unattended": "{{count}}개 무인 상태로 가정됨",
+  "ui.question.subtitle.skipped": "{{count}}개 건너뜀",
+  "ui.question.source.timeout": "답변 전에 마감 시점이 지나 첫 번째(권장) 옵션이 가정되었습니다.",
+  "ui.question.source.unattended": "사용자가 없어 첫 번째(권장) 옵션이 가정되었습니다.",
+  "ui.question.source.skipped": "건너뛰었으며, 에이전트가 자체 판단으로 진행합니다.",
 }

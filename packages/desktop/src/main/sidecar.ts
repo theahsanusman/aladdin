@@ -14,7 +14,12 @@ type StartCommand = {
   type: "start"
   hostname: string
   port: number
+  // The scrypt verifier for the user password. The server checks a phone's typed password against
+  // this; the plaintext is never sent here.
   password: string
+  // A per-launch secret the desktop renderer presents instead of the user password, so the
+  // password can stay only as a hash. It never leaves this machine.
+  desktopToken: string
   userDataPath: string
 }
 
@@ -50,7 +55,7 @@ parentPort.on("message", (event) => {
 
 async function start(command: StartCommand) {
   try {
-    prepareSidecarEnv(command.password, command.userDataPath)
+    prepareSidecarEnv(command.password, command.desktopToken, command.userDataPath)
     ensureLoopbackNoProxy()
     useSystemCertificates()
     useEnvProxy()
@@ -59,8 +64,6 @@ async function start(command: StartCommand) {
     listener = await Server.listen({
       port: command.port,
       hostname: command.hostname,
-      username: "opencode",
-      password: command.password,
       cors: ["oc://renderer"],
       // The main process disables the embedded UI for its own listener because
       // the renderer loads over oc://, but this loopback listener is also a
@@ -68,7 +71,10 @@ async function start(command: StartCommand) {
       // of proxying the older hosted one.
       serveWebUI: true,
     })
-    await restoreMobileAccess(undefined, { enabledByDefault: true }).catch((error) =>
+    // Mobile access is deliberately not restored here: it starts OFF on every launch so a
+    // network listener never lingers from a previous session. The user re-enables it from
+    // settings when they want it.
+    await restoreMobileAccess(undefined, { enabledByDefault: false }).catch((error) =>
       console.error("Could not restore Aladdin Wi-Fi access", error),
     )
     parentPort.postMessage({ type: "ready" })
@@ -88,10 +94,13 @@ async function stop() {
   }
 }
 
-function prepareSidecarEnv(password: string, userDataPath: string) {
+function prepareSidecarEnv(password: string, desktopToken: string, userDataPath: string) {
   Object.assign(process.env, {
     OPENCODE_SERVER_USERNAME: "opencode",
+    // The password here is the scrypt verifier, not the plaintext. The server re-derives from it
+    // to check a phone's typed password; the renderer authenticates with the desktop token.
     OPENCODE_SERVER_PASSWORD: password,
+    OPENCODE_DESKTOP_TOKEN: desktopToken,
     ALADDIN_ALLOW_UNAUTHENTICATED_LAN: password === "" ? "1" : "0",
     XDG_STATE_HOME: process.env.XDG_STATE_HOME ?? userDataPath,
   })
@@ -144,12 +153,14 @@ function parseCommand(value: unknown): SidecarCommand | undefined {
   if (typeof command.hostname !== "string") return
   if (typeof command.port !== "number") return
   if (typeof command.password !== "string") return
+  if (typeof command.desktopToken !== "string") return
   if (typeof command.userDataPath !== "string") return
   return {
     type: "start",
     hostname: command.hostname,
     port: command.port,
     password: command.password,
+    desktopToken: command.desktopToken,
     userDataPath: command.userDataPath,
   }
 }

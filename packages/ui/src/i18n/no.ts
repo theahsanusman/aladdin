@@ -2,7 +2,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict: Record<Keys, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sesjonsendringer",
@@ -61,6 +60,7 @@ export const dict: Record<Keys, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Bruksgrensen er nådd. For å fortsette å bruke denne modellen nå, aktiver bruk av den tilgjengelige saldoen din",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Åpne innstillinger",
+  "dialog.usageExceeded.switchAccount": "Bytt konto",
 
   "ui.sessionTurn.status.delegating": "Delegerer arbeid",
   "ui.sessionTurn.status.planning": "Planlegger neste trinn",
@@ -111,6 +111,7 @@ export const dict: Record<Keys, string> = {
   "ui.promptInput.chooseAgent": "Velg agent",
   "ui.promptInput.chooseModel": "Velg modell",
   "ui.promptInput.chooseVariant": "Velg modellvariant",
+  "ui.promptInput.permissionMode": "Tillatelsesmodus",
   "ui.promptInput.send": "Send",
   "ui.promptInput.stop": "Stopp",
 
@@ -179,6 +180,12 @@ export const dict: Record<Keys, string> = {
   "ui.patch.action.patched": "Oppdatert",
 
   "ui.question.subtitle.answered": "{{count}} besvart",
+  "ui.question.subtitle.timeout": "{{count}} antatt ved fristen",
+  "ui.question.subtitle.unattended": "{{count}} antatt uten tilsyn",
+  "ui.question.subtitle.skipped": "{{count}} hoppet over",
+  "ui.question.source.timeout": "Fristen gikk ut før et svar forelå; det første (anbefalte) alternativet ble antatt.",
+  "ui.question.source.unattended": "Ingen bruker var tilgjengelig; det første (anbefalte) alternativet ble antatt.",
+  "ui.question.source.skipped": "Hoppet over; agenten fortsetter etter eget skjønn.",
   "ui.question.answer.none": "(ingen svar)",
   "ui.question.review.notAnswered": "(ikke besvart)",
   "ui.question.multiHint": "Velg alle som gjelder",
@@ -196,6 +203,7 @@ export const dict: Record<Keys, string> = {
   "ui.toolErrorCard.copyError": "Kopier feil",
   "ui.message.duration.seconds": "{{count}} s",
   "ui.message.duration.minutesSeconds": "{{minutes}} min {{seconds}} s",
+  "ui.message.speed": "{{value}} gj.sn. tok/s",
 
   "ui.sessionReview.title.git": "Git-endringer",
   "ui.sessionReview.title.branch": "Grenendringer",

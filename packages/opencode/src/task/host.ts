@@ -19,6 +19,7 @@ import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
 import { Permission } from "../permission"
 import { Question } from "../question"
+import { Config } from "../config/config"
 import { TaskWorkerBootstrap } from "./bootstrap"
 import { TaskWorkspace } from "./workspace"
 
@@ -39,6 +40,7 @@ export const node = makeGlobalNode({
     Provider.node,
     Permission.node,
     Question.node,
+    Config.node,
     LayerNodePlatform.filesystem,
   ],
   layer: Layer.effectDiscard(
@@ -48,6 +50,7 @@ export const node = makeGlobalNode({
       const sessions = yield* SessionStore.Service
       const instances = yield* InstanceStore.Service
       const questions = yield* Question.Service
+      const config = yield* Config.Service
       const permissions = yield* Permission.Service
       const fs = yield* FileSystem.FileSystem
       const context = yield* Effect.context<Requirements<ReturnType<typeof TaskWorkerBootstrap.v1>>>()
@@ -113,10 +116,20 @@ export const node = makeGlobalNode({
         if (!worker) return yield* new TaskExecution.Error({ message: "Verification lost its worker Session" })
         const instance = yield* instances.load({ directory: worker.location.directory })
         const pending = task.brief.checks.filter((check) => check !== "output:nonempty")
+        // Verification must not outlive the task wall clock: an unanswered check is
+        // recorded as unverified so finished work never fails for a missing reply.
+        const cfg = yield* config.get()
         const answers = pending.length
           ? yield* questions
               .ask({
                 sessionID: worker.id,
+                timeoutSeconds: Math.min(
+                  cfg.question?.timeout_seconds ?? Question.DEFAULT_TIMEOUT_SECONDS,
+                  Math.max(
+                    0,
+                    Math.floor((task.timeUpdated + (task.brief.execution?.wallClockMs ?? 0) - Date.now()) / 1_000),
+                  ),
+                ),
                 questions: pending.map((check) => ({
                   header: "Verify",
                   question: `Verify this acceptance check against the worker's report and artifacts: ${check}\n\nWorker report:\n${output}`,
@@ -133,13 +146,25 @@ export const node = makeGlobalNode({
           if (check === "output:nonempty")
             return { check, passed: true, evidence: `Host inspected a nonempty ${output.length}-character report` }
           const index = pending.indexOf(check)
+          const answer = answers?.answers[index]
+          const verdict = answer && answer.length === 1 ? answer[0] : undefined
+          if (answers?.source === "user" && verdict === "Passed")
+            return {
+              check,
+              passed: true,
+              evidence: "Explicit native human verification; worker assertions are not treated as test evidence",
+            }
+          if (answers?.source === "user" && verdict === "Failed")
+            return {
+              check,
+              passed: false,
+              evidence: "Explicit native human verification; this acceptance check was rejected",
+            }
           return {
             check,
-            passed:
-              answers?.source === "user" &&
-              answers.answers[index]?.length === 1 &&
-              answers.answers[index]?.[0] === "Passed",
-            evidence: "Explicit native human verification; worker assertions are not treated as test evidence",
+            passed: false,
+            unverified: true,
+            evidence: `No human confirmed this acceptance check (${answers?.source === "user" ? "no answer" : (answers?.source ?? "no response")}); recorded as unverified rather than failed`,
           }
         })
       })

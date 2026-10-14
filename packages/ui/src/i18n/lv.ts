@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sesijas izmaiņas",
@@ -79,6 +78,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Lietojuma limits sasniegts. Lai turpinātu izmantot šo modeli, aktivizē lietošanu no sava atlikuma",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Atvērt iestatījumus",
+  "dialog.usageExceeded.switchAccount": "Pārslēgt kontu",
   "ui.sessionTurn.status.delegating": "Deleģē darbu",
   "ui.sessionTurn.status.planning": "Plāno nākamos soļus",
   "ui.sessionTurn.status.gatheringContext": "Izpēta",
@@ -188,6 +188,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Nokopēts",
   "ui.message.duration.seconds": "{{count}} s",
   "ui.message.duration.minutesSeconds": "{{minutes}} m {{seconds}} s",
+  "ui.message.speed": "{{value}} vid. tok/s",
   "ui.message.interrupted": "Pārtraukts",
   "ui.message.queued": "Rindā",
   "ui.message.attachment.alt": "pielikums",
@@ -196,9 +197,16 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Pārvietots",
   "ui.patch.action.patched": "Labots",
   "ui.question.subtitle.answered": "{{count}} atbildēts",
+  "ui.question.subtitle.timeout": "{{count}} pieņemts līdz termiņam",
+  "ui.question.subtitle.unattended": "{{count}} pieņemts bez uzraudzības",
+  "ui.question.subtitle.skipped": "{{count}} izlaists",
+  "ui.question.source.timeout": "Termiņš beidzās pirms atbildes; tika pieņemts pirmais (ieteiktais) variants.",
+  "ui.question.source.unattended": "Nebija pieejams neviens lietotājs; tika pieņemts pirmais (ieteiktais) variants.",
+  "ui.question.source.skipped": "Izlaists; aģents turpina pēc saviem ieskatiem.",
   "ui.question.answer.none": "(nav atbildes)",
   "ui.question.review.notAnswered": "(nav atbildēts)",
   "ui.question.multiHint": "Izvēlies visas atbilstošās atbildes",
   "ui.question.singleHint": "Izvēlies vienu atbildi",
   "ui.question.custom.placeholder": "Ieraksti savu atbildi...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

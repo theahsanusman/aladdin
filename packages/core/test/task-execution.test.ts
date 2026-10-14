@@ -590,6 +590,143 @@ it.live("bounds call failures and refuses unverified worker completion", () =>
   }),
 )
 
+it.live("settles declined verification as completed while an explicit rejection still fails", () =>
+  Effect.gen(function* () {
+    yield* setup
+    const ledger = yield* TaskLedger.Service
+    const runtime = yield* TaskExecution.make({ ledger, invalidate: () => Effect.void, runtimeEpoch: "verify" })
+    yield* runtime.register({
+      engine: "v2",
+      directory: AbsolutePath.make("/execution"),
+      run: (task) =>
+        Effect.succeed({
+          summary: "Worker reported a finished merge",
+          checks: [
+            task.dispatchKey === "declined"
+              ? { check: "Nonempty report", passed: false, evidence: "Verification skipped", unverified: true }
+              : { check: "Nonempty report", passed: false, evidence: "Explicit native human verification; rejected" },
+          ],
+        }),
+      cleanup: () => Effect.succeed("Stopped"),
+    })
+    yield* dispatch(runtime, "declined")
+    yield* dispatch(runtime, "rejected")
+    yield* runtime.idle(a)
+    const settled = yield* ledger.list(a)
+    expect(
+      settled.map((task) => [task.dispatchKey, task.status]),
+      "only an explicit human rejection may fail finished work",
+    ).toEqual([
+      ["declined", "completed"],
+      ["rejected", "failed"],
+    ])
+    const declined = settled.find((task) => task.dispatchKey === "declined")
+    if (!declined) return yield* Effect.die("Missing declined fixture task")
+    const details = yield* ledger.details({ ownerSessionID: a, taskID: declined.id })
+    const saved = JSON.parse(details.evidence ?? "{}")
+    expect(saved.result.checks[0]).toMatchObject({ passed: false, unverified: true })
+  }),
+)
+
+it.live("truncates an over-long worker report instead of failing finished work", () =>
+  Effect.gen(function* () {
+    yield* setup
+    const ledger = yield* TaskLedger.Service
+    const runtime = yield* TaskExecution.make({ ledger, invalidate: () => Effect.void, runtimeEpoch: "trunc" })
+    yield* runtime.register({
+      engine: "v2",
+      directory: AbsolutePath.make("/execution"),
+      run: () =>
+        Effect.succeed({
+          summary: `Merge is complete.\n${"receipt ".repeat(4_000)}`,
+          checks: [{ check: "Nonempty report", passed: true, evidence: "Report contains text" }],
+        }),
+      cleanup: () => Effect.succeed("Stopped"),
+    })
+    const task = yield* dispatch(runtime, "long-report")
+    yield* runtime.idle(a)
+    const details = yield* ledger.details({ ownerSessionID: a, taskID: task.id })
+    expect(details.task.status, details.evidence).toBe("completed")
+    const saved = JSON.parse(details.evidence ?? "{}")
+    expect(saved.result.summary.length, "the durable handoff keeps the whole usable report").toBeLessThanOrEqual(8_000)
+    expect(saved.result.summary).toContain("[report truncated]")
+  }),
+)
+
+it.live("bounds escaped evidence without failing a completed worker", () =>
+  Effect.gen(function* () {
+    yield* setup
+    const ledger = yield* TaskLedger.Service
+    const runtime = yield* TaskExecution.make({ ledger, invalidate: () => Effect.void, runtimeEpoch: "escaped" })
+    yield* runtime.register({
+      engine: "v2",
+      directory: AbsolutePath.make("/execution"),
+      run: () =>
+        Effect.succeed({
+          summary: `Completed.\n${"\u0000".repeat(8_000)}`,
+          checks: [{ check: "Nonempty report", passed: true, evidence: "Host checked the report" }],
+        }),
+      cleanup: () => Effect.succeed("\u0000".repeat(4_000)),
+    })
+    const task = yield* dispatch(runtime, "escaped-report")
+    yield* runtime.idle(a)
+    const details = yield* ledger.details({ ownerSessionID: a, taskID: task.id })
+    expect(details.task.status, details.evidence).toBe("completed")
+    expect(details.evidence?.length).toBeLessThanOrEqual(20_000)
+    const saved = JSON.parse(details.evidence ?? "{}")
+    expect(saved.result.summary).toStartWith("Completed.")
+    expect(saved.result.checks).toEqual([
+      { check: "Nonempty report", passed: true, evidence: "Host checked the report" },
+    ])
+    expect(saved.evidenceTruncated).toBe(true)
+  }),
+)
+
+it.live("compacts oversized check evidence without changing passed or failed outcomes", () =>
+  Effect.gen(function* () {
+    yield* setup
+    const ledger = yield* TaskLedger.Service
+    const runtime = yield* TaskExecution.make({ ledger, invalidate: () => Effect.void, runtimeEpoch: "large-checks" })
+    const checks = Array.from({ length: 100 }, (_, index) => `${index}: ${"requirement ".repeat(160)}`)
+    yield* runtime.register({
+      engine: "v2",
+      directory: AbsolutePath.make("/execution"),
+      run: (task) =>
+        Effect.succeed({
+          summary: "Checked every requirement",
+          checks: checks.map((check, index) => ({
+            check,
+            passed: task.dispatchKey !== "rejected-large-checks" || index !== 0,
+            evidence: "Measured evidence ".repeat(300),
+          })),
+        }),
+      cleanup: () => Effect.succeed("Stopped"),
+    })
+    const passed = yield* runtime.dispatch({
+      ownerSessionID: a,
+      dispatchKey: "large-checks",
+      brief: { ...brief, checks },
+    })
+    const rejected = yield* runtime.dispatch({
+      ownerSessionID: a,
+      dispatchKey: "rejected-large-checks",
+      brief: { ...brief, checks },
+    })
+    yield* runtime.idle(a)
+    const passedResult = yield* ledger.details({ ownerSessionID: a, taskID: passed.id })
+    const rejectedResult = yield* ledger.details({ ownerSessionID: a, taskID: rejected.id })
+    expect(passedResult.task.status, passedResult.evidence).toBe("completed")
+    expect(rejectedResult.task.status, rejectedResult.evidence).toBe("failed")
+    expect(passedResult.evidence?.length).toBeLessThanOrEqual(20_000)
+    expect(rejectedResult.evidence?.length).toBeLessThanOrEqual(20_000)
+    const saved = JSON.parse(passedResult.evidence ?? "{}")
+    expect(saved.result.checks).toHaveLength(100)
+    expect(saved.result.checks.every((check: { passed: boolean }) => check.passed)).toBe(true)
+    expect(JSON.parse(rejectedResult.evidence ?? "{}").result.checks[0].passed).toBe(false)
+    expect(saved.evidenceTruncated).toBe(true)
+  }),
+)
+
 it.live("prepares a late host before draining queued work after restart", () =>
   Effect.gen(function* () {
     yield* setup

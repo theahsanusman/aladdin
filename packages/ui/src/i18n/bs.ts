@@ -3,7 +3,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Promjene sesije",
@@ -87,6 +86,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Dostignut je limit korištenja. Da sada nastaviš koristiti ovaj model, omogući korištenje raspoloživog salda",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Otvori postavke",
+  "dialog.usageExceeded.switchAccount": "Promijeni račun",
 
   "ui.sessionTurn.status.delegating": "Delegiranje posla",
   "ui.sessionTurn.status.planning": "Planiranje sljedećih koraka",
@@ -140,6 +140,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Odaberi agenta",
   "ui.promptInput.chooseModel": "Odaberi model",
   "ui.promptInput.chooseVariant": "Odaberi varijantu modela",
+  "ui.promptInput.permissionMode": "Način dozvola",
   "ui.promptInput.send": "Pošalji",
   "ui.promptInput.stop": "Zaustavi",
 
@@ -198,6 +199,7 @@ export const dict = {
   "ui.message.revertMessage": "Vrati na ovu poruku",
   "ui.message.copyResponse": "Kopiraj odgovor",
   "ui.message.copied": "Kopirano!",
+  "ui.message.speed": "{{value}} prosj. tok/s",
   "ui.message.interrupted": "Prekinuto",
   "ui.message.queued": "Na čekanju",
   "ui.message.attachment.alt": "prilog",
@@ -208,6 +210,12 @@ export const dict = {
   "ui.patch.action.patched": "Primijenjeno",
 
   "ui.question.subtitle.answered": "Odgovoreno: {{count}}",
+  "ui.question.subtitle.timeout": "Pretpostavljeno po isteku roka: {{count}}",
+  "ui.question.subtitle.unattended": "Pretpostavljeno bez nadzora: {{count}}",
+  "ui.question.subtitle.skipped": "Preskočeno: {{count}}",
+  "ui.question.source.timeout": "Rok je istekao prije odgovora; pretpostavljena je prva (preporučena) opcija.",
+  "ui.question.source.unattended": "Nije bio dostupan nijedan korisnik; pretpostavljena je prva (preporučena) opcija.",
+  "ui.question.source.skipped": "Preskočeno; agent nastavlja prema vlastitoj procjeni.",
   "ui.question.answer.none": "(nema odgovora)",
   "ui.question.review.notAnswered": "(nije odgovoreno)",
   "ui.question.multiHint": "Odaberi sve primjenjive odgovore",

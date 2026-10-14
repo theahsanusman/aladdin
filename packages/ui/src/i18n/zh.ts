@@ -3,7 +3,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "会话变更",
@@ -84,6 +83,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.title": "Go 额度已用完",
   "dialog.usageExceeded.accountRateLimit.description": "使用额度已达上限。如需立即继续使用此模型，请启用余额付费",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "打开设置",
+  "dialog.usageExceeded.switchAccount": "切换账户",
 
   "ui.sessionTurn.status.delegating": "正在委派工作",
   "ui.sessionTurn.status.planning": "正在规划下一步",
@@ -134,6 +134,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "选择智能体",
   "ui.promptInput.chooseModel": "选择模型",
   "ui.promptInput.chooseVariant": "选择模型变体",
+  "ui.promptInput.permissionMode": "权限模式",
   "ui.promptInput.send": "发送",
   "ui.promptInput.stop": "停止",
 
@@ -202,6 +203,12 @@ export const dict = {
   "ui.patch.action.patched": "已应用补丁",
 
   "ui.question.subtitle.answered": "已回答 {{count}} 个",
+  "ui.question.subtitle.timeout": "{{count}} 个在截止时按推荐项假定",
+  "ui.question.subtitle.unattended": "{{count}} 个在无人值守时按推荐项假定",
+  "ui.question.subtitle.skipped": "已跳过 {{count}} 个",
+  "ui.question.source.timeout": "在收到回答前已到截止时间；已采用第一个（推荐）选项。",
+  "ui.question.source.unattended": "当时无用户在线；已采用第一个（推荐）选项。",
+  "ui.question.source.skipped": "已跳过；智能体将按自身判断继续。",
   "ui.question.answer.none": "（无答案）",
   "ui.question.review.notAnswered": "（未回答）",
   "ui.question.multiHint": "选择所有适用的答案",
@@ -219,4 +226,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "复制错误",
   "ui.message.duration.seconds": "{{count}} 秒",
   "ui.message.duration.minutesSeconds": "{{minutes}} 分钟 {{seconds}} 秒",
+  "ui.message.speed": "平均 {{value}} tok/s",
 } satisfies Partial<Record<Keys, string>>

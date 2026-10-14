@@ -20,8 +20,6 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { EventV2 } from "@opencode-ai/core/event"
 
-const disabled = process.env["OPENCODE_DISABLE_SHARE"] === "true" || process.env["OPENCODE_DISABLE_SHARE"] === "1"
-
 export type Api = {
   create: string
   sync: (shareID: string) => string
@@ -121,9 +119,14 @@ const layer = Layer.effect(
     const provider = yield* Provider.Service
     const session = yield* Session.Service
 
+    const disabled = Effect.fnUntraced(function* () {
+      if (process.env["OPENCODE_DISABLE_SHARE"] === "true" || process.env["OPENCODE_DISABLE_SHARE"] === "1") return true
+      return (yield* cfg.get()).share === "disabled"
+    })
+
     function sync(sessionID: SessionID, data: Data[]) {
       return Effect.gen(function* () {
-        if (disabled) return
+        if (yield* disabled()) return
         const share = yield* getCached(sessionID)
         if (!share) return
 
@@ -161,15 +164,14 @@ const layer = Layer.effect(
           ),
         )
 
-        if (disabled) return cache
-
         const watch = <D extends EventV2.Definition>(
           def: D,
           fn: (data: EventV2.Data<D>) => Effect.Effect<void, unknown>,
         ) =>
           events.listen((event) => {
             if (event.type !== def.type || event.location?.directory !== _ctx.directory) return Effect.void
-            return fn(event.data as EventV2.Data<D>).pipe(
+            return disabled().pipe(
+              Effect.flatMap((value) => (value ? Effect.void : fn(event.data as EventV2.Data<D>))),
               Effect.catchCause((cause) =>
                 Effect.logError("share subscriber failed", { type: def.type, cause: cause }),
               ),
@@ -245,17 +247,19 @@ const layer = Layer.effect(
     })
 
     const flush = Effect.fn("ShareNext.flush")(function* (sessionID: SessionID) {
-      if (disabled) return
       const s = yield* InstanceState.get(state)
       const queued = s.queue.get(sessionID)
       if (!queued) return
 
       s.queue.delete(sessionID)
+      if (yield* disabled()) return
 
       const share = yield* getCached(sessionID)
       if (!share) return
 
       const req = yield* request()
+      // Policy can change while request preparation awaits account/config services.
+      if (yield* disabled()) return
       const res = yield* HttpClientRequest.post(`${req.baseUrl}${req.api.sync(share.id)}`).pipe(
         HttpClientRequest.setHeaders(req.headers),
         HttpClientRequest.bodyJson({ secret: share.secret, data: Array.from(queued.values()) }),
@@ -272,6 +276,7 @@ const layer = Layer.effect(
     })
 
     const full = Effect.fn("ShareNext.full")(function* (sessionID: SessionID) {
+      if (yield* disabled()) return
       yield* Effect.logInfo("full sync", { sessionID: sessionID })
       const info = yield* session.get(sessionID)
       const diffs = yield* session.diff(sessionID)
@@ -299,7 +304,6 @@ const layer = Layer.effect(
     })
 
     const init = Effect.fn("ShareNext.init")(function* () {
-      if (disabled) return
       yield* InstanceState.get(state)
     })
 
@@ -308,9 +312,10 @@ const layer = Layer.effect(
     })
 
     const create = Effect.fn("ShareNext.create")(function* (sessionID: SessionID) {
-      if (disabled) return { id: "", url: "", secret: "" }
+      if (yield* disabled()) return yield* Effect.fail(new Error("Sharing is disabled"))
       yield* Effect.logInfo("creating share", { sessionID: sessionID })
       const req = yield* request()
+      if (yield* disabled()) return yield* Effect.fail(new Error("Sharing is disabled"))
       const result = yield* HttpClientRequest.post(`${req.baseUrl}${req.api.create}`).pipe(
         HttpClientRequest.setHeaders(req.headers),
         HttpClientRequest.bodyJson({ sessionID }),
@@ -336,7 +341,6 @@ const layer = Layer.effect(
     })
 
     const remove = Effect.fn("ShareNext.remove")(function* (sessionID: SessionID) {
-      if (disabled) return
       yield* Effect.logInfo("removing share", { sessionID: sessionID })
       const s = yield* InstanceState.get(state)
       const share = yield* getCached(sessionID)

@@ -485,12 +485,16 @@ const main = Effect.gen(function* () {
     })
     const hostname = "127.0.0.1"
     const url = `http://${hostname}:${port}`
+    // The stored password is a scrypt verifier, never the plaintext. A per-launch desktop token
+    // authenticates the renderer in constant time so the real password never reaches the client.
     const password = yield* Effect.promise(() => loadWebPassword(app.getPath("userData")))
+    const desktopToken = randomUUID()
 
     logger.log("spawning sidecar", { url })
     const supervisor = createSidecarSupervisor({
       spawn: async (onExit, signal) => {
         const child = await spawnLocalServer(hostname, port, password, {
+          desktopToken,
           signal,
           userDataPath: app.getPath("userData"),
           onStdout: (message) => writeLog("server", "stdout", { message }),
@@ -510,10 +514,12 @@ const main = Effect.gen(function* () {
     })
     server = supervisor
     yield* Effect.promise(() => supervisor.start())
+    // The renderer authenticates with the per-launch desktop token, not the user password, so
+    // nothing here can leak the password the phone needs to type.
     yield* Deferred.succeed(serverReady, {
       url,
       username: "opencode",
-      password,
+      password: desktopToken,
     })
 
     if (process.platform === "win32") {

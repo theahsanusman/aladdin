@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "ལཱ་ཡུན་བསྒྱུར་བཅོས་ཚུ།",
@@ -80,6 +79,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "ལག་ལེན་ཚད་ལུ་ལྷོད་ཡོདཔ། ད་ལྟོ་དཔེ་ཚད་འདི་འཕྲོ་མཐུད་ལག་ལེན་འཐབ་ནི་ལུ་ ཁྱོད་རའི་འཐོབ་ཚུགས་པའི་ལྷག་ལུས་ལས་ལག་ལེན་ལྕོགས་ཅན་བཟོ།",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "སྒྲིག་སྟངས་ཁ་ཕྱེ།",
+  "dialog.usageExceeded.switchAccount": "རྩིས་ཐོ་སོར་བསྒྱུར་འབད།",
   "ui.sessionTurn.status.delegating": "ལཱ་འགན་སྤྲོད་འབད་དོ།",
   "ui.sessionTurn.status.planning": "གོམ་པ་ཤུལ་མམ་གྱི་འཆར་གཞི་བཟོ་ནི།",
   "ui.sessionTurn.status.gatheringContext": "འཚོལ་ཞིབ་འབད་དོ།",
@@ -129,6 +129,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "ལས་ཚབ་གདམ་ཁ་རྐྱབས།",
   "ui.promptInput.chooseModel": "དཔེ་ཚད་གདམ་ཁ་རྐྱབས།",
   "ui.promptInput.chooseVariant": "དཔེ་ཚད་འགྱུར་ཅན་གདམ་ཁ་རྐྱབས།",
+  "ui.promptInput.permissionMode": "གནང་བའི་ཐབས་ལམ།",
   "ui.promptInput.send": "བཏང༌ནི",
   "ui.promptInput.stop": "བཀག་པ",
   "ui.tabs.close": "མཆོང་ལྡེ་ཁ་བསྡམས།",
@@ -186,6 +187,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "འདྲ་བཤུས་འབད་ཡོདཔ།",
   "ui.message.duration.seconds": "{{count}}ས །",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}ས །",
+  "ui.message.speed": "{{value}} ཆ་སྙོམས་ tok/s",
   "ui.message.interrupted": "བར་ཆད་ཅན།",
   "ui.message.queued": "གྱལ་བསྒྲིགས།",
   "ui.message.attachment.alt": "མཉམ༌སྦྲགས༌",
@@ -194,6 +196,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "སྤོ་བཤུད་འབད་ཡོདཔ།",
   "ui.patch.action.patched": "ཐིག་ཁྲམ་འབད་ཡོདཔ།",
   "ui.question.subtitle.answered": "{{count}} ལན་བཏབ།",
+  "ui.question.subtitle.timeout": "{{count}} དུས་ཚོད་རྫོགས་པའི་སྐབས་ཚོད་དཔག་འབད་ཡོདཔ།",
+  "ui.question.subtitle.unattended": "{{count}} མི་མེད་པར་ཚོད་དཔག་འབད་ཡོདཔ།",
+  "ui.question.subtitle.skipped": "{{count}} མཆོང་ཡོདཔ།",
+  "ui.question.source.timeout":
+    "ལན་མ་བཏབ་པའི་ཧེ་མ་དུས་ཚོད་རྫོགས་སོང་། དང་པ་ (འོས་སྦྱོར་འབད་ཡོད་པ་) གདམ་ཁ་ཚོད་དཔག་འབད་ཡོདཔ།",
+  "ui.question.source.unattended": "ལག་ལེན་པ་གང་ཡང་ཐོབ་མ་བྱུང་། དང་པ་ (འོས་སྦྱོར་འབད་ཡོད་པ་) གདམ་ཁ་ཚོད་དཔག་འབད་ཡོདཔ།",
+  "ui.question.source.skipped": "མཆོང་ཡོདཔ། ལས་ཚབ་ཀྱིས་རང་གི་ཐག་གཅོད་དང་གཅིག་ཁར་འཕྲོ་མཐུད་འབདཝ་ཨིན།",
   "ui.question.answer.none": "།ལན་མེད་དོ།",
   "ui.question.review.notAnswered": "།ལན་མ་བཏབ་པར།",
   "ui.question.multiHint": "འཇུག་སྤྱོད་འབད་མི་ལན་ཚུ་ཆ་མཉམ་སེལ་འཐུ་འབད།",

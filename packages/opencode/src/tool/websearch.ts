@@ -120,14 +120,9 @@ export const WebSearchTool = Tool.define(
             permission: "websearch",
             patterns: [params.query],
             always: ["*"],
-            metadata: {
-              query: params.query,
-              numResults: params.numResults,
-              livecrawl: params.livecrawl,
-              type: params.type,
-              contextMaxCharacters: params.contextMaxCharacters,
-              provider,
-            },
+            metadata: Object.fromEntries(
+              Object.entries({ ...params, provider }).filter(([, value]) => value !== undefined),
+            ),
           })
 
           const result = yield* callProvider(http, provider, params, ctx)

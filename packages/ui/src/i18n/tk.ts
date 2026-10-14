@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sessiýa üýtgeşmeleri",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Ulanyş çägine ýetdi. Indi bu modeli ulanmagy dowam etdirmek üçin, bar bolan balansyňyzdan peýdalanmagy üpjün ediň",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Sazlamalary açyň",
+  "dialog.usageExceeded.switchAccount": "Hasaby çalyş",
   "ui.sessionTurn.status.delegating": "Iş tabşyrmak",
   "ui.sessionTurn.status.planning": "Indiki ädimleri meýilleşdirmek",
   "ui.sessionTurn.status.gatheringContext": "Gözleg",
@@ -184,6 +184,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Göçürildi",
   "ui.message.duration.seconds": "{{count}}",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} ortaça tok/s",
   "ui.message.interrupted": "Arakesdi",
   "ui.message.queued": "Nobat",
   "ui.message.attachment.alt": "goşundy",
@@ -192,9 +193,16 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Göçürildi",
   "ui.patch.action.patched": "Yamaly",
   "ui.question.subtitle.answered": "{{count}} jogap berdi",
+  "ui.question.subtitle.timeout": "{{count}} möhletiň ahyrynda çak edildi",
+  "ui.question.subtitle.unattended": "{{count}} gözegçiliksiz çak edildi",
+  "ui.question.subtitle.skipped": "{{count}} geçildi",
+  "ui.question.source.timeout": "Jogapdan öň möhlet geçdi; birinji (maslahat berilýän) opsiýa çak edildi.",
+  "ui.question.source.unattended": "Ulanyjy ýokdy; birinji (maslahat berilýän) opsiýa çak edildi.",
+  "ui.question.source.skipped": "Geçildi; agent öz pikiri boýunça dowam edýär.",
   "ui.question.answer.none": "(jogap ýok)",
   "ui.question.review.notAnswered": "(jogap berilmedi)",
   "ui.question.multiHint": "Appliceshli jogaplary saýlaň",
   "ui.question.singleHint": "Bir jogap saýlaň",
   "ui.question.custom.placeholder": "Jogabyňyzy ýazyň ...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

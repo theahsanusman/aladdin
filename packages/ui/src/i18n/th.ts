@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "การเปลี่ยนแปลงเซสชัน",
@@ -82,6 +81,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "ถึงขีดจำกัดการใช้งานแล้ว หากต้องการใช้โมเดลนี้ต่อในตอนนี้ ให้เปิดใช้งานจากยอดคงเหลือที่มี",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "เปิดการตั้งค่า",
+  "dialog.usageExceeded.switchAccount": "สลับบัญชี",
 
   "ui.sessionTurn.status.delegating": "กำลังมอบหมายงาน",
   "ui.sessionTurn.status.planning": "กำลังวางแผนขั้นตอนถัดไป",
@@ -132,6 +132,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "เลือกเอเจนต์",
   "ui.promptInput.chooseModel": "เลือกโมเดล",
   "ui.promptInput.chooseVariant": "เลือกรูปแบบโมเดล",
+  "ui.promptInput.permissionMode": "โหมดสิทธิ์",
   "ui.promptInput.send": "ส่ง",
   "ui.promptInput.stop": "หยุด",
 
@@ -190,6 +191,9 @@ export const dict = {
   "ui.message.revertMessage": "รีเซ็ตไปยังจุดนี้",
   "ui.message.copyResponse": "คัดลอกคำตอบ",
   "ui.message.copied": "คัดลอกแล้ว!",
+  "ui.message.duration.seconds": "{{count}} วินาที",
+  "ui.message.duration.minutesSeconds": "{{minutes}} นาที {{seconds}} วินาที",
+  "ui.message.speed": "เฉลี่ย {{value}} โทเค็น/วินาที",
   "ui.message.interrupted": "ถูกขัดจังหวะ",
   "ui.message.queued": "อยู่ในคิว",
   "ui.message.attachment.alt": "ไฟล์แนบ",
@@ -200,6 +204,12 @@ export const dict = {
   "ui.patch.action.patched": "แพตช์",
 
   "ui.question.subtitle.answered": "ตอบแล้ว {{count}} ข้อ",
+  "ui.question.subtitle.timeout": "สันนิษฐาน {{count}} ข้อเมื่อครบกำหนดเวลา",
+  "ui.question.subtitle.unattended": "สันนิษฐาน {{count}} ข้อโดยไม่มีผู้ดูแล",
+  "ui.question.subtitle.skipped": "ข้ามไป {{count}} ข้อ",
+  "ui.question.source.timeout": "ครบกำหนดเวลาก่อนที่จะมีคำตอบ จึงสันนิษฐานใช้ตัวเลือกแรก (ที่แนะนำ)",
+  "ui.question.source.unattended": "ไม่มีผู้ใช้อยู่ในขณะนั้น จึงสันนิษฐานใช้ตัวเลือกแรก (ที่แนะนำ)",
+  "ui.question.source.skipped": "ข้ามไป เอเจนต์จะดำเนินการต่อโดยใช้ดุลยพินิจของตนเอง",
   "ui.question.answer.none": "(ไม่มีคำตอบ)",
   "ui.question.review.notAnswered": "(ไม่ได้ตอบ)",
   "ui.question.multiHint": "เลือกคำตอบที่เกี่ยวข้องทั้งหมด",
@@ -215,6 +225,4 @@ export const dict = {
   "ui.basicTool.called": "เรียกใช้ `{{tool}}`",
   "ui.toolErrorCard.failed": "ล้มเหลว",
   "ui.toolErrorCard.copyError": "คัดลอกข้อผิดพลาด",
-  "ui.message.duration.seconds": "{{count}} วินาที",
-  "ui.message.duration.minutesSeconds": "{{minutes}} นาที {{seconds}} วินาที",
 }

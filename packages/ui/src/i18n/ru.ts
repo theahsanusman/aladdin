@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Изменения сессии",
@@ -83,6 +82,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Достигнут лимит использования. Чтобы продолжить использовать эту модель сейчас, включите использование из доступного баланса",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Открыть настройки",
+  "dialog.usageExceeded.switchAccount": "Сменить аккаунт",
 
   "ui.sessionTurn.status.delegating": "Делегирование работы",
   "ui.sessionTurn.status.planning": "Планирование следующих шагов",
@@ -139,6 +139,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Выбрать агента",
   "ui.promptInput.chooseModel": "Выбрать модель",
   "ui.promptInput.chooseVariant": "Выбрать вариант модели",
+  "ui.promptInput.permissionMode": "Режим разрешений",
   "ui.promptInput.send": "Отправить",
   "ui.promptInput.stop": "Остановить",
 
@@ -207,6 +208,12 @@ export const dict = {
   "ui.patch.action.patched": "Изменено",
 
   "ui.question.subtitle.answered": "Получено ответов: {{count}}",
+  "ui.question.subtitle.timeout": "{{count}} принято по истечении срока",
+  "ui.question.subtitle.unattended": "{{count}} принято без оператора",
+  "ui.question.subtitle.skipped": "Пропущено: {{count}}",
+  "ui.question.source.timeout": "Срок истёк до получения ответа; был принят первый (рекомендуемый) вариант.",
+  "ui.question.source.unattended": "Пользователь был недоступен; был принят первый (рекомендуемый) вариант.",
+  "ui.question.source.skipped": "Пропущено; агент продолжает на своё усмотрение.",
   "ui.question.answer.none": "(нет ответа)",
   "ui.question.review.notAnswered": "(не отвечено)",
   "ui.question.multiHint": "Выберите все подходящие",
@@ -224,4 +231,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Скопировать ошибку",
   "ui.message.duration.seconds": "{{count}} с",
   "ui.message.duration.minutesSeconds": "{{minutes}} мин {{seconds}} с",
+  "ui.message.speed": "{{value}} ток/с в среднем",
 }

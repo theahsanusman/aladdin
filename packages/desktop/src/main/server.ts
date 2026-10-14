@@ -22,6 +22,8 @@ const SIDECAR_STOP_TIMEOUT = 6_000
 
 type SpawnLocalServerOptions = {
   userDataPath: string
+  // A per-launch secret the desktop renderer presents instead of the user password.
+  desktopToken: string
   signal?: AbortSignal
   onStdout?: (message: string) => void
   onStderr?: (message: string) => void
@@ -140,6 +142,7 @@ export async function spawnLocalServer(
       hostname,
       port,
       password,
+      desktopToken: options.desktopToken,
       userDataPath: options.userDataPath,
     })
   }).catch(async (error) => {
@@ -153,7 +156,9 @@ export async function spawnLocalServer(
     const deadline = Date.now() + 30_000
     while (!exited && Date.now() < deadline) {
       options.signal?.throwIfAborted()
-      if (await checkHealth(url, password, options.signal)) return
+      // The health probe presents the desktop token, which the server accepts in constant time
+      // without learning the user password.
+      if (await checkHealth(url, options.desktopToken, options.signal)) return
       await delay(100)
     }
     throw new Error(exited ? "Sidecar exited before becoming healthy" : "Sidecar health check timed out")
@@ -181,7 +186,10 @@ export async function spawnLocalServer(
   }
 }
 
-export async function checkHealth(url: string, password?: string | null, signal?: AbortSignal): Promise<boolean> {
+// Probes a health endpoint. `credential` is the value presented as the Basic-auth password: the
+// desktop renderer and health check send the per-launch desktop token, which the server accepts
+// in constant time without ever learning the user password.
+export async function checkHealth(url: string, credential?: string | null, signal?: AbortSignal): Promise<boolean> {
   let healthUrls: URL[]
   try {
     healthUrls = [new URL("/api/health", url), new URL("/global/health", url)]
@@ -190,8 +198,8 @@ export async function checkHealth(url: string, password?: string | null, signal?
   }
 
   const headers = new Headers()
-  if (password) {
-    const auth = Buffer.from(`opencode:${password}`).toString("base64")
+  if (credential) {
+    const auth = Buffer.from(`opencode:${credential}`).toString("base64")
     headers.set("authorization", `Basic ${auth}`)
   }
 

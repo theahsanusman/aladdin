@@ -9,6 +9,7 @@ import type { Transport, TransportRuntime } from "./transport"
 import { WebSocketExecutor } from "./transport"
 import type { Protocol } from "./protocol"
 import { applyCachePolicy } from "../cache-policy"
+import { ProviderPrivacy } from "./provider-privacy"
 import * as ProviderShared from "../protocols/shared"
 import type { LLMError, LLMEvent, PreparedRequestOf, ProtocolID, ProviderOptions } from "../schema"
 import {
@@ -341,8 +342,14 @@ export function make<Body, Prepared, Frame, Event, State>(
 // `compile` is the important boundary: it turns a common `LLMRequest` into a
 // validated provider body plus transport-private prepared data, but does not
 // execute transport.
-const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
-  const resolved = applyCachePolicy(resolveRequestOptions(request))
+const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest, privacy = false) {
+  const options = applyCachePolicy(resolveRequestOptions(request))
+  const resolved = privacy
+    ? yield* Effect.try({
+        try: () => ProviderPrivacy.request(options),
+        catch: () => ProviderShared.invalidRequest("Provider privacy enforcement requires a JSON object request body"),
+      })
+    : options
   const route = resolved.model.route
 
   const body = yield* route.body
@@ -358,8 +365,8 @@ const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
   }
 })
 
-const prepareWith = Effect.fn("LLMClient.prepare")(function* (request: LLMRequest) {
-  const compiled = yield* compile(request)
+const prepareWith = Effect.fn("LLMClient.prepare")(function* (request: LLMRequest, privacy = false) {
+  const compiled = yield* compile(request, privacy)
 
   return new PreparedRequest({
     id: compiled.request.id ?? "request",
@@ -371,13 +378,15 @@ const prepareWith = Effect.fn("LLMClient.prepare")(function* (request: LLMReques
   })
 })
 
-const streamRequestWith = (runtime: TransportRuntime) => (request: LLMRequest) =>
-  Stream.unwrap(
-    Effect.gen(function* () {
-      const compiled = yield* compile(request)
-      return compiled.route.streamPrepared(compiled.prepared, compiled.request, runtime)
-    }),
-  )
+const streamRequestWith =
+  (runtime: TransportRuntime, privacy = false) =>
+  (request: LLMRequest) =>
+    Stream.unwrap(
+      Effect.gen(function* () {
+        const compiled = yield* compile(request, privacy)
+        return compiled.route.streamPrepared(compiled.prepared, compiled.request, runtime)
+      }),
+    )
 
 const generateWith = (stream: Interface["stream"]) =>
   Effect.fn("LLM.generate")(function* (request: LLMRequest) {
@@ -414,22 +423,36 @@ export const streamRequest = (request: LLMRequest) =>
     }),
   )
 
-export const layer: Layer.Layer<Service, never, RequestExecutor.Service> = Layer.effect(
-  Service,
-  Effect.gen(function* () {
-    const stream = streamRequestWith({
-      http: yield* RequestExecutor.Service,
-      webSocket: Option.getOrUndefined(yield* Effect.serviceOption(WebSocketExecutor.Service)),
-    })
-    return Service.of({ prepare: prepareWith as Interface["prepare"], stream, generate: generateWith(stream) })
-  }),
-)
+function clientLayer(privacy: boolean): Layer.Layer<Service, never, RequestExecutor.Service> {
+  return Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const stream = streamRequestWith(
+        {
+          http: yield* RequestExecutor.Service,
+          webSocket: Option.getOrUndefined(yield* Effect.serviceOption(WebSocketExecutor.Service)),
+        },
+        privacy,
+      )
+      return Service.of({
+        prepare: ((request) => prepareWith(request, privacy)) as Interface["prepare"],
+        stream,
+        generate: generateWith(stream),
+      })
+    }),
+  )
+}
+
+export const layer = clientLayer(false)
+// Aladdin always uses this layer; the general-purpose library's explicit storage contract stays intact.
+export const privacyLayer = clientLayer(true)
 
 export const Route = { make } as const
 
 export const LLMClient = {
   Service,
   layer,
+  privacyLayer,
   prepare,
   stream,
   generate,

@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Ndryshimet e seancës",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "U arrit kufiri i përdorimit. Për të vazhduar përdorimin e këtij modeli tani, aktivizoni përdorimin nga balanca juaj e disponueshme",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Hap cilësimet",
+  "dialog.usageExceeded.switchAccount": "Ndërro llogarinë",
   "ui.sessionTurn.status.delegating": "Delegimi i punës",
   "ui.sessionTurn.status.planning": "Planifikimi i hapave të ardhshëm",
   "ui.sessionTurn.status.gatheringContext": "duke eksploruar",
@@ -184,6 +184,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "E kopjuar",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} mesatarisht tok/s",
   "ui.message.interrupted": "E ndërprerë",
   "ui.message.queued": "Në radhë",
   "ui.message.attachment.alt": "bashkëngjitje",
@@ -192,9 +193,16 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Lëvizur",
   "ui.patch.action.patched": "Arnuar",
   "ui.question.subtitle.answered": "{{count}} u përgjigj",
+  "ui.question.subtitle.timeout": "{{count}} supozuar në afat",
+  "ui.question.subtitle.unattended": "{{count}} supozuar pa mbikëqyrje",
+  "ui.question.subtitle.skipped": "{{count}} u kapërcë",
+  "ui.question.source.timeout": "Afati kaloi para një përgjigjeje; u supozua opsioni i parë (i rekomanduar).",
+  "ui.question.source.unattended": "Nuk kishte përdorues të disponueshëm; u supozua opsioni i parë (i rekomanduar).",
+  "ui.question.source.skipped": "U kapërcë; agjenti vazhdon sipas gjykimit të vet.",
   "ui.question.answer.none": "(pa përgjigje)",
   "ui.question.review.notAnswered": "(nuk u përgjigj)",
   "ui.question.multiHint": "Zgjidh të gjitha përgjigjet që zbatohen",
   "ui.question.singleHint": "Zgjidhni një përgjigje",
   "ui.question.custom.placeholder": "Shkruani përgjigjen tuaj...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

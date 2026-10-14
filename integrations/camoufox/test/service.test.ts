@@ -4,6 +4,7 @@ import { lstat, mkdtemp, rm, symlink } from "node:fs/promises"
 import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import { BrowserManager } from "../src/browser.ts"
+import { BrowserError, publicError } from "../src/contracts.ts"
 import { startBroker, requestBroker } from "../src/service.ts"
 
 const api = { startBroker, requestBroker }
@@ -32,6 +33,18 @@ test("two clients share one owner-only socket and profile store", async () => {
   ])
   expect(outputs).toEqual([{ profiles: [] }, { profiles: [] }])
   await expect(api.startBroker(root, manager)).rejects.toThrow()
+})
+
+test("the private client preserves known safe browser errors instead of hiding recovery guidance", async () => {
+  const { root, manager } = await fixture()
+  const broker = await startBroker(root, manager)
+  cleanup.push(() => broker.close())
+  const error = await requestBroker(root, { action: "tabs", operation: "list", profile: "default" }).then(
+    () => undefined,
+    (error: unknown) => error,
+  )
+  expect(error).toBeInstanceOf(BrowserError)
+  expect(publicError(error)).toContain("That profile is closed")
 })
 
 test("the broker refuses a symlink at its control socket", async () => {

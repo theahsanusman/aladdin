@@ -1,6 +1,7 @@
 import { Effect, Stream } from "effect"
 import { Headers, HttpClientRequest } from "effect/unstable/http"
 import { Auth } from "../auth"
+import { ProviderPrivacy } from "../provider-privacy"
 import { render as renderEndpoint } from "../endpoint"
 import { Framing, type Framing as FramingDef } from "../framing"
 import type { Transport, TransportPrepareInput } from "./index"
@@ -91,7 +92,18 @@ export const jsonRequestParts = <Body>(input: JsonRequestInput<Body>) =>
       renderEndpoint(input.endpoint, { request: input.request, body: input.body }).toString(),
       input.request.http?.query,
     )
-    const body = yield* bodyWithOverlay(input.body, input.request, input.encodeBody)
+    const overlaid = yield* bodyWithOverlay(input.body, input.request, input.encodeBody)
+    const endpoint = new URL(url)
+    const body = ProviderPrivacy.isOpenRouter(endpoint, input.request.model.provider)
+      ? yield* Effect.try({
+          try: () => {
+            const jsonBody = ProviderPrivacy.body(overlaid.jsonBody, endpoint, input.request.model.provider)
+            return { jsonBody, bodyText: ProviderShared.encodeJson(jsonBody) }
+          },
+          catch: () =>
+            ProviderShared.invalidRequest("Provider privacy enforcement requires a JSON object request body"),
+        })
+      : overlaid
     const headers = yield* Auth.toEffect(input.auth)({
       request: input.request,
       method: "POST",
@@ -102,7 +114,14 @@ export const jsonRequestParts = <Body>(input: JsonRequestInput<Body>) =>
         ...input.request.http?.headers,
       }),
     })
-    return { url, jsonBody: body.jsonBody, bodyText: body.bodyText, headers }
+    // HTTP and WebSocket routes share this final boundary, after request and auth header overrides.
+    const commandCode = ProviderPrivacy.isCommandCode(endpoint, input.request.model.provider)
+    return {
+      url,
+      jsonBody: body.jsonBody,
+      bodyText: body.bodyText,
+      headers: commandCode ? Headers.set(headers, "x-cmd-zdr", "1") : headers,
+    }
   })
 
 export interface HttpJsonInput<_Body, Frame> {

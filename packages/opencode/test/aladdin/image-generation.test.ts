@@ -5,7 +5,7 @@ async function withDrawThings(
   handler: (request: Request) => Response | Promise<Response>,
   run: (input: { url: string }) => Promise<void>,
 ) {
-  const server = Bun.serve({ port: 0, fetch: handler })
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: handler })
   const previous = process.env.ALADDIN_DRAW_THINGS_URL
   process.env.ALADDIN_DRAW_THINGS_URL = `http://127.0.0.1:${server.port}`
   try {
@@ -67,12 +67,65 @@ describe("Aladdin image generation", () => {
     )
   })
 
-  test("surfaces the Draw Things error body instead of a missing image", async () => {
+  test("reports the Draw Things status without reflecting private failure data", async () => {
     await withDrawThings(
-      () => new Response("no model loaded", { status: 500 }),
+      () => new Response("private prompt and synthetic credential", { status: 500 }),
       async () => {
         await expect(generate({ provider: "draw-things", model: "m", prompt: "p" })).rejects.toThrow(
-          /Draw Things returned 500: no model loaded/,
+          /^Draw Things returned 500$/,
+        )
+      },
+    )
+  })
+
+  test("rejects a non-loopback Draw Things override before sending the prompt", async () => {
+    const requests: string[] = []
+    await withDrawThings(
+      async (request) => {
+        requests.push(await request.text())
+        return Response.json({ images: ["QUJD"] })
+      },
+      async (server) => {
+        process.env.ALADDIN_DRAW_THINGS_URL = server.url.replace("127.0.0.1", "0.0.0.0")
+        await expect(generate({ provider: "draw-things", model: "m", prompt: "private prompt" })).rejects.toThrow(
+          /loopback HTTP\(S\)/,
+        )
+        expect(requests).toEqual([])
+      },
+    )
+  })
+
+  test.each([307, 308])("never follows a Draw Things %d redirect with the image prompt", async (status) => {
+    const redirected: string[] = []
+    const target = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch(request) {
+        redirected.push(await request.text())
+        return Response.json({ images: ["QUJD"] })
+      },
+    })
+    try {
+      await withDrawThings(
+        () => new Response(null, { status, headers: { location: `http://127.0.0.1:${target.port}/capture` } }),
+        async () => {
+          await expect(generate({ provider: "draw-things", model: "m", prompt: "private prompt" })).rejects.toThrow(
+            /Draw Things image request failed/,
+          )
+          expect(redirected).toEqual([])
+        },
+      )
+    } finally {
+      target.stop(true)
+    }
+  })
+
+  test("does not expose malformed Draw Things response data in parse errors", async () => {
+    await withDrawThings(
+      () => new Response("private response text", { headers: { "content-type": "application/json" } }),
+      async () => {
+        await expect(generate({ provider: "draw-things", model: "m", prompt: "p" })).rejects.toThrow(
+          /^Draw Things returned invalid JSON$/,
         )
       },
     )
@@ -95,6 +148,51 @@ describe("Aladdin image generation", () => {
     )
     await expect(generate({ provider: "gemini", model: "gemini-2.5-flash-image", prompt: "p" })).rejects.toThrow(
       /No gemini API key is configured/,
+    )
+  })
+
+  test("cancels before sending Draw Things media without exposing a private abort reason", async () => {
+    const requests: string[] = []
+    await withDrawThings(
+      async (request) => {
+        requests.push(await request.text())
+        return Response.json({ images: ["QUJD"] })
+      },
+      async () => {
+        await expect(
+          generate({
+            provider: "draw-things",
+            model: "m",
+            prompt: "synthetic prompt",
+            signal: AbortSignal.abort(new Error("synthetic private abort reason")),
+          }),
+        ).rejects.toThrow(/^Draw Things image request failed$/)
+        expect(requests).toEqual([])
+      },
+    )
+  })
+
+  test("cancels a stalled response body instead of leaving a local request pending", async () => {
+    await withDrawThings(
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{"images":['))
+            },
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+      async () => {
+        await expect(
+          generate({
+            provider: "draw-things",
+            model: "m",
+            prompt: "synthetic prompt",
+            signal: AbortSignal.timeout(50),
+          }),
+        ).rejects.toThrow(/^Draw Things image request failed$/)
+      },
     )
   })
 })

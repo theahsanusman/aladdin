@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Тағйир додани сессия",
@@ -78,6 +77,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Ба ҳадди ниҳоии истифода расид. Барои идома додани истифодаи ин модел ҳоло, истифода аз тавозуни дастрасатонро фаъол созед",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Танзимотро кушоед",
+  "dialog.usageExceeded.switchAccount": "Иваз кардани ҳисоб",
   "ui.sessionTurn.status.delegating": "Супоридани кор",
   "ui.sessionTurn.status.planning": "Банақшагирии қадамҳои оянда",
   "ui.sessionTurn.status.gatheringContext": "Таҳқиқ кардан",
@@ -184,6 +184,7 @@ export const dict = {
   "ui.message.copied": "Нусхабардорӣ",
   "ui.message.duration.seconds": "{{count}}с",
   "ui.message.duration.minutesSeconds": "{{minutes}}м {{seconds}}с",
+  "ui.message.speed": "{{value}} миёнаи токен/с",
   "ui.message.interrupted": "Қатъ карда шуд",
   "ui.message.queued": "Дар навбат",
   "ui.message.attachment.alt": "замима",
@@ -192,9 +193,16 @@ export const dict = {
   "ui.patch.action.moved": "кӯчонида шуд",
   "ui.patch.action.patched": "Patchад",
   "ui.question.subtitle.answered": "{{count}} чавоб дод",
+  "ui.question.subtitle.timeout": "{{count}} дар мӯҳлат фарз карда шуд",
+  "ui.question.subtitle.unattended": "{{count}} бе назорат фарз карда шуд",
+  "ui.question.subtitle.skipped": "{{count}} гузашта шуд",
+  "ui.question.source.timeout": "Мӯҳлат пеш аз ҷавоб гузашт; варианти аввал (тавсияшуда) фарз карда шуд.",
+  "ui.question.source.unattended": "Ягон корбар дастрас набуд; варианти аввал (тавсияшуда) фарз карда шуд.",
+  "ui.question.source.skipped": "Гузашта шуд; агент бо мулоҳизаи худ идома медиҳад.",
   "ui.question.answer.none": "(ҷавоб нест)",
   "ui.question.review.notAnswered": "(ҷавоб дода нашудааст)",
   "ui.question.multiHint": "Ҳамаи ҷавобҳои мувофиқро интихоб кунед",
   "ui.question.singleHint": "Як ҷавобро интихоб кунед",
   "ui.question.custom.placeholder": "Ҷавоби худро нависед...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

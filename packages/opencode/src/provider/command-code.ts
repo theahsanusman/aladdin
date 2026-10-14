@@ -5,6 +5,17 @@ import { ProviderError } from "./error"
 const decodeJSON = Schema.decodeUnknownOption(Schema.UnknownFromJsonString)
 const roles = new Set(["system", "developer", "user", "assistant"])
 
+export function enforceZdr(input: RequestInfo | URL, init: RequestInit, providerID?: string): RequestInit {
+  const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
+  if (providerID !== "commandcode" && !(url.hostname === "api.commandcode.ai" && url.pathname.startsWith("/provider/")))
+    return init
+
+  // Apply at the transport boundary so model, plugin, and per-call headers cannot opt out.
+  const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined))
+  headers.set("x-cmd-zdr", "1")
+  return { ...init, headers }
+}
+
 export function commandCodeResponsesRequest(input: RequestInfo | URL, init: RequestInit): RequestInit {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
   if (!url.endsWith("/responses") || typeof init.body !== "string") return init

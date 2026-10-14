@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Промене сесије",
@@ -80,6 +79,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Достигнуто је ограничење употребе. Да бисте сада наставили да користите овај модел, омогућите коришћење са свог доступног стања",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Отворите подешавања",
+  "dialog.usageExceeded.switchAccount": "Промени налог",
   "ui.sessionTurn.status.delegating": "Делегирање посла",
   "ui.sessionTurn.status.planning": "Планирање следећих корака",
   "ui.sessionTurn.status.gatheringContext": "Истраживање",
@@ -189,6 +189,7 @@ export const dict = {
   "ui.message.copied": "Копирано",
   "ui.message.duration.seconds": "{{count}}с",
   "ui.message.duration.minutesSeconds": "{{minutes}}м {{seconds}}с",
+  "ui.message.speed": "просечно {{value}} ток/с",
   "ui.message.interrupted": "прекинут",
   "ui.message.queued": "У реду чекања",
   "ui.message.attachment.alt": "прилог",
@@ -197,9 +198,16 @@ export const dict = {
   "ui.patch.action.moved": "Премештен",
   "ui.patch.action.patched": "Patchед",
   "ui.question.subtitle.answered": "{{count}} одговорено",
+  "ui.question.subtitle.timeout": "{{count}} претпостављено након истека рока",
+  "ui.question.subtitle.unattended": "{{count}} претпостављено без надзора",
+  "ui.question.subtitle.skipped": "{{count}} прескочено",
+  "ui.question.source.timeout": "Рок је истекао пре одговора; претпостављена је прва (препоручена) опција.",
+  "ui.question.source.unattended": "Није био доступан ниједан корисник; претпостављена је прва (препоручена) опција.",
+  "ui.question.source.skipped": "Прескочено; агент наставља по сопственој процени.",
   "ui.question.answer.none": "(без одговора)",
   "ui.question.review.notAnswered": "(није одговорено)",
   "ui.question.multiHint": "Изаберите све одговоре који се примењују",
   "ui.question.singleHint": "Изаберите један одговор",
   "ui.question.custom.placeholder": "Унесите свој одговор...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

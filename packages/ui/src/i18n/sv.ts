@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sessionsändringar",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Användningsgräns nådd. För att fortsätta använda den här modellen nu, aktivera användning från ditt tillgängliga saldo",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Öppna inställningar",
+  "dialog.usageExceeded.switchAccount": "Byt konto",
   "ui.sessionTurn.status.delegating": "Delegerar arbete",
   "ui.sessionTurn.status.planning": "Planerar nästa steg",
   "ui.sessionTurn.status.gatheringContext": "Utforskar",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Välj agent",
   "ui.promptInput.chooseModel": "Välj modell",
   "ui.promptInput.chooseVariant": "Välj modellvariant",
+  "ui.promptInput.permissionMode": "Behörighetsläge",
   "ui.promptInput.send": "Skicka",
   "ui.promptInput.stop": "Stoppa",
   "ui.tabs.close": "Stäng fliken",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Kopierad",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} genomsnittlig tok/s",
   "ui.message.interrupted": "Avbruten",
   "ui.message.queued": "I kö",
   "ui.message.attachment.alt": "bilaga",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Flyttad",
   "ui.patch.action.patched": "Patchad",
   "ui.question.subtitle.answered": "{{count}} besvarade",
+  "ui.question.subtitle.timeout": "{{count}} antogs vid tidsgränsen",
+  "ui.question.subtitle.unattended": "{{count}} antogs utan övervakning",
+  "ui.question.subtitle.skipped": "{{count}} hoppades över",
+  "ui.question.source.timeout":
+    "Tidsgränsen passerade innan ett svar gavs; det första (rekommenderade) alternativet antogs.",
+  "ui.question.source.unattended": "Ingen användare var tillgänglig; det första (rekommenderade) alternativet antogs.",
+  "ui.question.source.skipped": "Hoppades över; agenten fortsätter med sin egen bedömning.",
   "ui.question.answer.none": "(inget svar)",
   "ui.question.review.notAnswered": "(ej besvarad)",
   "ui.question.multiHint": "Välj alla svar som gäller",

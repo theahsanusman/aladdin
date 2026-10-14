@@ -59,6 +59,22 @@ describe("terminalWebSocketURL", () => {
     expect(url.searchParams.has("auth_token")).toBe(false)
   })
 
+  test("encodes Unicode credentials in the v1 query token", () => {
+    const url = terminalWebSocketURL({
+      protocol: "v1",
+      url: "http://127.0.0.1:49365",
+      id: "pty_test",
+      directory: "/tmp/project",
+      cursor: 0,
+      username: "علی",
+      password: "秘密:päss🔐",
+    })
+
+    expect(url.username).toBe("")
+    expect(url.password).toBe("")
+    expect(url.searchParams.get("auth_token")).toBe("2LnZhNuMOuenmOWvhjpww6Rzc/CflJA=")
+  })
+
   test("uses query auth for same-origin credentials from auth_token for v1", () => {
     const url = terminalWebSocketURL({
       protocol: "v1",

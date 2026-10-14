@@ -12,6 +12,7 @@ export type {
 export * from "./executor"
 export { Auth } from "./auth"
 export { AuthOptions } from "./auth-options"
+export { ProviderPrivacy } from "./provider-privacy"
 export { Endpoint } from "./endpoint"
 export { Framing } from "./framing"
 export { Protocol } from "./protocol"

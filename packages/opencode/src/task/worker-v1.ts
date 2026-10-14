@@ -112,16 +112,23 @@ export const make = Effect.fn("TaskWorkerV1.make")(function* (verify: TaskWorker
         const result = yield* prompt
           .loop({ sessionID: attempt.workerSessionID })
           .pipe(Effect.ensuring(Effect.sync(() => Claim.releaseSession(attempt.workerSessionID))))
-        if (result.info.role !== "assistant" || result.info.error)
-          return yield* new TaskExecution.Error({ message: "Legacy worker failed; inspect its native transcript" })
-        const output = result.parts
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join("\n")
-        if (output.length > 8_000)
+        if (result.info.role !== "assistant")
+          return yield* new TaskExecution.Error({ message: "Legacy worker produced no assistant result" })
+        // The real failure reason lives on the recorded error; keep it instead of a
+        // generic pointer at a transcript the status card never shows.
+        if (result.info.error) {
+          const detail = result.info.error.data
+          const reason = "message" in detail ? detail.message : "no diagnostic message was recorded"
           return yield* new TaskExecution.Error({
-            message: "Worker output exceeds compact handoff limit; use artifact references",
+            message: `Legacy worker failed (${result.info.error.name}): ${reason}`,
           })
+        }
+        const output = TaskExecution.truncateReport(
+          result.parts
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n"),
+        )
         return { summary: output, checks: [] }
       },
       Effect.provideService(InstanceRef, instance),

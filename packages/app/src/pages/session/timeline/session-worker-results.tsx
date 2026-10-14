@@ -27,6 +27,7 @@ export function SessionWorkerResults() {
     items: [] as (Board["data"][number] & { id: string })[],
     unavailable: false,
     busy: "",
+    expanded: false,
   })
   const lifecycle = { epoch: 0, disposed: false }
   const results = createMemo(() => store.items.filter((item) => terminal.has(item.task.status)))
@@ -69,7 +70,7 @@ export function SessionWorkerResults() {
       () => [params.id, server()],
       () => {
         lifecycle.epoch++
-        set({ items: [], unavailable: false, busy: "" })
+        set({ items: [], unavailable: false, busy: "", expanded: false })
         void refresh()
       },
     ),
@@ -109,61 +110,94 @@ export function SessionWorkerResults() {
             {language.t("session.workers.reconnecting")}
           </p>
         </Show>
-        <For each={results()}>
-          {(item) => (
-            <article data-worker-result-id={item.task.id} class="rounded-md border border-border-weak-base p-4 min-w-0">
-              <div class="flex flex-wrap gap-2 items-center mb-3">
-                <bdi dir="auto" class="font-medium min-w-0 max-w-full break-words">
-                  {language.t("session.workers.forTask", { title: item.task.brief.title })}
-                </bdi>
-                <span class="text-12 text-text-weak">{language.t(`session.workers.state.${item.task.status}`)}</span>
-                <Show when={deletable.has(item.task.status)}>
-                  <span class="ms-auto">
-                    <Button
-                      size="small"
-                      variant="ghost"
-                      disabled={!!store.busy}
-                      aria-label={language.t("session.workers.deleteTask", { title: item.task.brief.title })}
-                      onClick={() => void remove(item)}
-                    >
-                      {language.t("session.workers.delete")}
-                    </Button>
-                  </span>
-                </Show>
-              </div>
-              <Markdown
-                text={
-                  item.task.status === "cancelled"
-                    ? language.t("session.workers.cancelledMessage")
-                    : workerResultText(item.evidence ?? "") || language.t(`session.workers.state.${item.task.status}`)
-                }
-              />
-              <Show when={item.evidence && !workerEvidence(item.evidence)}>
-                <details class="mt-3 text-12 text-text-weak">
-                  <summary>{language.t("session.workers.technicalDetails")}</summary>
-                  <pre dir="auto" class="whitespace-pre-wrap break-words max-h-52 overflow-auto">
-                    {item.evidence}
-                  </pre>
-                </details>
-              </Show>
-              <Show when={workerEvidence(item.evidence ?? "")} keyed>
-                {(result) => (
+        <button
+          type="button"
+          data-component="session-worker-results-toggle"
+          class="w-full rounded-md border border-border-weak-base px-3 py-2 text-start text-12 font-medium text-text-weak hover:bg-surface-raised-base-hover transition-colors"
+          aria-expanded={store.expanded}
+          onClick={() => set("expanded", (value) => !value)}
+        >
+          {language.t("session.workers.resultCount", { count: results().length })}
+        </button>
+        <Show when={store.expanded}>
+          <div data-component="session-worker-results-list" class="flex flex-col gap-4">
+            <For each={results()}>
+              {(item) => (
+                <article
+                  data-worker-result-id={item.task.id}
+                  class="rounded-md border border-border-weak-base p-4 min-w-0"
+                >
+                  <div class="flex flex-wrap gap-2 items-center">
+                    <bdi dir="auto" class="font-medium min-w-0 max-w-full break-words">
+                      {language.t("session.workers.forTask", { title: item.task.brief.title })}
+                    </bdi>
+                    <span class="text-12 text-text-weak">
+                      {language.t(`session.workers.state.${item.task.status}`)}
+                    </span>
+                    <Show when={deletable.has(item.task.status)}>
+                      <span class="ms-auto">
+                        <Button
+                          size="small"
+                          variant="ghost"
+                          disabled={!!store.busy}
+                          aria-label={language.t("session.workers.deleteTask", { title: item.task.brief.title })}
+                          onClick={() => void remove(item)}
+                        >
+                          {language.t("session.workers.delete")}
+                        </Button>
+                      </span>
+                    </Show>
+                  </div>
                   <details class="mt-3 text-12 text-text-weak">
-                    <summary>{language.t("session.workers.checksResult")}</summary>
-                    <For each={result.checks}>
-                      {(check) => (
-                        <div class="mt-2">
-                          <p>{check.check}</p>
-                          <Markdown text={check.evidence} />
-                        </div>
-                      )}
-                    </For>
+                    <summary class="cursor-pointer">{language.t("session.workers.result")}</summary>
+                    <div class="mt-2">
+                      <Markdown
+                        text={
+                          item.task.status === "cancelled"
+                            ? language.t("session.workers.cancelledMessage")
+                            : workerResultText(item.evidence ?? "") ||
+                              language.t(`session.workers.state.${item.task.status}`)
+                        }
+                      />
+                      <Show when={workerEvidence(item.evidence ?? "")} keyed>
+                        {(result) => (
+                          <div class="mt-3">
+                            <p class="font-medium">{language.t("session.workers.checksResult")}</p>
+                            <For each={result.checks}>
+                              {(check) => (
+                                <div class="mt-2">
+                                  <p>
+                                    {language.t(
+                                      check.unverified
+                                        ? "session.workers.unverified"
+                                        : check.passed
+                                          ? "session.workers.state.completed"
+                                          : "session.workers.state.failed",
+                                    )}
+                                    : {check.check}
+                                  </p>
+                                  <Markdown text={check.evidence} />
+                                </div>
+                              )}
+                            </For>
+                          </div>
+                        )}
+                      </Show>
+                      <Show when={item.evidence && !workerEvidence(item.evidence)}>
+                        <details class="mt-3 text-12 text-text-weak">
+                          <summary>{language.t("session.workers.technicalDetails")}</summary>
+                          <pre dir="auto" class="whitespace-pre-wrap break-words max-h-52 overflow-auto">
+                            {item.evidence}
+                          </pre>
+                        </details>
+                      </Show>
+                    </div>
                   </details>
-                )}
-              </Show>
-            </article>
-          )}
-        </For>
+                </article>
+              )}
+            </For>
+          </div>
+        </Show>
       </section>
     </Show>
   )

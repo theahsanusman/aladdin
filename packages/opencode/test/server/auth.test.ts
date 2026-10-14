@@ -50,10 +50,17 @@ describe("ServerAuth", () => {
   })
 
   test("validates decoded credentials against effect config", () => {
-    const config = { password: Option.some("secret"), username: "alice" }
+    const config = { password: Option.some("secret"), username: "alice", desktopToken: Option.none() }
 
     expect(ServerAuth.required(config)).toBe(true)
     expect(ServerAuth.authorized({ username: "alice", password: Redacted.make("secret") }, config)).toBe(true)
     expect(ServerAuth.authorized({ username: "opencode", password: Redacted.make("secret") }, config)).toBe(false)
+  })
+
+  test("accepts the desktop session token in place of the password", () => {
+    const config = { password: Option.some("scrypt$verifier"), username: "opencode", desktopToken: Option.some("session-token") }
+
+    expect(ServerAuth.authorized({ username: "opencode", password: Redacted.make("session-token") }, config)).toBe(true)
+    expect(ServerAuth.authorized({ username: "opencode", password: Redacted.make("wrong") }, config)).toBe(false)
   })
 })

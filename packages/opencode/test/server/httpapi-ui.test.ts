@@ -43,10 +43,11 @@ const testStateLayer = Layer.effectDiscard(
 const fsUtilLayer = AppNodeBuilder.build(FSUtil.node)
 const it = testEffect(Layer.mergeAll(testStateLayer, fsUtilLayer, RuntimeFlags.layer()))
 
-function authConfigLayer(input?: { password?: string; username?: string }) {
+function authConfigLayer(input?: { password?: string; username?: string; desktopToken?: string }) {
   return ServerAuth.Config.configLayer({
     password: input?.password === undefined ? Option.none() : Option.some(input.password),
     username: input?.username ?? "opencode",
+    desktopToken: input?.desktopToken === undefined ? Option.none() : Option.some(input.desktopToken),
   })
 }
 
@@ -400,7 +401,7 @@ describe("HttpApi UI fallback", () => {
     }),
   )
 
-  it.live("accepts auth token for the web UI", () =>
+  it.live("rejects auth token query credentials for the web UI", () =>
     Effect.gen(function* () {
       const response = yield* uiApp({
         password: "secret",
@@ -409,8 +410,7 @@ describe("HttpApi UI fallback", () => {
         client: httpClient(new Response("<html>opencode</html>", { headers: { "content-type": "text/html" } })),
       }).request(`/?auth_token=${btoa("opencode:secret")}`)
 
-      expect(response.status).toBe(200)
-      expect(yield* responseText(response)).toBe("<html>opencode</html>")
+      expect(response.status).toBe(401)
     }),
   )
 

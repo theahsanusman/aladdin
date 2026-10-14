@@ -3,7 +3,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "工作階段變更",
@@ -84,6 +83,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.title": "已達 Go 額度上限",
   "dialog.usageExceeded.accountRateLimit.description": "已達使用額度上限。若要立即繼續使用此模型，請啟用可用餘額計費",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "開啟設定",
+  "dialog.usageExceeded.switchAccount": "切換帳戶",
 
   "ui.sessionTurn.status.delegating": "正在委派工作",
   "ui.sessionTurn.status.planning": "正在規劃下一步",
@@ -134,6 +134,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "選擇代理程式",
   "ui.promptInput.chooseModel": "選擇模型",
   "ui.promptInput.chooseVariant": "選擇模型變體",
+  "ui.promptInput.permissionMode": "權限模式",
   "ui.promptInput.send": "傳送",
   "ui.promptInput.stop": "停止",
 
@@ -202,6 +203,12 @@ export const dict = {
   "ui.patch.action.patched": "已套用修補",
 
   "ui.question.subtitle.answered": "已回答 {{count}} 題",
+  "ui.question.subtitle.timeout": "{{count}} 題在截止時按推薦選項假定",
+  "ui.question.subtitle.unattended": "{{count}} 題在無人看管時按推薦選項假定",
+  "ui.question.subtitle.skipped": "已略過 {{count}} 題",
+  "ui.question.source.timeout": "在收到回答前已到截止時間；已採用第一個（推薦）選項。",
+  "ui.question.source.unattended": "當時沒有使用者線上；已採用第一個（推薦）選項。",
+  "ui.question.source.skipped": "已略過；代理程式將依自身判斷繼續。",
   "ui.question.answer.none": "（無答案）",
   "ui.question.review.notAnswered": "（未回答）",
   "ui.question.multiHint": "可多選",
@@ -219,4 +226,5 @@ export const dict = {
   "ui.toolErrorCard.copyError": "複製錯誤",
   "ui.message.duration.seconds": "{{count}}秒",
   "ui.message.duration.minutesSeconds": "{{minutes}}分 {{seconds}}秒",
+  "ui.message.speed": "平均 {{value}} tok/s",
 } satisfies Partial<Record<Keys, string>>

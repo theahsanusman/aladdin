@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "ސެޝަން ބަދަލުވެއެވެ",
@@ -79,6 +78,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "ބޭނުންކުރުމުގެ ލިމިޓަށް ވާސިލްވެއްޖެއެވެ. މިހާރު މި މޮޑެލް ބޭނުން ކުރަމުން ގެންދިއުމަށްޓަކައި، ލިބިފައިވާ ބެލެންސް އިން ބޭނުންކުރުން އެނެބަލް ކުރާށެވެ",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "ސެޓިންގސް ހުޅުވާލާށެވެ",
+  "dialog.usageExceeded.switchAccount": "އެކައުންޓް ބަދަލުކުރުން",
   "ui.sessionTurn.status.delegating": "މަސައްކަތް ހަވާލުކުރުން",
   "ui.sessionTurn.status.planning": "ދެން އަޅަންޖެހޭ ފިޔަވަޅުތައް ރޭވުން",
   "ui.sessionTurn.status.gatheringContext": "އެކްސްޕްލޯރ ކުރަމުންނެވެ",
@@ -128,6 +128,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "އޭޖެންޓް ހޮވާށެވެ",
   "ui.promptInput.chooseModel": "މޮޑެލް ހޮވާށެވެ",
   "ui.promptInput.chooseVariant": "މޮޑެލް ވެރިއަންޓް ހޮވާށެވެ",
+  "ui.promptInput.permissionMode": "ހުއްދަ މޯޑް",
   "ui.promptInput.send": "ފޮނުވުން",
   "ui.promptInput.stop": "ހުއްޓުން",
   "ui.tabs.close": "ޓެބް ބަންދުކުރުން",
@@ -185,6 +186,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "ކޮޕީކޮށްފައި",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} އެވްރެޖް tok/s",
   "ui.message.interrupted": "މެދުކަނޑާލިއެވެ",
   "ui.message.queued": "ކިޔޫގައި ތިއްބެވެ",
   "ui.message.attachment.alt": "އެކުލެވުން",
@@ -193,6 +195,14 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "ބަދަލުވެއްޖެއެވެ",
   "ui.patch.action.patched": "ޕެޗްކޮށްފައި",
   "ui.question.subtitle.answered": "{{count}} ޖަވާބު ދިނެވެ",
+  "ui.question.subtitle.timeout": "{{count}} ވަގުތު ހަމަވުމުން ފަރުމާނެއް ކުރެވިއްޖެ",
+  "ui.question.subtitle.unattended": "{{count}} ބަލަންނެތި ފަރުމާނެއް ކުރެވިއްޖެ",
+  "ui.question.subtitle.skipped": "{{count}} ދޫކޮށްލެވިއްޖެ",
+  "ui.question.source.timeout":
+    "ޖަވާބެއް ދިނުމުގެ ކުރިން ވަގުތު ހަމަވެއްޖެއެވެ؛ ފުރަތަމަ (ލަފާދެވިފައިވާ) އިޚްތިޔާރެއް ފަރުމާނެއްގެ ގޮތުގައި ބަލައިގަނެވިއްޖެއެވެ.",
+  "ui.question.source.unattended":
+    "އެއްވެސް ޔޫޒަރަކު ނެތުމުން؛ ފުރަތަމަ (ލަފާދެވިފައިވާ) އިޚްތިޔާރެއް ފަރުމާނެއްގެ ގޮތުގައި ބަލައިގަނެވިއްޖެއެވެ.",
+  "ui.question.source.skipped": "ދޫކޮށްލެވިއްޖެ؛ އޭޖެންޓް އަމިއްލަ ނިންމުމާއެކު ކުރިއަށްދާނެއެވެ.",
   "ui.question.answer.none": "(ޖަވާބެއް ނެތް)",
   "ui.question.review.notAnswered": "(ޖަވާބެއް ނުލިބޭ)",
   "ui.question.multiHint": "އެކަމާ ގުޅޭ ހުރިހާ ޖަވާބެއް ހޮވާށެވެ",

@@ -142,7 +142,7 @@ Use the installed catalog as the source of truth. Typical routing:
 - bugs: `systematic-debugging`
 - meaningful behavior changes: `test-driven-development` when it improves confidence
 - consequential or production-ready work: `verification-before-completion`; use `requesting-code-review` when an independent review workflow is useful
-- browser work, testing, debugging sites: `camoufox` by default, using only the visible persistent `default` profile until the human explicitly changes that preference. Keep Chrome DevTools MCP tools available as a secondary option; the MCP does not attach to Chrome until a browser tool is called. Use `chrome-devtools` auto-connect only when the human explicitly asks for Chrome or their main browser, and call its available browser tools directly instead of asking them to enable the connector. Return to Camoufox after that requested work. Never switch to Chrome automatically.
+- browser work, testing and debugging sites: use standard Agent Chrome through Chrome DevTools MCP at `http://127.0.0.1:9222`. Its persistent user-data directory is `~/.agent-chrome`. Browser access is already authorized; use its tools directly and run `~/Start Agent Chrome.command` if it needs reopening. Never use auto-connect or discovery, never attach this connector to personal Chrome, and keep Chrome Sync disabled. Camoufox stays installed but may be enabled or used only after the human explicitly requests it.
 - frontend and UX: `premium-frontend-ui`, `gpt-taste`, `web-quality-audit`
 - GSAP or animation: load the specific installed `gsap-*` skill that matches the work
 - security-sensitive work: `security-best-practices`, `security-threat-model`
@@ -172,7 +172,7 @@ Identify installed versions before relying on version-specific behavior. Use cur
 
 # Browser verification
 
-For browser-facing work, do not rely on source code alone when the application can be run or inspected. Use the Camoufox MCP by default to examine the actual rendered result and gather browser evidence relevant to the task. Chrome DevTools tools remain available for an explicit human request to use Chrome; invoking a browser tool activates auto-connect. Return to Camoufox after that work.
+For browser-facing work, inspect the actual rendered result through the dedicated Agent Chrome MCP. Its entire user-data directory is `~/.agent-chrome`, and its only debugging endpoint is `http://127.0.0.1:9222`. You may launch, use, close and reopen that dedicated browser without asking for browser-access permission. Never quit Chrome by application name because personal Chrome may also be running. Personal Chrome requires a separate explicit human request and must never be attached to this connector. Camoufox is optional only on an explicit request.
 
 Use it selectively, not ceremonially. Inspect only what can materially change the conclusion, such as rendered behavior, responsive states, console errors, failed requests, runtime warnings, interaction flows, accessibility signals, or performance evidence. Do not open the browser for work that has no browser-visible behavior to verify.
 
@@ -227,6 +227,16 @@ If you notice an adjacent improvement, mention it only when useful. Do not imple
 Read the actual failure before changing strategy. Fix root causes, not symptoms.
 
 Do not repeat the same failed approach more than twice. After two failures of the same kind, use the evidence to form a different hypothesis. If the repo, tools, docs, or tests still cannot resolve the blocker, ask the user rather than guessing or thrashing.
+
+# Writing style
+
+Everything you write, in chat replies, worker briefs, comments, commit messages, documentation, and any other prose, must be finished, natural American English.
+
+- Use American spelling and punctuation: "organized", "behavior", "color", "favorite", 12-hour times.
+- Never use dashes as punctuation. No em dashes, no en dashes. Break ideas into separate sentences, or join them with a comma, a period, "and", "but", or "because". Hyphens inside compound words such as "high quality" are fine.
+- Use proper grammar: complete sentences, subject-verb agreement, correct tense, correct articles and prepositions, and terminal punctuation. No fragments, no run-ons, no conversational filler such as "Uh" or "So, yeah".
+- Write fully baked text. Every sentence and paragraph must be complete and delivered in full, never half baked, never truncated, and never missing words as if they were eaten. Finish the thought you started.
+- Before you send anything, reread it once and repair anything incomplete: a paragraph that stops early, a sentence with words missing, a list item that trails off, or a claim that never gets its evidence.
 
 # Output
 

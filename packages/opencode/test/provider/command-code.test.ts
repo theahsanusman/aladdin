@@ -1,8 +1,58 @@
 import { expect, test } from "bun:test"
 import { createOpenAI } from "@ai-sdk/openai"
-import { commandCodeResponsesRequest, commandCodeResponsesResponse } from "@/provider/command-code"
+import { commandCodeResponsesRequest, commandCodeResponsesResponse, enforceZdr } from "@/provider/command-code"
 import { ProviderError } from "@/provider/error"
 import { streamText } from "ai"
+
+test.each([
+  { headers: undefined },
+  { headers: { "X-CMD-ZDR": "0", "x-preserved": "yes" } },
+  { headers: new Headers({ "X-CMD-ZDR": "0", "x-preserved": "yes" }) },
+  {
+    headers: [
+      ["X-CMD-ZDR", "0"],
+      ["x-preserved", "yes"],
+    ] satisfies [string, string][],
+  },
+])("enforces ZDR without mutating caller-owned headers", (item) => {
+  const input = { method: "POST", headers: item.headers, body: "unchanged" }
+  const result = enforceZdr("https://api.commandcode.ai/provider/v1/chat/completions", input)
+  expect(new Headers(result.headers).get("x-cmd-zdr")).toBe("1")
+  expect(new Headers(result.headers).get("x-preserved")).toBe(item.headers ? "yes" : null)
+  expect(result.body).toBe("unchanged")
+  expect(new Headers(item.headers).get("x-cmd-zdr")).toBe(item.headers ? "0" : null)
+})
+
+test.each(["models", "responses", "images/generations", "audio/transcriptions", "audio/speech"])(
+  "enforces ZDR for the %s Provider API endpoint regardless of payload type",
+  (endpoint) => {
+    const body = endpoint === "models" ? undefined : new FormData()
+    const input = { method: endpoint === "models" ? "GET" : "POST", body }
+    const result = enforceZdr(new URL(`https://api.commandcode.ai/provider/v1/${endpoint}`), input)
+    expect(new Headers(result.headers).get("x-cmd-zdr")).toBe("1")
+    expect(result.body).toBe(body)
+    expect(result.method).toBe(input.method)
+  },
+)
+
+test("preserves Request-owned credentials while replacing a conflicting ZDR header", () => {
+  const request = new Request("https://api.commandcode.ai/provider/v1/models", {
+    headers: { authorization: "Bearer test-key", "x-cmd-zdr": "0" },
+  })
+  const result = enforceZdr(request, {})
+  expect(new Headers(result.headers).get("x-cmd-zdr")).toBe("1")
+  expect(new Headers(result.headers).get("authorization")).toBe("Bearer test-key")
+  expect(request.headers.get("x-cmd-zdr")).toBe("0")
+})
+
+test.each([
+  "https://api.commandcode.ai.evil.example/provider/v1/responses",
+  "https://api.commandcode.ai/non-provider/path",
+  "https://unrelated.example/provider/v1/responses",
+])("does not alter unrelated requests to %s", (url) => {
+  const request = { headers: { "x-cmd-zdr": "0" } }
+  expect(enforceZdr(url, request)).toBe(request)
+})
 
 test("reports the real SDK's reasoning-only truncated Responses stream as a retryable transport error", async () => {
   const sdk = createOpenAI({

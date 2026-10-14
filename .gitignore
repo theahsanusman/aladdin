@@ -38,3 +38,10 @@ packages/opencode/script/aladdin-speech/.venv/
 packages/opencode/script/aladdin-speech/.models/
 packages/opencode/script/aladdin-speech/__pycache__/
 packages/desktop/resources/aladdin-speech-home.txt
+
+# Local review probes and generated artifacts
+__pycache__/
+/.tmp-mocktest/
+/packages/app/probe.test.tsx
+/packages/client/src/generated/*.d.ts
+/packages/client/src/index.d.ts

@@ -56,13 +56,19 @@ const v2ApiLayer = HttpRouter.serve(
   { disableListenLog: true, disableLogger: true },
 ).pipe(Layer.provideMerge(NodeHttpServer.layerTest))
 
-const noAuthLayer = ServerAuth.Config.configLayer({ password: Option.none(), username: "opencode" })
-const secretLayer = ServerAuth.Config.configLayer({ password: Option.some("secret"), username: "opencode" })
-const kitSecretLayer = ServerAuth.Config.configLayer({ password: Option.some("secret"), username: "kit" })
+const noAuthLayer = ServerAuth.Config.configLayer({ password: Option.none(), username: "opencode", desktopToken: Option.none() })
+const secretLayer = ServerAuth.Config.configLayer({ password: Option.some("secret"), username: "opencode", desktopToken: Option.none() })
+const kitSecretLayer = ServerAuth.Config.configLayer({ password: Option.some("secret"), username: "kit", desktopToken: Option.none() })
+const desktopTokenLayer = ServerAuth.Config.configLayer({
+  password: Option.some("secret"),
+  username: "opencode",
+  desktopToken: Option.some("session-token"),
+})
 
 const it = testEffect(apiLayer.pipe(Layer.provide(noAuthLayer)))
 const itSecret = testEffect(apiLayer.pipe(Layer.provide(secretLayer)))
 const itKitSecret = testEffect(apiLayer.pipe(Layer.provide(kitSecretLayer)))
+const itDesktopToken = testEffect(apiLayer.pipe(Layer.provide(desktopTokenLayer)))
 const itV2Secret = testEffect(v2ApiLayer.pipe(Layer.provide(secretLayer)))
 
 const basic = (username: string, password: string) => ServerAuth.header({ username, password }) ?? ""
@@ -116,55 +122,46 @@ describe("HttpApi authorization middleware", () => {
     }),
   )
 
-  itSecret.live("accepts auth token query credentials", () =>
+  itSecret.live("rejects auth token query credentials", () =>
     Effect.gen(function* () {
       const response = yield* HttpClient.get(`/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(401)
     }),
   )
 
-  itSecret.live("pairs browser assets and reloads without exposing the server password in a cookie", () =>
+  itDesktopToken.live("accepts the desktop session token as basic auth", () =>
     Effect.gen(function* () {
-      const paired = yield* HttpClient.get(`/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
-      const cookie = paired.headers["set-cookie"] ?? ""
-      expect(cookie).toContain("HttpOnly")
-      expect(cookie).toContain("Secure")
-      expect(cookie).toContain("SameSite=Strict")
-      expect(cookie).not.toContain(token("opencode", "secret"))
-      const authenticated = yield* getProbe({ cookie: cookie.split(";")[0] })
-      expect(authenticated.status).toBe(200)
-      const tampered = yield* getProbe({ cookie: cookie.split(";")[0] + "0" })
-      expect(tampered.status).toBe(401)
-      const crossSite = yield* getProbe({ cookie: cookie.split(";")[0], "sec-fetch-site": "cross-site" })
-      expect(crossSite.status).toBe(401)
-      const wrongOrigin = yield* getProbe({ cookie: cookie.split(";")[0], origin: "https://attacker.example" })
-      expect(wrongOrigin.status).toBe(401)
-      const explicitWrong = yield* getProbe({ cookie: cookie.split(";")[0], authorization: basic("opencode", "wrong") })
-      expect(explicitWrong.status).toBe(401)
-    }),
-  )
-
-  itV2Secret.live("accepts paired browser requests through the canonical API too", () =>
-    Effect.gen(function* () {
-      const paired = yield* HttpClient.get(`/api/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
-      const cookie = paired.headers["set-cookie"] ?? ""
-      expect(cookie).toContain("HttpOnly")
-      const response = yield* HttpClientRequest.get("/api/probe").pipe(
-        HttpClientRequest.setHeader("cookie", cookie.split(";")[0]),
-        HttpClient.execute,
+      const [tokenAuth, passwordAuth, wrongUser] = yield* Effect.all(
+        [
+          getProbe({ authorization: basic("opencode", "session-token") }),
+          getProbe({ authorization: basic("opencode", "secret") }),
+          getProbe({ authorization: basic("kit", "session-token") }),
+        ],
+        { concurrency: "unbounded" },
       )
-      expect(response.status).toBe(200)
+
+      expect(tokenAuth.status).toBe(200)
+      expect(passwordAuth.status).toBe(200)
+      expect(wrongUser.status).toBe(401)
     }),
   )
 
-  itSecret.live("prefers auth token query credentials over basic auth", () =>
+  itV2Secret.live("rejects auth token query credentials on the canonical API too", () =>
+    Effect.gen(function* () {
+      const response = yield* HttpClient.get(`/api/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
+
+      expect(response.status).toBe(401)
+    }),
+  )
+
+  itSecret.live("does not prefer auth token query credentials over basic auth", () =>
     Effect.gen(function* () {
       const response = yield* HttpClientRequest.get(
         `/probe?auth_token=${encodeURIComponent(token("opencode", "secret"))}`,
       ).pipe(HttpClientRequest.setHeader("authorization", basic("opencode", "wrong")), HttpClient.execute)
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(401)
     }),
   )
 
@@ -174,14 +171,6 @@ describe("HttpApi authorization middleware", () => {
         HttpClientRequest.setHeader("authorization", basic("opencode", "secret")),
         HttpClient.execute,
       )
-
-      expect(response.status).toBe(404)
-    }),
-  )
-
-  itSecret.live("preserves handler errors when auth token query succeeds", () =>
-    Effect.gen(function* () {
-      const response = yield* HttpClient.get(`/missing?auth_token=${encodeURIComponent(token("opencode", "secret"))}`)
 
       expect(response.status).toBe(404)
     }),

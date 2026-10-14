@@ -7,27 +7,30 @@ import { ImageInput, OpenAIProfileInput, SpeechInput, TranscriptionInput } from 
 import { Auth } from "@/auth"
 import { Path } from "@opencode-ai/core/global"
 import { disableMobileAccess, enableMobileAccess, mobileAccessStatus, mobilePasswordRequired } from "@/aladdin/mobile"
-import { generate } from "@/aladdin/image"
+import { generate, ImageGenerationError } from "@/aladdin/image"
+import { fetchLocalMedia, localMediaEndpoint } from "@/aladdin/local-media"
 import { ensureChatWorkspace } from "@/aladdin/chats"
 import { AladdinProviderError } from "../errors"
 import { withTimeout } from "@/util/timeout"
 
 const qwenEndpoint = "http://127.0.0.1:43121"
 const ttsEndpoint = "http://127.0.0.1:43122"
-const inputEndpoint = process.env.ALADDIN_SPEECH_INPUT_URL ?? qwenEndpoint
-const outputEndpoint = process.env.ALADDIN_SPEECH_OUTPUT_URL ?? ttsEndpoint
 
 async function available(endpoint: string, probe = "/health") {
-  return fetch(`${endpoint}${probe}`, { signal: AbortSignal.timeout(750) }).then(
+  return fetchLocalMedia(endpoint, probe, { signal: AbortSignal.timeout(750) }).then(
     (response) => response.ok,
     () => false,
   )
 }
 
 async function drawThingsModels() {
-  const response = await fetch(`${process.env.ALADDIN_DRAW_THINGS_URL ?? "http://127.0.0.1:7860"}/sdapi/v1/sd-models`, {
-    signal: AbortSignal.timeout(750),
-  }).catch(() => undefined)
+  const response = await fetchLocalMedia(
+    process.env.ALADDIN_DRAW_THINGS_URL ?? "http://127.0.0.1:7860",
+    "/sdapi/v1/sd-models",
+    {
+      signal: AbortSignal.timeout(750),
+    },
+  ).catch(() => undefined)
   if (response?.ok) {
     const models = await withTimeout(response.json(), 750).catch(() => undefined)
     if (Array.isArray(models)) {
@@ -55,6 +58,8 @@ function mediaError() {
 export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (handlers) =>
   Effect.gen(function* () {
     const auth = yield* Auth.Service
+    const inputEndpoint = process.env.ALADDIN_SPEECH_INPUT_URL ?? qwenEndpoint
+    const outputEndpoint = process.env.ALADDIN_SPEECH_OUTPUT_URL ?? ttsEndpoint
     const mobileInput = { passwordRequired: mobilePasswordRequired(), data: Path.data }
     const mobileStatus = Effect.fn("AladdinHttpApi.mobileStatus")(function* () {
       return yield* Effect.promise(() => mobileAccessStatus(mobileInput))
@@ -67,15 +72,17 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
     })
     const status = Effect.fn("AladdinHttpApi.status")(function* () {
       const [speechInput, speechOutput, models] = yield* Effect.promise(() =>
-        Promise.all([
-          available(inputEndpoint, "/v1/models"),
-          available(outputEndpoint),
-          drawThingsModels(),
-        ]),
+        Promise.all([available(inputEndpoint, "/v1/models"), available(outputEndpoint), drawThingsModels()]),
       )
       return {
-        speechInput: { available: speechInput, endpoint: inputEndpoint },
-        speechOutput: { available: speechOutput, endpoint: outputEndpoint },
+        speechInput: {
+          available: speechInput,
+          endpoint: localMediaEndpoint(inputEndpoint)?.href.replace(/\/$/, "") ?? "",
+        },
+        speechOutput: {
+          available: speechOutput,
+          endpoint: localMediaEndpoint(outputEndpoint)?.href.replace(/\/$/, "") ?? "",
+        },
         drawThingsModels: models,
       }
     })
@@ -94,7 +101,7 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       form.set("language", "en")
       const response = yield* Effect.tryPromise({
         try: () =>
-          fetch(`${inputEndpoint}/v1/audio/transcriptions`, {
+          fetchLocalMedia(inputEndpoint, "/v1/audio/transcriptions", {
             method: "POST",
             body: form,
             signal: AbortSignal.timeout(120_000),
@@ -102,11 +109,13 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
         catch: mediaError,
       })
       if (!response.ok) return yield* Effect.fail(mediaError())
-      const result = yield* Effect.tryPromise({
-        try: () => response.json() as Promise<{ text?: unknown }>,
+      const result: unknown = yield* Effect.tryPromise({
+        try: () => response.json(),
         catch: mediaError,
       })
-      if (typeof result.text !== "string") return yield* Effect.fail(mediaError())
+      if (!result || typeof result !== "object" || !("text" in result) || typeof result.text !== "string") {
+        return yield* Effect.fail(mediaError())
+      }
       return { text: result.text }
     })
 
@@ -114,7 +123,7 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       if (!ctx.payload.text.trim() || ctx.payload.text.length > 20_000) return yield* Effect.fail(mediaError())
       const response = yield* Effect.tryPromise({
         try: () =>
-          fetch(`${outputEndpoint}/v1/audio/speech`, {
+          fetchLocalMedia(outputEndpoint, "/v1/audio/speech", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
@@ -128,29 +137,35 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
         catch: mediaError,
       })
       if (!response.ok) return yield* Effect.fail(mediaError())
+      const mime = response.headers.get("content-type") ?? "audio/wav"
+      if (!mime.toLowerCase().startsWith("audio/")) return yield* Effect.fail(mediaError())
       const buffer = yield* Effect.tryPromise({
         try: () => response.arrayBuffer(),
         catch: mediaError,
       })
       return {
         audio: Buffer.from(buffer).toString("base64"),
-        mime: response.headers.get("content-type") ?? "audio/wav",
+        mime,
       }
     })
 
     const voices = Effect.fn("AladdinHttpApi.voices")(function* () {
       const response = yield* Effect.tryPromise({
-        try: () => fetch(`${outputEndpoint}/v1/voices`, { signal: AbortSignal.timeout(2_000) }),
+        try: () => fetchLocalMedia(outputEndpoint, "/v1/voices", { signal: AbortSignal.timeout(2_000) }),
         catch: mediaError,
       })
       if (!response.ok) return yield* Effect.fail(mediaError())
-      const result = yield* Effect.tryPromise({
-        try: () => response.json() as Promise<{ voices?: unknown; english?: unknown }>,
+      const result: unknown = yield* Effect.tryPromise({
+        try: () => response.json(),
         catch: mediaError,
       })
+      if (!result || typeof result !== "object" || Array.isArray(result)) return yield* Effect.fail(mediaError())
       const names = (value: unknown) =>
         Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
-      return { voices: names(result.voices), english: names(result.english) }
+      return {
+        voices: names("voices" in result ? result.voices : undefined),
+        english: names("english" in result ? result.english : undefined),
+      }
     })
 
     const openAIProfiles = Effect.fn("AladdinHttpApi.openAIProfiles")(function* () {
@@ -179,11 +194,16 @@ export const aladdinHandlers = HttpApiBuilder.group(RootHttpApi, "aladdin", (han
       if (!ctx.payload.prompt.trim() || ctx.payload.prompt.length > 20_000 || !ctx.payload.model.trim()) {
         return yield* Effect.fail(mediaError())
       }
-      const credentials = yield* auth.get(ctx.payload.provider === "gemini" ? "google" : ctx.payload.provider).pipe(Effect.orDie)
+      const credentials = yield* auth
+        .get(ctx.payload.provider === "gemini" ? "google" : ctx.payload.provider)
+        .pipe(Effect.orDie)
       const apiKey = credentials?.type === "api" ? credentials.key : undefined
       return yield* Effect.tryPromise({
         try: () => generate({ ...ctx.payload, apiKey, signal: AbortSignal.timeout(300_000) }),
-        catch: (error) => new AladdinProviderError({ message: error instanceof Error ? error.message : "Image generation failed" }),
+        catch: (error) =>
+          new AladdinProviderError({
+            message: error instanceof ImageGenerationError ? error.message : "Image generation failed",
+          }),
       })
     })
 

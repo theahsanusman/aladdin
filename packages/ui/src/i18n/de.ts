@@ -3,7 +3,6 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sitzungsänderungen",
@@ -87,6 +86,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Nutzungslimit erreicht. Um dieses Modell jetzt weiter zu nutzen, die Nutzung über das verfügbare Guthaben aktivieren",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Einstellungen öffnen",
+  "dialog.usageExceeded.switchAccount": "Konto wechseln",
 
   "ui.sessionTurn.status.delegating": "Arbeit wird delegiert",
   "ui.sessionTurn.status.planning": "Nächste Schritte werden geplant",
@@ -186,6 +186,12 @@ export const dict = {
   "ui.patch.action.patched": "Gepatched",
 
   "ui.question.subtitle.answered": "{{count}} beantwortet",
+  "ui.question.subtitle.timeout": "{{count}} zum Fristablauf angenommen",
+  "ui.question.subtitle.unattended": "{{count}} unbeaufsichtigt angenommen",
+  "ui.question.subtitle.skipped": "{{count}} übersprungen",
+  "ui.question.source.timeout": "Die Frist lief vor einer Antwort ab; die erste (empfohlene) Option wurde angenommen.",
+  "ui.question.source.unattended": "Es war kein Benutzer verfügbar; die erste (empfohlene) Option wurde angenommen.",
+  "ui.question.source.skipped": "Übersprungen; der Agent fährt nach eigenem Ermessen fort.",
   "ui.question.answer.none": "(keine Antwort)",
   "ui.question.review.notAnswered": "(nicht beantwortet)",
   "ui.question.multiHint": "Alle zutreffenden auswählen",
@@ -203,6 +209,7 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Fehler kopieren",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} durchschn. Token/s",
   "ui.lineComment.contextPlaceholder": "Kontext zu dieser Änderung hinzufügen",
   "ui.promptInput.noMatchingItems": "Keine passenden Einträge",
   "ui.promptInput.commands": "Befehle",
@@ -218,6 +225,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Agenten auswählen",
   "ui.promptInput.chooseModel": "Modell auswählen",
   "ui.promptInput.chooseVariant": "Modellvariante auswählen",
+  "ui.promptInput.permissionMode": "Berechtigungsmodus",
   "ui.promptInput.send": "Senden",
   "ui.promptInput.stop": "Stoppen",
   "ui.tabs.close": "Tab schließen",

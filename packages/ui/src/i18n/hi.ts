@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "सेशन परिवर्तन",
@@ -79,6 +78,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "उपयोग सीमा पूरी हो गई। इस मॉडल का उपयोग अभी जारी रखने के लिए अपनी उपलब्ध शेष राशि से उपयोग सक्षम करें",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "सेटिंग्स खोलें",
+  "dialog.usageExceeded.switchAccount": "खाता बदलें",
   "ui.sessionTurn.status.delegating": "कार्य सौंपना",
   "ui.sessionTurn.status.planning": "अगले चरणों की योजना बनाना",
   "ui.sessionTurn.status.gatheringContext": "खोजबीन हो रही है",
@@ -128,6 +128,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "एजेंट चुनें",
   "ui.promptInput.chooseModel": "मॉडल चुनें",
   "ui.promptInput.chooseVariant": "मॉडल वेरिएंट चुनें",
+  "ui.promptInput.permissionMode": "अनुमति मोड",
   "ui.promptInput.send": "भेजें",
   "ui.promptInput.stop": "रोकें",
 
@@ -186,6 +187,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "कॉपी किया गया",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "औसत {{value}} tok/s",
   "ui.message.interrupted": "बाधित",
   "ui.message.queued": "कतारबद्ध",
   "ui.message.attachment.alt": "अटैचमेंट",
@@ -194,6 +196,12 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "ले जाया गया",
   "ui.patch.action.patched": "पैच किया गया",
   "ui.question.subtitle.answered": "{{count}} के उत्तर दिए गए",
+  "ui.question.subtitle.timeout": "समय-सीमा पर {{count}} मान लिए गए",
+  "ui.question.subtitle.unattended": "बिना निगरानी {{count}} मान लिए गए",
+  "ui.question.subtitle.skipped": "{{count}} छोड़े गए",
+  "ui.question.source.timeout": "उत्तर देने से पहले समय-सीमा बीत गई; पहला (अनुशंसित) विकल्प मान लिया गया।",
+  "ui.question.source.unattended": "कोई उपयोगकर्ता उपलब्ध नहीं था; पहला (अनुशंसित) विकल्प मान लिया गया।",
+  "ui.question.source.skipped": "छोड़ा गया; एजेंट अपने विवेक से आगे बढ़ता है।",
   "ui.question.answer.none": "(कोई जवाब नहीं)",
   "ui.question.review.notAnswered": "(उत्तर नहीं दिया गया)",
   "ui.question.multiHint": "लागू होने वाले सभी उत्तर चुनें",

@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Seanso pakeitimai",
@@ -80,6 +79,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Pasiektas naudojimo limitas. Jei norite toliau naudoti šį modelį dabar, įgalinkite naudojimą iš turimo balanso",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Atidaryti nustatymus",
+  "dialog.usageExceeded.switchAccount": "Perjungti paskyrą",
   "ui.sessionTurn.status.delegating": "Darbų delegavimas",
   "ui.sessionTurn.status.planning": "Kitų žingsnių planavimas",
   "ui.sessionTurn.status.gatheringContext": "Tyrinėjant",
@@ -135,6 +135,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Pasirinkite agentą",
   "ui.promptInput.chooseModel": "Pasirinkite modelį",
   "ui.promptInput.chooseVariant": "Pasirinkite modelio variantą",
+  "ui.promptInput.permissionMode": "Leidimų režimas",
   "ui.promptInput.send": "Siųsti",
   "ui.promptInput.stop": "Stabdyti",
   "ui.tabs.close": "Uždaryti skirtuką",
@@ -192,6 +193,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Nukopijuota",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} vid. žetonų/s",
   "ui.message.interrupted": "Pertraukė",
   "ui.message.queued": "Eilėje",
   "ui.message.attachment.alt": "priedą",
@@ -200,6 +202,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Perkeltas",
   "ui.patch.action.patched": "Pataisyta",
   "ui.question.subtitle.answered": "{{count}} atsakė",
+  "ui.question.subtitle.timeout": "{{count}} priimta pasibaigus terminui",
+  "ui.question.subtitle.unattended": "{{count}} priimta be priežiūros",
+  "ui.question.subtitle.skipped": "{{count}} praleista",
+  "ui.question.source.timeout": "Terminas praėjo neatsakius; buvo priimtas pirmasis (rekomenduojamas) variantas.",
+  "ui.question.source.unattended":
+    "Nebuvo prisijungusio vartotojo; buvo priimtas pirmasis (rekomenduojamas) variantas.",
+  "ui.question.source.skipped": "Praleista; agentas veikia savo nuožiūra.",
   "ui.question.answer.none": "(nėra atsakymo)",
   "ui.question.review.notAnswered": "(neatsakyta)",
   "ui.question.multiHint": "Pasirinkite visus tinkamus atsakymus",

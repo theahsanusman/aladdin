@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Зміни сесії",
@@ -86,6 +85,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Ліміт використання вичерпано. Щоб і надалі користуватися цією моделлю, увімкніть оплату з доступного балансу",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Відкрити налаштування",
+  "dialog.usageExceeded.switchAccount": "Змінити обліковий запис",
 
   "ui.sessionTurn.status.delegating": "Делегування роботи",
   "ui.sessionTurn.status.planning": "Планування наступних кроків",
@@ -147,6 +147,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Вибрати агента",
   "ui.promptInput.chooseModel": "Вибрати модель",
   "ui.promptInput.chooseVariant": "Вибрати варіант моделі",
+  "ui.promptInput.permissionMode": "Режим дозволів",
   "ui.promptInput.send": "Надіслати",
   "ui.promptInput.stop": "Зупинити",
 
@@ -213,6 +214,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Скопійовано",
   "ui.message.duration.seconds": "{{count}}с",
   "ui.message.duration.minutesSeconds": "{{minutes}}хв {{seconds}}с",
+  "ui.message.speed": "{{value}} серед. ток/с",
   "ui.message.interrupted": "Перервано",
   "ui.message.queued": "У черзі",
   "ui.message.attachment.alt": "вкладення",
@@ -223,6 +225,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.patched": "Застосовано патч",
 
   "ui.question.subtitle.answered": "{{count}} відповідей",
+  "ui.question.subtitle.timeout": "{{count}} припущено після завершення часу",
+  "ui.question.subtitle.unattended": "{{count}} припущено без нагляду",
+  "ui.question.subtitle.skipped": "{{count}} пропущено",
+  "ui.question.source.timeout":
+    "Час очікування минув до отримання відповіді; було припущено перший (рекомендований) варіант.",
+  "ui.question.source.unattended": "Користувач був недоступний; було припущено перший (рекомендований) варіант.",
+  "ui.question.source.skipped": "Пропущено; агент діє на власний розсуд.",
   "ui.question.answer.none": "(немає відповіді)",
   "ui.question.review.notAnswered": "(не відповіли)",
   "ui.question.multiHint": "Виберіть усі відповідні варіанти",

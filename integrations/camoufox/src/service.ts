@@ -47,7 +47,11 @@ export async function requestBroker(root: string, input: unknown) {
           error?: string
         }
         if (result.ok !== true) {
-          reject(new Error("Private browser operation failed"))
+          // Retain only our fixed, safe recovery messages; never forward arbitrary broker text.
+          const reason = (["closed", "tab", "dialog", "protocol", "busy"] as const).find(
+            (reason) => publicError(new BrowserError(reason)) === result.error,
+          )
+          reject(reason ? new BrowserError(reason) : new Error("Private browser operation failed"))
           socket.destroy()
           return
         }

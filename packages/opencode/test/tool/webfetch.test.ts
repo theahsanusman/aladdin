@@ -1,7 +1,8 @@
 import { describe, expect } from "bun:test"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { httpClient } from "@opencode-ai/core/effect/app-node-platform"
-import { Effect, Layer } from "effect"
+import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { Effect, Exit, Layer, Schema } from "effect"
 import { FetchHttpClient, HttpClient } from "effect/unstable/http"
 import { Agent } from "../../src/agent/agent"
 import { Truncate } from "@/tool/truncate"
@@ -44,6 +45,49 @@ const exec = Effect.fn("WebFetchToolTest.exec")(function* (args: Tool.InferParam
 })
 
 describe("tool.webfetch", () => {
+  const permissionCases = [
+    { name: "omitted timeout", params: {}, metadata: {} },
+    { name: "explicit undefined timeout", params: { timeout: undefined }, metadata: {} },
+    { name: "supplied timeout", params: { timeout: 60 }, metadata: { timeout: 60 } },
+    { name: "zero timeout", params: { timeout: 0 }, metadata: { timeout: 0 } },
+  ]
+
+  for (const item of permissionCases) {
+    it.instance(`encodes pending permissions with ${item.name}`, () =>
+      Effect.gen(function* () {
+        const requests: PermissionV1.Request[] = []
+        const info = yield* WebFetchTool
+        const tool = yield* info.init()
+        const exit = yield* Effect.exit(
+          tool.execute(
+            { url: "https://example.com", format: "markdown", ...item.params },
+            {
+              ...ctx,
+              ask: (input) => {
+                requests.push({ ...input, sessionID: ctx.sessionID, id: PermissionV1.ID.ascending() })
+                return Effect.die("Fetch stopped at the permission boundary")
+              },
+            },
+          ),
+        )
+
+        expect(Exit.isFailure(exit)).toBe(true)
+        expect(requests).toHaveLength(1)
+        // Match the permission list HTTP response's strict JSON encoding.
+        const response = Schema.encodeUnknownSync(Schema.Array(PermissionV1.Request))(requests)
+        expect(() => Schema.encodeUnknownSync(Schema.Json)(response)).not.toThrow()
+        expect(requests[0].metadata).toEqual({
+          url: "https://example.com",
+          format: "markdown",
+          ...item.metadata,
+        })
+        expect(requests[0].permission).toBe("webfetch")
+        expect(requests[0].patterns).toEqual(["https://example.com"])
+        expect(requests[0].always).toEqual(["*"])
+      }),
+    )
+  }
+
   it.instance("returns image responses as file attachments", () =>
     Effect.gen(function* () {
       const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])

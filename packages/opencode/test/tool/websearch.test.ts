@@ -1,13 +1,107 @@
 import { describe, expect, test } from "bun:test"
-import { Effect } from "effect"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
+import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+import { Effect, Exit, Schema } from "effect"
+import { Agent } from "../../src/agent/agent"
+import { RuntimeFlags } from "../../src/effect/runtime-flags"
+import { MessageID, SessionID } from "../../src/session/schema"
+import { Tool } from "../../src/tool/tool"
+import { Truncate } from "../../src/tool/truncate"
 import { parseResponse } from "../../src/tool/mcp-websearch"
-import { selectWebSearchProvider, webSearchModelName, webSearchProviderLabel } from "../../src/tool/websearch"
+import {
+  Parameters,
+  WebSearchTool,
+  selectWebSearchProvider,
+  webSearchModelName,
+  webSearchProviderLabel,
+} from "../../src/tool/websearch"
 
 import { webSearchEnabled } from "../../src/tool/registry"
-import { it } from "../lib/effect"
+import { it, testEffect } from "../lib/effect"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 
 const SESSION_ID = "ses_0196aabbccddeeff001122334455"
+
+const permissionTests = testEffect(
+  LayerNode.compile(LayerNode.group([Truncate.node, Agent.node, RuntimeFlags.node, LayerNodePlatform.httpClient])),
+)
+
+describe("websearch permission response", () => {
+  const cases: Array<{
+    name: string
+    params: Schema.Schema.Type<typeof Parameters>
+    metadata: Record<string, string | number>
+  }> = [
+    {
+      name: "omitted livecrawl",
+      params: { query: "shoe sole repair", numResults: 8 },
+      metadata: { query: "shoe sole repair", numResults: 8 },
+    },
+    {
+      name: "all options omitted",
+      params: { query: "shoe sole repair" },
+      metadata: { query: "shoe sole repair" },
+    },
+    {
+      name: "explicit undefined options",
+      params: { query: "shoe sole repair", livecrawl: undefined, type: undefined },
+      metadata: { query: "shoe sole repair" },
+    },
+    {
+      name: "supplied options including zero",
+      params: {
+        query: "shoe sole repair",
+        numResults: 0,
+        livecrawl: "preferred",
+        type: "deep",
+        contextMaxCharacters: 0,
+      },
+      metadata: {
+        query: "shoe sole repair",
+        numResults: 0,
+        livecrawl: "preferred",
+        type: "deep",
+        contextMaxCharacters: 0,
+      },
+    },
+  ]
+
+  for (const item of cases) {
+    permissionTests.instance(`encodes pending permissions with ${item.name}`, () =>
+      Effect.gen(function* () {
+        const requests: PermissionV1.Request[] = []
+        const sessionID = SessionID.descending()
+        const ctx: Tool.Context = {
+          sessionID,
+          messageID: MessageID.ascending(),
+          agent: "build",
+          abort: new AbortController().signal,
+          messages: [],
+          metadata: () => Effect.void,
+          ask: (input) => {
+            requests.push({ ...input, sessionID, id: PermissionV1.ID.ascending() })
+            return Effect.die("Search stopped at the permission boundary")
+          },
+        }
+        const info = yield* WebSearchTool
+        const tool = yield* info.init()
+        const exit = yield* Effect.exit(tool.execute(item.params, ctx))
+
+        expect(Exit.isFailure(exit)).toBe(true)
+        expect(requests).toHaveLength(1)
+        // Match the permission list HTTP response's strict JSON encoding.
+        const response = Schema.encodeUnknownSync(Schema.Array(PermissionV1.Request))(requests)
+        expect(() => Schema.encodeUnknownSync(Schema.Json)(response)).not.toThrow()
+        expect(requests[0].metadata.provider === "exa" || requests[0].metadata.provider === "parallel").toBe(true)
+        expect(requests[0].metadata).toEqual({ ...item.metadata, provider: requests[0].metadata.provider })
+        expect(requests[0].permission).toBe("websearch")
+        expect(requests[0].patterns).toEqual([item.params.query])
+        expect(requests[0].always).toEqual(["*"])
+      }),
+    )
+  }
+})
 
 describe("websearch provider", () => {
   test("selects a stable provider per session", () => {

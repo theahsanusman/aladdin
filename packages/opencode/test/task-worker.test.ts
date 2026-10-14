@@ -251,6 +251,222 @@ it.instance(
 )
 
 it.instance(
+  "declining verification records the check as unverified instead of failing finished work",
+  () =>
+    Effect.gen(function* () {
+      yield* installTaskInteractionSchema
+      const sessions = yield* Session.Service
+      const execution = yield* TaskExecution.Service
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const events = yield* EventV2.Service
+      const root = yield* sessions.create({ title: "Skipped verification root" })
+      yield* execution.prepare(root.id, "v1")
+      const asked = yield* Deferred.make<TaskInteraction.Info>()
+      const off = yield* events.listen((event) =>
+        event.type === Question.Event.Asked.type
+          ? Effect.gen(function* () {
+              const pending = (yield* interactions.pending(root.id))[0]
+              if (pending) yield* Deferred.succeed(asked, pending)
+            }).pipe(Effect.orDie)
+          : Effect.void,
+      )
+      yield* Effect.addFinalizer(() => off)
+      const task = yield* execution.dispatch({
+        ownerSessionID: root.id,
+        dispatchKey: "skip-verification",
+        brief: {
+          title: "Verify",
+          objective: "Explain facts",
+          scope: ["Facts"],
+          output: "Report",
+          checks: ["The supplied facts are accurately explained"],
+          constraints: [],
+          execution: {
+            engine: "v1",
+            mode: "report",
+            agent: "build",
+            model: { id: "test-model", providerID: "test" },
+            maxCalls: 2,
+            wallClockMs: 15_000,
+          },
+        },
+      })
+      const request = yield* Deferred.await(asked)
+      yield* execution.deliver(request, { kind: "question-rejection" })
+      yield* execution.idle(root.id)
+      const result = yield* ledger.details({ ownerSessionID: root.id, taskID: task.id })
+      expect(result.task.status, result.evidence).toBe("completed")
+      expect(result.evidence).toContain('"unverified":true')
+    }),
+  { config: testProviderConfig("http://127.0.0.1:1") },
+)
+
+it.instance(
+  "an unanswered verification expires before the worker deadline without failing finished work",
+  () =>
+    Effect.gen(function* () {
+      yield* installTaskInteractionSchema
+      const sessions = yield* Session.Service
+      const execution = yield* TaskExecution.Service
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const events = yield* EventV2.Service
+      const root = yield* sessions.create({ title: "Verification deadline root" })
+      yield* execution.prepare(root.id, "v1")
+      const asked = yield* Deferred.make<TaskInteraction.Info>()
+      const off = yield* events.listen((event) =>
+        event.type === Question.Event.Asked.type
+          ? Effect.gen(function* () {
+              const pending = (yield* interactions.pending(root.id))[0]
+              if (pending) yield* Deferred.succeed(asked, pending)
+            }).pipe(Effect.orDie)
+          : Effect.void,
+      )
+      yield* Effect.addFinalizer(() => off)
+      const task = yield* execution.dispatch({
+        ownerSessionID: root.id,
+        dispatchKey: "verification-deadline",
+        brief: {
+          title: "Verify",
+          objective: "Explain facts",
+          scope: ["Facts"],
+          output: "Report",
+          checks: ["output:nonempty", "The supplied facts are accurately explained"],
+          constraints: [],
+          execution: {
+            engine: "v1",
+            mode: "report",
+            agent: "build",
+            model: { id: "test-model", providerID: "test" },
+            maxCalls: 2,
+            wallClockMs: 2_000,
+          },
+        },
+      })
+      yield* Deferred.await(asked)
+      yield* execution.idle(root.id)
+      const result = yield* ledger.details({ ownerSessionID: root.id, taskID: task.id })
+      expect(result.task.status, result.evidence).toBe("completed")
+      const evidence = JSON.parse(result.evidence ?? "{}")
+      expect(evidence.result.checks).toMatchObject([
+        { check: "output:nonempty", passed: true },
+        { check: "The supplied facts are accurately explained", passed: false, unverified: true },
+      ])
+      expect(yield* interactions.pending(root.id)).toHaveLength(0)
+      expect(yield* ledger.live()).toHaveLength(0)
+    }),
+  { config: testProviderConfig("http://127.0.0.1:1") },
+)
+
+it.instance(
+  "a partially answered verification keeps unanswered checks unverified",
+  () =>
+    Effect.gen(function* () {
+      yield* installTaskInteractionSchema
+      const sessions = yield* Session.Service
+      const execution = yield* TaskExecution.Service
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const events = yield* EventV2.Service
+      const root = yield* sessions.create({ title: "Partial verification root" })
+      yield* execution.prepare(root.id, "v1")
+      const asked = yield* Deferred.make<TaskInteraction.Info>()
+      const off = yield* events.listen((event) =>
+        event.type === Question.Event.Asked.type
+          ? Effect.gen(function* () {
+              const pending = (yield* interactions.pending(root.id))[0]
+              if (pending) yield* Deferred.succeed(asked, pending)
+            }).pipe(Effect.orDie)
+          : Effect.void,
+      )
+      yield* Effect.addFinalizer(() => off)
+      const task = yield* execution.dispatch({
+        ownerSessionID: root.id,
+        dispatchKey: "partial-verification",
+        brief: {
+          title: "Verify",
+          objective: "Explain facts",
+          scope: ["Facts"],
+          output: "Report",
+          checks: ["First requirement", "Second requirement"],
+          constraints: [],
+          execution: {
+            engine: "v1",
+            mode: "report",
+            agent: "build",
+            model: { id: "test-model", providerID: "test" },
+            maxCalls: 2,
+            wallClockMs: 15_000,
+          },
+        },
+      })
+      const request = yield* Deferred.await(asked)
+      yield* execution.deliver(request, { kind: "question", answers: [["Passed"], []] })
+      yield* execution.idle(root.id)
+      const result = yield* ledger.details({ ownerSessionID: root.id, taskID: task.id })
+      expect(result.task.status, result.evidence).toBe("completed")
+      expect(JSON.parse(result.evidence ?? "{}").result.checks).toMatchObject([
+        { check: "First requirement", passed: true },
+        { check: "Second requirement", passed: false, unverified: true },
+      ])
+    }),
+  { config: testProviderConfig("http://127.0.0.1:1") },
+)
+
+it.instance(
+  "an explicit failed acceptance check still fails the worker task",
+  () =>
+    Effect.gen(function* () {
+      yield* installTaskInteractionSchema
+      const sessions = yield* Session.Service
+      const execution = yield* TaskExecution.Service
+      const ledger = yield* TaskLedger.Service
+      const interactions = yield* TaskInteractionStore.Service
+      const events = yield* EventV2.Service
+      const root = yield* sessions.create({ title: "Rejected verification root" })
+      yield* execution.prepare(root.id, "v1")
+      const asked = yield* Deferred.make<TaskInteraction.Info>()
+      const off = yield* events.listen((event) =>
+        event.type === Question.Event.Asked.type
+          ? Effect.gen(function* () {
+              const pending = (yield* interactions.pending(root.id))[0]
+              if (pending) yield* Deferred.succeed(asked, pending)
+            }).pipe(Effect.orDie)
+          : Effect.void,
+      )
+      yield* Effect.addFinalizer(() => off)
+      const task = yield* execution.dispatch({
+        ownerSessionID: root.id,
+        dispatchKey: "reject-verification",
+        brief: {
+          title: "Verify",
+          objective: "Explain facts",
+          scope: ["Facts"],
+          output: "Report",
+          checks: ["The supplied facts are accurately explained"],
+          constraints: [],
+          execution: {
+            engine: "v1",
+            mode: "report",
+            agent: "build",
+            model: { id: "test-model", providerID: "test" },
+            maxCalls: 2,
+            wallClockMs: 15_000,
+          },
+        },
+      })
+      const request = yield* Deferred.await(asked)
+      yield* execution.deliver(request, { kind: "question", answers: [["Failed"]] })
+      yield* execution.idle(root.id)
+      const result = yield* ledger.details({ ownerSessionID: root.id, taskID: task.id })
+      expect(result.task.status, result.evidence).toBe("failed")
+      expect(result.evidence).toContain("rejected")
+    }),
+  { config: testProviderConfig("http://127.0.0.1:1") },
+)
+
+it.instance(
   "V1 coding uses its existing native write loop in an isolated worktree and authorizes integration",
   () =>
     Effect.gen(function* () {

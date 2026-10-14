@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "სესიის ცვლილებები",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "გამოყენების ლიმიტი მიღწეულია. ამ მოდელის ახლა გამოყენების გასაგრძელებლად, ჩართეთ გამოყენება ხელმისაწვდომი ბალანსიდან",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "გახსნა პარამეტრები",
+  "dialog.usageExceeded.switchAccount": "ანგარიშის შეცვლა",
   "ui.sessionTurn.status.delegating": "სამუშაოს დელეგირება",
   "ui.sessionTurn.status.planning": "შემდეგი ნაბიჯების დაგეგმვა",
   "ui.sessionTurn.status.gatheringContext": "შესწავლა",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "აირჩიე აგენტი",
   "ui.promptInput.chooseModel": "აირჩიე მოდელი",
   "ui.promptInput.chooseVariant": "აირჩიე მოდელის ვარიანტი",
+  "ui.promptInput.permissionMode": "ნებართვის რეჟიმი",
   "ui.promptInput.send": "გაგზავნა",
   "ui.promptInput.stop": "შეჩერება",
   "ui.tabs.close": "ჩანართის დახურვა",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "კოპირებულია",
   "ui.message.duration.seconds": "{{count}} წმ",
   "ui.message.duration.minutesSeconds": "{{minutes}} წთ {{seconds}}წმ",
+  "ui.message.speed": "{{value}} საშუალო ტოკ/წმ",
   "ui.message.interrupted": "შეწყვეტილია",
   "ui.message.queued": "რიგში",
   "ui.message.attachment.alt": "დანართი",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "გადატანილია",
   "ui.patch.action.patched": "შესწორებულია",
   "ui.question.subtitle.answered": "{{count}} უპასუხა",
+  "ui.question.subtitle.timeout": "{{count}} ვარაუდებული ვადის გასვლისას",
+  "ui.question.subtitle.unattended": "{{count}} ვარაუდებული უყურადღებოდ",
+  "ui.question.subtitle.skipped": "{{count}} გამოტოვებული",
+  "ui.question.source.timeout": "პასუხამდე ვადა გავიდა; პირველი (რეკომენდებული) ვარიანტი იქნა ვარაუდებული.",
+  "ui.question.source.unattended":
+    "მომხმარებელი არ იყო ხელმისაწვდომი; პირველი (რეკომენდებული) ვარიანტი იქნა ვარაუდებული.",
+  "ui.question.source.skipped": "გამოტოვებულია; აგენტი აგრძელებს საკუთარი შეხედულებისამებრ.",
   "ui.question.answer.none": "(პასუხი არ არის)",
   "ui.question.review.notAnswered": "(უპასუხა)",
   "ui.question.multiHint": "აირჩიეთ ყველა შესაბამისი პასუხი",

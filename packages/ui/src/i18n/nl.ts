@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sessiewijzigingen",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Gebruikslimiet bereikt. Schakel betalen met je beschikbare saldo in om dit model nu te blijven gebruiken",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Instellingen openen",
+  "dialog.usageExceeded.switchAccount": "Account wisselen",
   "ui.sessionTurn.status.delegating": "Werk delegeren",
   "ui.sessionTurn.status.planning": "Volgende stappen plannen",
   "ui.sessionTurn.status.gatheringContext": "Verkennen",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Agent kiezen",
   "ui.promptInput.chooseModel": "Model kiezen",
   "ui.promptInput.chooseVariant": "Modelvariant kiezen",
+  "ui.promptInput.permissionMode": "Machtigingsmodus",
   "ui.promptInput.send": "Verzenden",
   "ui.promptInput.stop": "Stoppen",
   "ui.tabs.close": "Tabblad sluiten",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Gekopieerd",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} gem. tok/s",
   "ui.message.interrupted": "Onderbroken",
   "ui.message.queued": "In de wachtrij",
   "ui.message.attachment.alt": "bijlage",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Verplaatst",
   "ui.patch.action.patched": "Bijgewerkt",
   "ui.question.subtitle.answered": "{{count}} beantwoord",
+  "ui.question.subtitle.timeout": "{{count}} aangenomen bij deadline",
+  "ui.question.subtitle.unattended": "{{count}} aangenomen zonder toezicht",
+  "ui.question.subtitle.skipped": "{{count}} overgeslagen",
+  "ui.question.source.timeout":
+    "De deadline is verstreken voordat er een antwoord was; de eerste (aanbevolen) optie is aangenomen.",
+  "ui.question.source.unattended": "Er was geen gebruiker beschikbaar; de eerste (aanbevolen) optie is aangenomen.",
+  "ui.question.source.skipped": "Overgeslagen; de agent gaat verder op eigen beoordeling.",
   "ui.question.answer.none": "(geen antwoord)",
   "ui.question.review.notAnswered": "(niet beantwoord)",
   "ui.question.multiHint": "Selecteer alle antwoorden die van toepassing zijn",

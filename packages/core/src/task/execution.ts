@@ -29,8 +29,19 @@ export class Error extends Schema.TaggedErrorClass<Error>()("TaskExecution.Error
 
 export type Result = {
   readonly summary: string
-  readonly checks: ReadonlyArray<{ readonly check: string; readonly passed: boolean; readonly evidence: string }>
+  readonly checks: ReadonlyArray<{
+    readonly check: string
+    readonly passed: boolean
+    readonly evidence: string
+    /** Nobody confirmed this check; omission preserves historical pass/fail semantics. */
+    readonly unverified?: boolean
+  }>
 }
+const REPORT_LIMIT = 8_000
+const REPORT_TAIL = "\n\n[report truncated]"
+/** Handoffs keep the usable head of an over-long report instead of failing finished work. */
+export const truncateReport = (summary: string) =>
+  summary.length <= REPORT_LIMIT ? summary : `${summary.slice(0, REPORT_LIMIT - REPORT_TAIL.length)}${REPORT_TAIL}`
 export type Budget = { readonly call: Effect.Effect<void, Error> }
 export type Driver = {
   readonly engine: Task.Execution["engine"]
@@ -134,43 +145,36 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
           return
         }
         yield* input.invalidate(attempt, current.status === "cancelling" ? "Task cancelled" : "Worker execution ended")
+        const produced = Exit.isSuccess(outcome) ? outcome.value : undefined
+        const report = produced && { ...produced, summary: truncateReport(produced.summary) }
+        const failure = Exit.isFailure(outcome) ? Cause.pretty(outcome.cause).slice(0, 4_000) : undefined
         const evidence =
           current.status === "cancelling"
             ? { error: "Task cancelled by user" }
-            : Exit.isSuccess(outcome)
-              ? outcome.value
-              : { error: Cause.pretty(outcome.cause).slice(0, 4_000) }
+            : (report ?? { error: failure ?? "Worker produced no report" })
+        // `unverified` records that nobody confirmed a check; only an explicit rejection
+        // (or a missing result) may fail work the worker actually finished.
         const valid =
-          Exit.isSuccess(outcome) &&
-          outcome.value.summary.trim().length > 0 &&
-          outcome.value.summary.length <= 8_000 &&
-          outcome.value.checks.length === task.brief.checks.length &&
+          !!report &&
+          report.summary.trim().length > 0 &&
+          report.checks.length === task.brief.checks.length &&
           task.brief.checks.every(
             (check) =>
-              outcome.value.checks.filter((item) => item.check === check && item.passed && item.evidence.trim())
-                .length === 1,
+              report.checks.filter(
+                (item) => item.check === check && (item.passed || item.unverified) && item.evidence.trim(),
+              ).length === 1,
           )
-        const serialized = JSON.stringify({
+        const record = {
           result: evidence,
-          cleanup: cleanup.value,
+          cleanup: cleanup.value.slice(0, 4_000),
           ...(current.status === "cancelling" && Exit.isFailure(outcome)
             ? { diagnostics: Cause.pretty(outcome.cause).slice(0, 4_000) }
             : {}),
-        })
+        }
+        const serialized = JSON.stringify(record)
         yield* input.ledger.settle(attempt, {
-          outcome:
-            current.status === "cancelling"
-              ? "cancelled"
-              : valid && serialized.length <= 20_000
-                ? "completed"
-                : "failed",
-          evidence:
-            serialized.length <= 20_000
-              ? serialized
-              : JSON.stringify({
-                  error: "Result exceeds durable handoff limit",
-                  cleanup: cleanup.value.slice(0, 2_000),
-                }),
+          outcome: current.status === "cancelling" ? "cancelled" : valid ? "completed" : "failed",
+          evidence: serialized.length <= 20_000 ? serialized : compactEvidence(record),
         })
       }),
     )
@@ -685,6 +689,37 @@ export const make = Effect.fn("TaskExecution.make")(function* (input: {
     }),
   }
 })
+
+// Bound the encoded JSON, not just text lengths: escaping can multiply its size.
+// Validate the full result first, then retain every admitted check's verdict while
+// shortening display text. Large receipts must never fabricate execution failure.
+function compactEvidence(
+  evidence: { result: Result | { error: string }; cleanup: string; diagnostics?: string },
+  limit = 4_000,
+): string {
+  const suffix = "… [truncated]"
+  const bound = (text: string) =>
+    text.length <= limit ? text : `${text.slice(0, Math.max(0, limit - suffix.length))}${suffix}`
+  const compact = {
+    result:
+      "summary" in evidence.result
+        ? {
+            summary: bound(evidence.result.summary),
+            checks: evidence.result.checks.slice(0, 100).map((item) => ({
+              check: bound(item.check),
+              passed: item.passed,
+              evidence: bound(item.evidence),
+              ...(item.unverified === undefined ? {} : { unverified: item.unverified }),
+            })),
+          }
+        : { error: bound(evidence.result.error) },
+    cleanup: bound(evidence.cleanup),
+    ...(evidence.diagnostics === undefined ? {} : { diagnostics: bound(evidence.diagnostics) }),
+    evidenceTruncated: true,
+  }
+  const serialized = JSON.stringify(compact)
+  return serialized.length <= 20_000 ? serialized : compactEvidence(compact, Math.floor(limit / 2))
+}
 
 const layer = Layer.effect(
   Service,

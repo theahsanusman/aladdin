@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Spremembe seje",
@@ -81,6 +80,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Omejitev uporabe je dosežena. Če želite zdaj še naprej uporabljati ta model, omogočite uporabo iz razpoložljivega stanja",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Odprite nastavitve",
+  "dialog.usageExceeded.switchAccount": "Zamenjaj račun",
   "ui.sessionTurn.status.delegating": "Delegiranje dela",
   "ui.sessionTurn.status.planning": "Načrtovanje naslednjih korakov",
   "ui.sessionTurn.status.gatheringContext": "Raziskovanje",
@@ -193,6 +193,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Kopirano",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} povpr. žetonov/s",
   "ui.message.interrupted": "Prekinjeno",
   "ui.message.queued": "V čakalni vrsti",
   "ui.message.attachment.alt": "priloga",
@@ -201,9 +202,17 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Premaknjen",
   "ui.patch.action.patched": "Zakrpano",
   "ui.question.subtitle.answered": "{{count}} je odgovoril",
+  "ui.question.subtitle.timeout": "{{count}} predpostavljenih ob izteku",
+  "ui.question.subtitle.unattended": "{{count}} predpostavljenih brez nadzora",
+  "ui.question.subtitle.skipped": "{{count}} preskočenih",
+  "ui.question.source.timeout": "Rok je potekel pred odgovorom; predpostavljena je bila prva (priporočena) možnost.",
+  "ui.question.source.unattended":
+    "Noben uporabnik ni bil na voljo; predpostavljena je bila prva (priporočena) možnost.",
+  "ui.question.source.skipped": "Preskočeno; agent nadaljuje po lastni presoji.",
   "ui.question.answer.none": "(ni odgovora)",
   "ui.question.review.notAnswered": "(ni odgovorjeno)",
   "ui.question.multiHint": "Izberite vse ustrezne odgovore",
   "ui.question.singleHint": "Izberite en odgovor",
   "ui.question.custom.placeholder": "Vnesite odgovor ...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

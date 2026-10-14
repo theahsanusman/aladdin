@@ -1,0 +1,79 @@
+{
+  "boardUrl": "https://trello.com/b/m6JV1MoB/hq",
+  "workspaceName": "UnicronX Labs",
+  "priorityLabels": [
+    "Priority: High",
+    "Priority: Medium",
+    "Priority: Low"
+  ],
+  "lists": {
+    "ideas": "Ideas",
+    "pending": "Todos",
+    "doing": "Doing",
+    "waitingAnswers": "Waiting Answers",
+    "waitingApproval": "Waiting Approval",
+    "paused": "On Hold",
+    "done": "Done",
+    "pendingReview": "Pending Review"
+  },
+  "trigger": "explicit chat invocation",
+  "boardAri": "ari:cloud:trello::board/workspace/6ac3e43a68d493f2e4f031a1/6ac3e5770fda2c580093af5c",
+  "workspaceAri": "ari:cloud:trello::workspace/6ac3e43a68d493f2e4f031a1",
+  "automationUsername": "aladdin",
+  "automationMemberAri": "ari:cloud:trello::user/6ac3ed5fc708778a1c654189",
+  "ownerUsername": "theahsanusman",
+  "ownerMention": "@theahsanusman",
+  "ownerMemberAri": "ari:cloud:trello::user/5ade57ec4bf0e4c176adc464",
+  "listAris": {
+    "ideas": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac3e86b8be70844efe95574",
+    "pending": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac3e86f32e496f270e1a167",
+    "doing": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac3e872e1bed083b290e6be",
+    "waitingAnswers": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac4053f19d6ddc21a330914",
+    "waitingApproval": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac40540dfd9048f01754ae4",
+    "paused": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac3e87c2bf95be1c5f85268",
+    "done": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac3e87338528da8215b7f7b",
+    "pendingReview": "ari:cloud:trello::list/workspace/6ac3e43a68d493f2e4f031a1/6ac4e8e6b23b2730e496435c"
+  },
+  "labelAris": {
+    "Priority: High": "ari:cloud:trello::label/workspace/6ac3e43a68d493f2e4f031a1/6ac4061a696f1a3474bdcc44",
+    "Priority: Medium": "ari:cloud:trello::label/workspace/6ac3e43a68d493f2e4f031a1/6ac4061aeed391b7b9c86940",
+    "project:aladdin": "ari:cloud:trello::label/workspace/6ac3e43a68d493f2e4f031a1/6ac4061b2f5a5dd9193885a8",
+    "Priority: Low": "ari:cloud:trello::label/workspace/6ac3e43a68d493f2e4f031a1/6ac4061bc54bef8ef19795a9"
+  },
+  "userTimeZone": "Asia/Karachi",
+  "verifiedAt": "2026-10-05T20:21:56.233758+00:00",
+  "objectIds": {
+    "board": "6ac3e5770fda2c580093af5c",
+    "workspace": "6ac3e43a68d493f2e4f031a1",
+    "automationMember": "6ac3ed5fc708778a1c654189",
+    "ownerMember": "5ade57ec4bf0e4c176adc464"
+  },
+  "readRequests": {
+    "boardCards": {
+      "name": "trelloReadCard",
+      "arguments": {
+        "action": "list_by_board",
+        "boardIdOrUrl": "ari:cloud:trello::board/workspace/6ac3e43a68d493f2e4f031a1/6ac3e5770fda2c580093af5c",
+        "limit": 50
+      }
+    },
+    "boardLists": {
+      "name": "trelloReadList",
+      "arguments": {
+        "action": "list_by_board",
+        "boardId": "ari:cloud:trello::board/workspace/6ac3e43a68d493f2e4f031a1/6ac3e5770fda2c580093af5c",
+        "limit": 50
+      }
+    },
+    "boardLabels": {
+      "name": "trelloReadBoard",
+      "arguments": {
+        "action": "list_labels",
+        "boardId": "ari:cloud:trello::board/workspace/6ac3e43a68d493f2e4f031a1/6ac3e5770fda2c580093af5c",
+        "limit": 100
+      }
+    }
+  },
+  "projectLabelStyle": "plain project name",
+  "completionPolicy": "agent submits to Pending Review; human moves to Done"
+}

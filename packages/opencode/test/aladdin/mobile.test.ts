@@ -148,13 +148,12 @@ describe("Aladdin mobile access", () => {
       const described = await describeCertificate(path.join(directory(data), "aladdin-server.crt"))
       expect(described.names).toContain("IP Address:127.0.0.1")
       const ca = await Bun.file(enabled.certificateAuthority!).text()
-      const token = encodeURIComponent(Buffer.from("opencode:mobile-secret").toString("base64"))
-      expect(enabled.connectUrl).toBe(`https://${enabled.host}:${enabled.port}/?auth_token=${token}`)
+      // The connect URL is a plain origin: credentials are typed into the login form, never
+      // embedded in a URL that could leak through history, referrers, or logs.
+      expect(enabled.connectUrl).toBe(`https://${enabled.host}:${enabled.port}`)
       const anonymous = await get(`https://127.0.0.1:${enabled.port}/`, ca)
       expect(anonymous.status).toBe(401)
-      // The link the user copies has to work with nothing else typed into the phone.
-      const linked = await get(enabled.connectUrl!.replace(enabled.host, "127.0.0.1"), ca)
-      expect(linked.status).toBe(200)
+      // The status endpoint still requires the real password, not a URL token.
       const status = await get(
         `https://127.0.0.1:${enabled.port}/aladdin/mobile/status`,
         ca,
@@ -163,7 +162,7 @@ describe("Aladdin mobile access", () => {
       expect(status.status).toBe(200)
       expect(JSON.parse(status.body)).toMatchObject({
         localUrl: `https://localhost:${enabled.port}`,
-        localConnectUrl: `https://localhost:${enabled.port}/?auth_token=${token}`,
+        localConnectUrl: `https://localhost:${enabled.port}`,
         connectUrl: enabled.connectUrl,
       })
       for (const address of enabled.addresses) {
@@ -205,12 +204,18 @@ describe("Aladdin mobile access", () => {
     const status = await restoreMobileAccess(data, options)
     expect(status.enabled).toBe(true)
     expect(status.localUrl).toBe(`https://localhost:${status.port}`)
-    const token = encodeURIComponent(Buffer.from("opencode:mobile-secret").toString("base64"))
-    expect(status.localConnectUrl).toBe(`${status.localUrl}/?auth_token=${token}`)
-    expect(status.connectUrl).toEndWith(`/?auth_token=${token}`)
+    // The connect URL is a plain origin: the phone types the password into the login form.
+    expect(status.localConnectUrl).toBe(`${status.localUrl}`)
+    expect(status.connectUrl).toBe(`${status.url}`)
     const ca = await Bun.file(status.certificateAuthority!).text()
-    const connected = await get(status.localConnectUrl!.replace("localhost", "127.0.0.1"), ca)
-    expect(connected.status).toBe(200)
+    const anonymous = await get(status.localConnectUrl!.replace("localhost", "127.0.0.1"), ca)
+    expect(anonymous.status).toBe(401)
+    const authenticated = await get(
+      status.localConnectUrl!.replace("localhost", "127.0.0.1"),
+      ca,
+      `Basic ${Buffer.from("opencode:mobile-secret").toString("base64")}`,
+    )
+    expect(authenticated.status).toBe(200)
     await disableMobileAccess({ passwordRequired: false, data })
     expect((await restoreMobileAccess(data, options)).enabled).toBe(false)
   }, 30_000)

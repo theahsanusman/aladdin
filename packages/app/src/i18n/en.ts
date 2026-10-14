@@ -20,6 +20,8 @@ export const dict = {
   "session.workers.output": "Expected output",
   "session.workers.constraints": "Constraints",
   "session.workers.results": "Worker results",
+  "session.workers.resultCount": "{{count}} worker results",
+  "session.workers.unverified": "Not verified",
   "session.workers.checksResult": "Verification evidence",
   "session.workers.reconnecting": "Reconnecting to workers. Showing the last saved results.",
   "session.workers.retry": "Retry task",

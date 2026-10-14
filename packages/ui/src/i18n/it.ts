@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Modifiche della sessione",
@@ -80,6 +79,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Limite di utilizzo raggiunto. Per continuare a utilizzare questo modello adesso, abilita l'utilizzo dal saldo disponibile",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Apri le impostazioni",
+  "dialog.usageExceeded.switchAccount": "Cambia account",
   "ui.sessionTurn.status.delegating": "Delega del lavoro",
   "ui.sessionTurn.status.planning": "Pianificazione dei prossimi passi",
   "ui.sessionTurn.status.gatheringContext": "Esplorazione",
@@ -132,6 +132,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Scegli agente",
   "ui.promptInput.chooseModel": "Scegli modello",
   "ui.promptInput.chooseVariant": "Scegli variante del modello",
+  "ui.promptInput.permissionMode": "Modalità di autorizzazione",
   "ui.promptInput.send": "Invia",
   "ui.promptInput.stop": "Interrompi",
   "ui.tabs.close": "Chiudi scheda",
@@ -189,6 +190,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Copiato",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} tok/s medi",
   "ui.message.interrupted": "Interrotto",
   "ui.message.queued": "In coda",
   "ui.message.attachment.alt": "allegato",
@@ -197,6 +199,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Spostato",
   "ui.patch.action.patched": "Modificato",
   "ui.question.subtitle.answered": "{{count}} risposte",
+  "ui.question.subtitle.timeout": "{{count}} presunte alla scadenza",
+  "ui.question.subtitle.unattended": "{{count}} presunte senza utente",
+  "ui.question.subtitle.skipped": "{{count}} saltate",
+  "ui.question.source.timeout":
+    "Il termine è scaduto prima di una risposta; è stata presunta la prima opzione (consigliata).",
+  "ui.question.source.unattended": "Nessun utente era disponibile; è stata presunta la prima opzione (consigliata).",
+  "ui.question.source.skipped": "Saltata; l'agente procede con il proprio giudizio.",
   "ui.question.answer.none": "(nessuna risposta)",
   "ui.question.review.notAnswered": "(senza risposta)",
   "ui.question.multiHint": "Seleziona tutte le risposte pertinenti",

@@ -1,0 +1,65 @@
+{
+  "verifiedAt": "2026-10-05T20:33:55.184228+00:00",
+  "boardUrl": "https://trello.com/b/m6JV1MoB/hq",
+  "connector": "https://mcp.trello.com/v1",
+  "automationUsername": "aladdin",
+  "checks": {
+    "descriptionRead": true,
+    "commentsCreateEditRead": true,
+    "ownerMention": "@theahsanusman",
+    "projectPriorityLabels": true,
+    "checklistCreateCompleteRead": true,
+    "statusMovesReadBack": [
+      "Doing",
+      "Waiting Answers",
+      "Waiting Approval",
+      "On Hold",
+      "Done"
+    ],
+    "cardMarkedComplete": true,
+    "testCardArchived": true,
+    "originalCardsUnchanged": 3,
+    "originalListsUnchanged": 5,
+    "originalLabelsUnchanged": 6,
+    "protectedPromptFilesUnchanged": 5,
+    "workflowFolderPermissionVerified": true,
+    "unrelatedFolderAndPrivateBackupPermissionsPreserved": true,
+    "visibleBoardOriginalCardsAndWaitingLists": true,
+    "temporaryTestHiddenFromOpenBoard": true
+  },
+  "media": [
+    {
+      "name": "aladdin-trello-test-image.png",
+      "bytes": 835,
+      "sha256": "9e94781218ea31eb06531524e45fc2bf52a28b97d36f8b5470420d0b2ea27a5d",
+      "bytes_match": true,
+      "mime": "image/png"
+    },
+    {
+      "name": "aladdin-trello-test-file.txt",
+      "bytes": 130,
+      "sha256": "487065f453416c3d16777620a7e6a9797c263fe0d1e2c05d586ffc60b6c95bce",
+      "bytes_match": true,
+      "mime": "text/plain; charset=utf-8"
+    }
+  ],
+  "projectContexts": [
+    {
+      "directory": "/Users/ahsan/Dev/aladdin",
+      "connector": "connected",
+      "currentSkill": true,
+      "policyRegistered": true,
+      "scopedWorkflowFolderPermission": "allow"
+    },
+    {
+      "directory": "/Users/ahsan/Dev/QBIG",
+      "connector": "connected",
+      "currentSkill": true,
+      "policyRegistered": true,
+      "scopedWorkflowFolderPermission": "allow"
+    }
+  ],
+  "testCardUrl": "https://trello.com/c/v6KQmPbt/4-aladdin-connection-test-temporary",
+  "leadWorkflow": "Preserved coordinator boundary; shared skill routes Trello work through existing native Michael worker. No worker was spawned during setup.",
+  "verificationBoundary": "Runtime configuration and real MCP/browser operations verified. A production task executed by the language model was not run during connection setup."
+}

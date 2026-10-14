@@ -57,16 +57,16 @@ export const make = Effect.fn("TaskWorkerV2.make")(function* (directory: Absolut
         .pipe(Effect.ensuring(Effect.sync(() => Claim.releaseSession(attempt.workerSessionID))))
       const history = yield* store.context(attempt.workerSessionID)
       const last = history.findLast((message) => message.type === "assistant")
-      if (!last || last.type !== "assistant" || last.error)
-        return yield* new TaskExecution.Error({ message: "Worker has no successful durable assistant result" })
-      const output = last.content
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
-        .join("\n")
-      if (output.length > 8_000)
-        return yield* new TaskExecution.Error({
-          message: "Worker output exceeds compact handoff limit; use artifact references",
-        })
+      if (!last || last.type !== "assistant")
+        return yield* new TaskExecution.Error({ message: "Worker produced no durable assistant result" })
+      // Surface the recorded assistant error rather than a generic transcript pointer.
+      if (last.error) return yield* new TaskExecution.Error({ message: `Worker failed: ${last.error.message}` })
+      const output = TaskExecution.truncateReport(
+        last.content
+          .filter((part) => part.type === "text")
+          .map((part) => part.text)
+          .join("\n"),
+      )
       return { summary: output, checks: [] }
     }),
     verify: (task, result) => verify(task, result.summary).pipe(Effect.map((checks) => ({ ...result, checks }))),

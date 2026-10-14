@@ -1,5 +1,4 @@
 import { ServerAuth } from "@/server/auth"
-import { browserAuthorized, browserCookie } from "@opencode-ai/server/auth"
 import { Effect, Encoding, Layer, Redacted } from "effect"
 import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiError, HttpApiMiddleware } from "effect/unstable/httpapi"
@@ -10,7 +9,6 @@ export {
   authorizationLayer as serverAuthorizationLayer,
 } from "@opencode-ai/server/middleware/authorization"
 
-const AUTH_TOKEN_QUERY = "auth_token"
 const UNAUTHORIZED = 401
 const WWW_AUTHENTICATE = 'Basic realm="Secure Area"'
 
@@ -45,21 +43,12 @@ function validateCredential<A, E, R>(
 ) {
   return Effect.gen(function* () {
     if (!ServerAuth.required(config)) return yield* effect
-    const request = yield* HttpServerRequest.HttpServerRequest
-    const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
-    if (
-      !ServerAuth.authorized(credential, config) &&
-      (token || request.headers.authorization || !browserAuthorized(request.headers, config))
-    ) {
+    if (!ServerAuth.authorized(credential, config)) {
       yield* HttpEffect.appendPreResponseHandler((_request, response) =>
         Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
       )
       return yield* new HttpApiError.Unauthorized({})
     }
-    if (token)
-      yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-        Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", browserCookie(config))),
-      )
     return yield* effect
   })
 }
@@ -81,12 +70,6 @@ function decodeCredential(input: string) {
 }
 
 function credentialFromRequest(request: HttpServerRequest.HttpServerRequest) {
-  return credentialFromURL(new URL(request.url, "http://localhost"), request)
-}
-
-function credentialFromURL(url: URL, request: HttpServerRequest.HttpServerRequest) {
-  const token = url.searchParams.get(AUTH_TOKEN_QUERY)
-  if (token) return decodeCredential(token)
   const match = /^Basic\s+(.+)$/i.exec(request.headers.authorization ?? "")
   if (match) return decodeCredential(match[1])
   return Effect.succeed(emptyCredential())
@@ -99,21 +82,14 @@ function validateRawCredential<A, E, R>(
 ) {
   if (!ServerAuth.required(config)) return effect
   return Effect.gen(function* () {
-    const request = yield* HttpServerRequest.HttpServerRequest
-    const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
     if (
-      !ServerAuth.authorized(credential, config) &&
-      (token || request.headers.authorization || !browserAuthorized(request.headers, config))
+      !ServerAuth.authorized(credential, config)
     )
       return yield* Effect.succeed(
         HttpServerResponse.empty({
           status: UNAUTHORIZED,
           headers: { "www-authenticate": WWW_AUTHENTICATE },
         }),
-      )
-    if (token)
-      yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-        Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", browserCookie(config))),
       )
     return yield* effect
   })
@@ -129,7 +105,7 @@ export const authorizationRouterMiddleware = HttpRouter.middleware()(
         const request = yield* HttpServerRequest.HttpServerRequest
         const url = new URL(request.url, "http://localhost")
         if (isPublicUIPath(request.method, url.pathname)) return yield* effect
-        return yield* credentialFromURL(url, request).pipe(
+        return yield* credentialFromRequest(request).pipe(
           Effect.flatMap((credential) => validateRawCredential(effect, credential, config)),
         )
       })
@@ -162,7 +138,7 @@ export const ptyConnectAuthorizationLayer = Layer.effect(
         const request = yield* HttpServerRequest.HttpServerRequest
         const url = new URL(request.url, "http://localhost")
         if (hasPtyConnectTicketURL(url)) return yield* effect
-        return yield* credentialFromURL(url, request).pipe(
+        return yield* credentialFromRequest(request).pipe(
           Effect.flatMap((credential) => validateCredential(effect, credential, config)),
         )
       }),

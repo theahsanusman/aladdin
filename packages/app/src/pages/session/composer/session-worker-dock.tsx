@@ -746,7 +746,12 @@ export function SessionWorkerDock() {
                                   {(check) => (
                                     <div class="mt-2">
                                       <p>
-                                        {language.t(labels[check.passed ? "completed" : "failed"])}: {check.check}
+                                        {language.t(
+                                          check.unverified
+                                            ? "session.workers.unverified"
+                                            : labels[check.passed ? "completed" : "failed"],
+                                        )}
+                                        : {check.check}
                                       </p>
                                       <p>{check.evidence}</p>
                                     </div>

@@ -20,19 +20,23 @@ export const roles = [
   "switch",
   "slider",
 ] as const
-export const target = z.discriminatedUnion("kind", [
-  z
-    .object({
-      kind: z.literal("role"),
-      role: z.enum(roles),
-      name: z.string().max(500),
-      exact: z.boolean().default(true),
-    })
-    .strict(),
-  z.object({ kind: z.literal("label"), value: z.string().max(500), exact: z.boolean().default(true) }).strict(),
-  z.object({ kind: z.literal("text"), value: z.string().max(500), exact: z.boolean().default(true) }).strict(),
-  z.object({ kind: z.literal("selector"), value: z.string().min(1).max(2000) }).strict(),
-])
+export const target = z
+  .discriminatedUnion("kind", [
+    z
+      .object({
+        kind: z.literal("role"),
+        role: z.enum(roles),
+        name: z.string().max(500),
+        exact: z.boolean().default(true),
+      })
+      .strict(),
+    z.object({ kind: z.literal("label"), value: z.string().max(500), exact: z.boolean().default(true) }).strict(),
+    z.object({ kind: z.literal("text"), value: z.string().max(500), exact: z.boolean().default(true) }).strict(),
+    z.object({ kind: z.literal("selector"), value: z.string().min(1).max(2000) }).strict(),
+  ])
+  .describe(
+    'Element target is a JSON object, not a string. Example: {"kind":"role","role":"button","name":"Save"}. Use kind="label", "text", or "selector" with value instead of role/name. Do not JSON.stringify target.',
+  )
 
 export function webURL(value: string) {
   const url = new URL(value)
@@ -139,7 +143,24 @@ export class BrowserError extends Error {
 }
 
 export function publicError(error: unknown) {
-  if (error instanceof z.ZodError) return "Invalid browser tool arguments. Check the tool schema; no action was taken."
+  if (error instanceof z.ZodError) {
+    // Report only known contract fields, never Zod messages, user values, or unknown property names.
+    const guidance: Record<string, string> = {
+      target: 'target must be a JSON object, not a string. Example: {"kind":"role","role":"button","name":"Save"}',
+      tab: 'tab must be the exact ID returned by camoufox_tabs(operation="list") for the selected profile',
+      profile:
+        "profile must use lowercase letters, numbers, underscores or hyphens; use default unless the human requests another profile",
+      key: "key must be a nonempty keyboard key or shortcut string, such as Enter, Tab, Escape or ControlOrMeta+A",
+      action: "use an advertised Camoufox tool name; Camoufox has no evaluation tool",
+      url: "url must be an HTTP(S) URL without embedded credentials",
+      files: "files must be names in the selected profile's uploads directory, not absolute paths or traversal",
+      values: "values must be a nonempty array of option strings",
+    }
+    const field = error.issues
+      .map((issue) => issue.path[0])
+      .find((field) => typeof field === "string" && Object.hasOwn(guidance, field))
+    return `Invalid browser tool arguments. ${typeof field === "string" ? guidance[field] : "Use the advertised schema and remove extra fields"}; no action was taken.`
+  }
   if (error instanceof BrowserError)
     return {
       closed: "That profile is closed. Open it with the profiles tool; Camoufox always opens a visible window.",

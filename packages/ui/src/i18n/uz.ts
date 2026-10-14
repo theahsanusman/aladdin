@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Seans o'zgarishlari",
@@ -80,6 +79,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Foydalanish chegarasiga yetdi. Ushbu modeldan hozir foydalanishni davom ettirish uchun mavjud balansingizdan foydalanishni yoqing",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Sozlamalarni oching",
+  "dialog.usageExceeded.switchAccount": "Hisobni almashtirish",
   "ui.sessionTurn.status.delegating": "Ishni topshirish",
   "ui.sessionTurn.status.planning": "Keyingi qadamlarni rejalashtirish",
   "ui.sessionTurn.status.gatheringContext": "Tadqiq qilish",
@@ -187,6 +187,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Koʻchirildi",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "o'rtacha {{value}} tok/s",
   "ui.message.interrupted": "Uzildi",
   "ui.message.queued": "Navbatda",
   "ui.message.attachment.alt": "biriktirma",
@@ -195,9 +196,16 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Koʻchirildi",
   "ui.patch.action.patched": "Yamalgan",
   "ui.question.subtitle.answered": "{{count}} javob berdi",
+  "ui.question.subtitle.timeout": "{{count}} muddat tugaganda taxmin qilindi",
+  "ui.question.subtitle.unattended": "{{count}} qarovsiz taxmin qilindi",
+  "ui.question.subtitle.skipped": "{{count}} o'tkazib yuborildi",
+  "ui.question.source.timeout": "Javob berilmasdan muddat tugadi; birinchi (tavsiya etilgan) variant taxmin qilindi.",
+  "ui.question.source.unattended": "Foydalanuvchi mavjud emas edi; birinchi (tavsiya etilgan) variant taxmin qilindi.",
+  "ui.question.source.skipped": "O'tkazib yuborildi; agent o'z mulohazasi bilan davom etadi.",
   "ui.question.answer.none": "(javob yo'q)",
   "ui.question.review.notAnswered": "(javob berilmagan)",
   "ui.question.multiHint": "Barcha tegishli javoblarni tanlang",
   "ui.question.singleHint": "Bitta javobni tanlang",
   "ui.question.custom.placeholder": "Javobingizni yozing...",
+  "ui.promptInput.permissionMode": "Permission mode",
 }

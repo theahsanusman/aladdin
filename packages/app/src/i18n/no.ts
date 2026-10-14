@@ -20,6 +20,8 @@ export const dict = {
   "session.workers.native": "Michael (full tools)",
   "session.workers.nativeScope": "Runs in this project using Michael's tools and your chat permissions. Give workers separate file ownership. Changes apply directly to the project.",
   "session.workers.results": "Worker results",
+  "session.workers.resultCount": "{{count}} worker results",
+  "session.workers.unverified": "Not verified",
   "session.workers.checksResult": "Verification evidence",
   "session.workers.reconnecting": "Reconnecting to workers. Showing the last saved results.",
   "session.workers.retry": "Retry task",

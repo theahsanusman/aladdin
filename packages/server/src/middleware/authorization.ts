@@ -6,7 +6,6 @@ import { hasPtyConnectTicketURL } from "@opencode-ai/protocol/groups/pty"
 import { Effect, Encoding, Layer, Redacted } from "effect"
 import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 
-const AUTH_TOKEN_QUERY = "auth_token"
 const WWW_AUTHENTICATE = 'Basic realm="Secure Area"'
 
 function emptyCredential() {
@@ -27,9 +26,6 @@ function decodeCredential(input: string) {
 }
 
 function credentialFromRequest(request: HttpServerRequest.HttpServerRequest) {
-  const url = new URL(request.url, "http://localhost")
-  const token = url.searchParams.get(AUTH_TOKEN_QUERY)
-  if (token) return decodeCredential(token)
   const match = /^Basic\s+(.+)$/i.exec(request.headers.authorization ?? "")
   if (match) return decodeCredential(match[1])
   return Effect.succeed(emptyCredential())
@@ -47,20 +43,13 @@ export const authorizationLayer = Layer.effect(
         // credential checks here; the connect handler consumes and validates the ticket.
         if (hasPtyConnectTicketURL(new URL(request.url, "http://localhost"))) return yield* effect
         const credential = yield* credentialFromRequest(request)
-        const token = new URL(request.url, "http://localhost").searchParams.get(AUTH_TOKEN_QUERY)
-        if (ServerAuth.authorized(credential, config)) {
-          if (token)
-            yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-              Effect.succeed(HttpServerResponse.setHeader(response, "set-cookie", ServerAuth.browserCookie(config))),
-            )
-          return yield* effect
+        if (!ServerAuth.authorized(credential, config)) {
+          yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+            Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
+          )
+          return yield* new UnauthorizedError({ message: "Authentication required" })
         }
-        if (!token && !request.headers.authorization && ServerAuth.browserAuthorized(request.headers, config))
-          return yield* effect
-        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-          Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
-        )
-        return yield* new UnauthorizedError({ message: "Authentication required" })
+        return yield* effect
       }),
     )
   }),

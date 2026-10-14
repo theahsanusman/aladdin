@@ -1,12 +1,16 @@
 # Aladdin Browser
 
-Camoufox is Aladdin's default local browser. It always opens a visible GUI window. The human and Aladdin use the same persistent profile; open `/Applications/Aladdin Browser.app` and sign in manually once. Closing and reopening a profile preserves cookies and local storage.
+Camoufox is an optional local browser, installed with its saved profiles but disabled by default. Use it only after the human explicitly requests Camoufox. Standard [Agent Chrome](../agent-chrome/README.md) is the default. It always opens a visible GUI window. The human and Aladdin use the same persistent profile; open `/Applications/Aladdin Browser.app` and sign in manually once. Closing and reopening a profile preserves cookies and local storage.
 
 The current user preference is to work only in `default`, including site tests. The app icon opens `default`, tool arguments default to it, and Aladdin's live MCP instructions require it until the human explicitly changes that preference. Other existing profiles are retained.
 
-The `camoufox_*` MCP tools are allowed for routine browser use. Chrome's existing `--autoConnect` configuration is preserved and its MCP tools remain available as a secondary option. The official Chrome DevTools server does not attach to Chrome during MCP initialization or tool discovery; attachment starts when a browser tool is invoked. Aladdin's browser instructions permit those tools only for an explicit human request to use Chrome or the main browser. Camoufox remains the default, with no automatic Chrome fallback. Chrome may require its own one-time sharing approval.
+The `camoufox_*` MCP tools are disabled by default and require an explicit Camoufox request. The Chrome DevTools MCP connects only to the separate Agent Chrome at `http://127.0.0.1:9222`; auto-connect and personal Chrome attachment are forbidden. Agent Chrome requires no browser-sharing prompt.
 
 ## Profiles and tools
+
+The repository's `skills/camoufox/SKILL.md` documents every tool with schema-checked JSON examples. The shared OpenCode config registers its directory through `skills.paths`, so other projects can discover it too. Michael and Michael workers load it only for explicitly requested Camoufox work; Michael Lead requires it in browser worker briefs without gaining browser execution tools. MCP initialization repeats this routing and the object-target contract. Reload Aladdin after changing these configuration or agent files.
+
+Targets are JSON objects, not quoted JSON strings. Argument errors name known contract fields and explain corrections without reflecting page content, credentials, values, or unknown property names. Known broker errors retain their fixed recovery guidance; arbitrary browser exceptions remain redacted.
 
 If multiple profiles are wanted later, explicitly change the default-only preference, then ask Aladdin to create or open a named profile through `camoufox_profiles`. Names use lowercase letters, numbers, `_` or `-`, up to 40 characters. Each profile has separate login state and one persisted fingerprint preset. Keep the same profile for the same accounts.
 
@@ -42,7 +46,7 @@ The human launcher is built from `native/launcher.swift` with `swiftc`. Its `.ap
 
 Chrome profiles are never imported. No proxy, CAPTCHA solver or cloud browser service is configured. Telemetry and automatic crash uploads are disabled. Camera, microphone and geolocation permissions default to deny. The browser keeps signed-in cookies but does not save passwords through its password manager. Profile files contain sensitive login state protected by macOS file permissions; this integration does not add encryption.
 
-For the existing local Chrome DevTools MCP, configuration disables usage statistics, periodic update checks and the performance tool's external CrUX queries. Its original auto-connect command and unrelated environment settings are preserved.
+For the existing local Chrome DevTools MCP, configuration disables usage statistics, periodic update checks and the performance tool's external CrUX queries. Its current command uses the dedicated Agent Chrome wrapper and fixed loopback endpoint; auto-connect is forbidden.
 
 Downloads remain in each profile's private `downloads` directory. Uploads accept only named files in that profile's private `uploads` directory, rejecting traversal and symlinks. There is no tool for arbitrary JavaScript execution, cookie export or local-file navigation. Password values are redacted from accessible snapshots; screenshots can show private content. Page content and screenshots used by Aladdin are sent to its configured AI provider.
 
@@ -71,4 +75,4 @@ The optional `verification/chrome-lazy.test.ts` runs the installed official Chro
 
 Closing a browser window keeps its profile. Opening it again through the app or profiles tool restarts the browser when needed. A kernel-backed service lock prevents simultaneous brokers from owning a profile and releases when its process exits.
 
-The original global configuration is backed up under `state/config-backups`. Review that backup before any rollback because it includes the previous Chrome auto-connect setting and may include private provider configuration. Disable Camoufox through Aladdin's MCP settings to stop agent access; stopping the integration must not trigger Chrome browser calls as a fallback. Preserve the private `state/profiles` directory if uninstalling and retaining signed-in accounts.
+The original global configuration is backed up under `state/config-backups`. Review that backup before any rollback because it includes the obsolete Chrome auto-connect setting and may include private provider configuration. Never restore auto-connect or attach to personal Chrome. Disable Camoufox through Aladdin's MCP settings to stop agent access; stopping the integration must not trigger Chrome browser calls as a fallback. Preserve the private `state/profiles` directory if uninstalling and retaining signed-in accounts.

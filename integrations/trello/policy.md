@@ -1,0 +1,7 @@
+# Connected HQ Trello board
+
+When the human asks to fetch or work on Trello tasks, load the `trello-work` skill. HQ is https://trello.com/b/m6JV1MoB/hq; use the separate automation account and the official `trello` MCP. Project labels are plain project names such as `QBIG` or `Aladdin`, with no prefix. Match the current project's name without case sensitivity and trim surrounding spaces. Use an exact label name supplied by the human. Read the card and comments, and keep its status and verified results on Trello. Normal Michael uses MCP directly; Michael Lead/dispatcher keeps its existing coordinator boundary and assigns Trello work through an existing native Michael worker. Preserve the actual acceptance checks. One executing owner maintains each card's status and comments.
+
+Work starts on invocation in a chat. The connection does not authorize schedules or work on unrelated projects. The human explicitly selected dedicated Agent Chrome at `http://127.0.0.1:9222` for this integration's browser fallback; include that choice in worker briefs. Do not use personal Chrome or Camoufox implicitly. Connection metadata is at `/Users/ahsan/Library/Application Support/Aladdin Trello/workflow.json`.
+
+Verified agent work goes to `Pending Review` with evidence. Only the human moves accepted work to `Done`; agents must not mark cards complete automatically. Corrections stay on the same card unless they are independent new work.

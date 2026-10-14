@@ -1,5 +1,4 @@
 export const dict: Record<string, string> = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Setubroytingar",
@@ -78,6 +77,7 @@ export const dict: Record<string, string> = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Nýtslumarkið er nátt. Fyri at halda fram at brúka hetta modellið nú, skalt tú virkja nýtslu frá tínari tøku saldu",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Opna innstillingar",
+  "dialog.usageExceeded.switchAccount": "Skift kontu",
   "ui.sessionTurn.status.delegating": "At útnevna arbeiði",
   "ui.sessionTurn.status.planning": "Planleggja næstu stig",
   "ui.sessionTurn.status.gatheringContext": "Kanna",
@@ -127,6 +127,7 @@ export const dict: Record<string, string> = {
   "ui.promptInput.chooseAgent": "Vel agent",
   "ui.promptInput.chooseModel": "Vel modell",
   "ui.promptInput.chooseVariant": "Vel modellvariant",
+  "ui.promptInput.permissionMode": "Loyvisháttur",
   "ui.promptInput.send": "Send",
   "ui.promptInput.stop": "Steðga",
   "ui.tabs.close": "Lat flipan aftur",
@@ -184,6 +185,7 @@ export const dict: Record<string, string> = {
   "ui.message.copied": "Avritað",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} miðal tok/s",
   "ui.message.interrupted": "Avbrotið",
   "ui.message.queued": "Bíðirøð",
   "ui.message.attachment.alt": "viðheft",
@@ -192,6 +194,13 @@ export const dict: Record<string, string> = {
   "ui.patch.action.moved": "Flutt",
   "ui.patch.action.patched": "Lappað",
   "ui.question.subtitle.answered": "{{count}} svarað",
+  "ui.question.subtitle.timeout": "{{count}} antikið við tíðaravmark",
+  "ui.question.subtitle.unattended": "{{count}} antikið uttan eftirlit",
+  "ui.question.subtitle.skipped": "{{count}} slept",
+  "ui.question.source.timeout":
+    "Tíðaravmarkið rann út, áðrenn eitt svar kom; fyrsti (viðmælti) valmøguleikin varð antikur.",
+  "ui.question.source.unattended": "Eingin brúkari var tøkur; fyrsti (viðmælti) valmøguleikin varð antikur.",
+  "ui.question.source.skipped": "Sleppt; agenturin heldur áfram eftir egnum dømi.",
   "ui.question.answer.none": "(einki svar)",
   "ui.question.review.notAnswered": "(ikki svarað)",
   "ui.question.multiHint": "Vel øll svar, sum eru galdandi",

@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Cambios de la sesión",
@@ -83,6 +82,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Límite de uso alcanzado. Para seguir usando este modelo ahora, habilita el uso desde tu saldo disponible",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Abrir ajustes",
+  "dialog.usageExceeded.switchAccount": "Cambiar de cuenta",
 
   "ui.sessionTurn.status.delegating": "Delegando trabajo",
   "ui.sessionTurn.status.planning": "Planificando siguientes pasos",
@@ -136,6 +136,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Elegir agente",
   "ui.promptInput.chooseModel": "Elegir modelo",
   "ui.promptInput.chooseVariant": "Elegir variante del modelo",
+  "ui.promptInput.permissionMode": "Modo de permisos",
   "ui.promptInput.send": "Enviar",
   "ui.promptInput.stop": "Detener",
 
@@ -194,6 +195,7 @@ export const dict = {
   "ui.message.revertMessage": "Restablecer a este punto",
   "ui.message.copyResponse": "Copiar respuesta",
   "ui.message.copied": "¡Copiado!",
+  "ui.message.speed": "{{value}} tok/s de media",
   "ui.message.interrupted": "Interrumpido",
   "ui.message.queued": "En cola",
   "ui.message.attachment.alt": "adjunto",
@@ -204,6 +206,12 @@ export const dict = {
   "ui.patch.action.patched": "Parcheado",
 
   "ui.question.subtitle.answered": "{{count}} respondidas",
+  "ui.question.subtitle.timeout": "{{count}} asumidas al vencer el plazo",
+  "ui.question.subtitle.unattended": "{{count}} asumidas sin supervisión",
+  "ui.question.subtitle.skipped": "{{count}} omitidas",
+  "ui.question.source.timeout": "El plazo venció antes de responder; se asumió la primera opción (la recomendada).",
+  "ui.question.source.unattended": "No había ningún usuario disponible; se asumió la primera opción (la recomendada).",
+  "ui.question.source.skipped": "Omitida; el agente continúa según su propio criterio.",
   "ui.question.answer.none": "(sin respuesta)",
   "ui.question.review.notAnswered": "(no respondida)",
   "ui.question.multiHint": "Selecciona todas las que correspondan",

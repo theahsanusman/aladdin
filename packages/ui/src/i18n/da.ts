@@ -1,5 +1,4 @@
 export const dict = {
-  "ui.promptInput.permissionMode": "Permission mode",
   "ui.tool.autoApproved": "Auto-approved",
   "ui.tool.autoApproved.details": "Automatically approved actions and resources",
   "ui.sessionReview.title": "Sessionsændringer",
@@ -80,6 +79,7 @@ export const dict = {
   "dialog.usageExceeded.accountRateLimit.description":
     "Forbrugsgrænse nået. For at fortsætte med at bruge denne model nu, aktivér forbrug fra din tilgængelige saldo",
   "dialog.usageExceeded.accountRateLimit.actionLabel": "Åbn indstillinger",
+  "dialog.usageExceeded.switchAccount": "Skift konto",
 
   "ui.sessionTurn.status.delegating": "Delegerer arbejde",
   "ui.sessionTurn.status.planning": "Planlægger næste trin",
@@ -179,6 +179,13 @@ export const dict = {
   "ui.patch.action.patched": "Patchet",
 
   "ui.question.subtitle.answered": "{{count}} besvaret",
+  "ui.question.subtitle.timeout": "{{count}} antaget ved fristen",
+  "ui.question.subtitle.unattended": "{{count}} antaget uden opsyn",
+  "ui.question.subtitle.skipped": "{{count}} sprunget over",
+  "ui.question.source.timeout":
+    "Fristen udløb, før der kom et svar; den første (anbefalede) valgmulighed blev antaget.",
+  "ui.question.source.unattended": "Der var ingen bruger til stede; den første (anbefalede) valgmulighed blev antaget.",
+  "ui.question.source.skipped": "Sprunget over; agenten fortsætter efter eget skøn.",
   "ui.question.answer.none": "(intet svar)",
   "ui.question.review.notAnswered": "(ikke besvaret)",
   "ui.question.multiHint": "Vælg alle der gælder",
@@ -196,6 +203,7 @@ export const dict = {
   "ui.toolErrorCard.copyError": "Kopier fejl",
   "ui.message.duration.seconds": "{{count}}s",
   "ui.message.duration.minutesSeconds": "{{minutes}}m {{seconds}}s",
+  "ui.message.speed": "{{value}} gns. tok/s",
   "ui.lineComment.contextPlaceholder": "Tilføj kontekst til denne ændring",
 
   "ui.promptInput.noMatchingItems": "Ingen matchende elementer",
@@ -212,6 +220,7 @@ export const dict = {
   "ui.promptInput.chooseAgent": "Vælg agent",
   "ui.promptInput.chooseModel": "Vælg model",
   "ui.promptInput.chooseVariant": "Vælg modelvariant",
+  "ui.promptInput.permissionMode": "Tilladelsestilstand",
   "ui.promptInput.send": "Send",
   "ui.promptInput.stop": "Stop",
 

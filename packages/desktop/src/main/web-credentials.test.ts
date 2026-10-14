@@ -2,7 +2,13 @@ import { afterEach, expect, test } from "bun:test"
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import { disableWebPassword, loadWebPassword, resetWebPassword, webPasswordPath } from "./web-credentials"
+import {
+  disableWebPassword,
+  loadWebPassword,
+  resetWebPassword,
+  verifyWebPassword,
+  webPasswordPath,
+} from "./web-credentials"
 
 const directories: string[] = []
 const temporary = async () => {
@@ -15,10 +21,50 @@ afterEach(() => Promise.all(directories.splice(0).map((directory) => rm(director
 test("desktop launches reuse one private web password rather than rotating browser login", async () => {
   const directory = await temporary()
   const password = await loadWebPassword(directory)
-  expect(password.length).toBeGreaterThanOrEqual(32)
+  expect(password).toStartWith("scrypt$")
+  expect(password).not.toContain("private-test")
   expect(await loadWebPassword(directory)).toBe(password)
   expect(await readFile(webPasswordPath(directory), "utf8")).toBe(password)
   if (process.platform !== "win32") expect((await stat(webPasswordPath(directory))).mode & 0o777).toBe(0o600)
+})
+
+test("the stored verifier is a salted scrypt hash, not the plaintext password", async () => {
+  const directory = await temporary()
+  const plaintext = await resetWebPassword(directory, "correct-horse-battery-staple")
+  const stored = await readFile(webPasswordPath(directory), "utf8")
+  expect(plaintext).toBe("correct-horse-battery-staple")
+  expect(stored).toStartWith("scrypt$")
+  expect(stored).not.toContain("correct-horse-battery-staple")
+  expect(verifyWebPassword("correct-horse-battery-staple", stored)).toBe(true)
+  expect(verifyWebPassword("wrong-password-attempt", stored)).toBe(false)
+  expect(await loadWebPassword(directory)).toBe(stored)
+})
+
+test("resetting to the same password twice produces different verifiers", async () => {
+  const directory = await temporary()
+  await resetWebPassword(directory, "correct-horse-battery-staple")
+  const firstStored = await readFile(webPasswordPath(directory), "utf8")
+  await resetWebPassword(directory, "correct-horse-battery-staple")
+  const secondStored = await readFile(webPasswordPath(directory), "utf8")
+  expect(firstStored).not.toBe(secondStored)
+  expect(verifyWebPassword("correct-horse-battery-staple", firstStored)).toBe(true)
+  expect(verifyWebPassword("correct-horse-battery-staple", secondStored)).toBe(true)
+})
+
+test("a legacy plaintext password file is migrated in place to a hash on load", async () => {
+  const directory = await temporary()
+  await writeFile(webPasswordPath(directory), "legacy-plaintext-password", { mode: 0o600 })
+  const loaded = await loadWebPassword(directory)
+  expect(loaded).toStartWith("scrypt$")
+  expect(await readFile(webPasswordPath(directory), "utf8")).toBe(loaded)
+  if (process.platform !== "win32") expect((await stat(webPasswordPath(directory))).mode & 0o777).toBe(0o600)
+})
+
+test("reset enforces printable ASCII so a phone keyboard can type the password", async () => {
+  const directory = await temporary()
+  for (const invalid of ["café-password-12", "pass word-12", "pass word-12", "pass’word-12"]) {
+    await expect(resetWebPassword(directory, invalid)).rejects.toThrow(/ASCII/)
+  }
 })
 
 test("concurrent starts agree on one fully written password", async () => {
@@ -31,8 +77,11 @@ test("explicit reset atomically replaces credentials and subsequent launches ret
   const directory = await temporary()
   const previous = await loadWebPassword(directory)
   const next = await resetWebPassword(directory, "new-private-test-password")
+  expect(next).toBe("new-private-test-password")
   expect(next).not.toBe(previous)
-  expect(await loadWebPassword(directory)).toBe("new-private-test-password")
+  const stored = await readFile(webPasswordPath(directory), "utf8")
+  expect(verifyWebPassword("new-private-test-password", stored)).toBe(true)
+  expect(await loadWebPassword(directory)).toBe(stored)
   expect((await stat(webPasswordPath(directory))).mode & 0o777).toBe(0o600)
 })
 
@@ -50,7 +99,9 @@ test("resetting a password re-enables authentication after passwordless access",
   const directory = await temporary()
   await writeFile(join(directory, "aladdin-web-no-password"), "disabled", { mode: 0o600 })
   await resetWebPassword(directory, "new-private-test-password")
-  expect(await loadWebPassword(directory)).toBe("new-private-test-password")
+  const stored = await readFile(webPasswordPath(directory), "utf8")
+  expect(verifyWebPassword("new-private-test-password", stored)).toBe(true)
+  expect(await loadWebPassword(directory)).toBe(stored)
   await expect(stat(join(directory, "aladdin-web-no-password"))).rejects.toThrow()
 })
 
@@ -82,7 +133,9 @@ test("reset command uses private stdin and never prints the password", async () 
     new Response(child.stderr).text(),
   ])
   expect(code).toBe(0)
-  expect(await loadWebPassword(directory)).toBe("private-cli-test-password")
+  const stored = await readFile(webPasswordPath(directory), "utf8")
+  expect(verifyWebPassword("private-cli-test-password", stored)).toBe(true)
+  expect(await loadWebPassword(directory)).toBe(stored)
   expect(output + error).not.toContain("private-cli-test-password")
   expect(output).toContain("Username: opencode")
 })

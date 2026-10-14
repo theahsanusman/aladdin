@@ -32,8 +32,10 @@ const MCP_RESOURCE_TOOLS = {
 const MAX_MCP_RESOURCE_BLOB_BYTES = 10 * 1024 * 1024
 const SUPPORTED_MCP_RESOURCE_ATTACHMENT_MIMES = new Set(["application/pdf", "image/gif", "image/png", "image/webp"])
 // The coordinating lead keeps only its orchestration tools; everything else it
-// would ask for (shell, edit, write, task) belongs to its workers.
-const LEAD_TOOLS = new Set([
+// would ask for (shell, edit, write, task) belongs to its workers. The lead
+// prompt enumerates this set verbatim, so changing it fails the agent prompt
+// regression until the advertised list is updated too.
+export const LEAD_TOOLS = new Set([
   "task_dispatch",
   "task_inspect",
   "question",

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 
-import { requests, webURL, publicError } from "../src/contracts.ts"
+import { requests, shapes, webURL, publicError } from "../src/contracts.ts"
 const api = { requests, webURL, publicError }
 
 test("browser navigation accepts web URLs and rejects local files, code and credentials", () => {
@@ -60,4 +60,41 @@ test("visual interaction can type into a focused control without exposing evalua
   expect(api.requests.safeParse({ action: "type", tab: "t0123456789abcdef-1", text: "visible input" }).success).toBe(
     true,
   )
+})
+
+test("string targets explain the object contract without echoing their contents", () => {
+  const result = requests.safeParse({
+    action: "press",
+    tab: "t0123456789abcdef-1",
+    key: "Enter",
+    target: '{"kind":"text","value":"private-page-secret"}',
+  })
+  expect(result.success).toBe(false)
+  if (result.success) throw new Error("String target was accepted")
+  const error = publicError(result.error)
+  expect(error).toContain("target")
+  expect(error).toContain("object")
+  expect(error).toContain("no action was taken")
+  expect(error).not.toContain("private-page-secret")
+})
+
+test("argument errors identify safe fields but never disclose unknown keys or values", () => {
+  const result = requests.safeParse({
+    action: "press",
+    tab: "private-tab-secret",
+    key: "Enter",
+    "secret-key": "secret-value",
+  })
+  expect(result.success).toBe(false)
+  if (result.success) throw new Error("Invalid arguments were accepted")
+  const error = publicError(result.error)
+  expect(error).toContain("tab")
+  expect(error).not.toContain("private-tab-secret")
+  expect(error).not.toContain("secret-key")
+  expect(error).not.toContain("secret-value")
+})
+
+test("target schemas tell models to send objects rather than JSON strings", () => {
+  expect(shapes.press.shape.target.unwrap().description).toContain("JSON object")
+  expect(shapes.click.shape.target.description).toContain("not a string")
 })

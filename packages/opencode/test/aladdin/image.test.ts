@@ -30,4 +30,25 @@ describe("Aladdin image adapters", () => {
       mime: "image/webp",
     })
   })
+
+  test("rejects non-array image lists instead of treating arbitrary failure fields as images", () => {
+    expect(parseCloudImage("openai", { data: { 0: { b64_json: "private failure text" } } })).toBeUndefined()
+    expect(parseCloudImage("openrouter", { data: { 0: { b64_json: "private failure text" } } })).toBeUndefined()
+    expect(parseDrawThingsImage({ images: { 0: "private failure text" } })).toBeUndefined()
+  })
+
+  test("parses OpenRouter chat image data URLs without downloading remote image URLs", () => {
+    expect(
+      parseCloudImage("openrouter", {
+        choices: [{ message: { images: [{ type: "image_url", image_url: { url: "data:image/webp;base64,QUJD" } }] } }],
+      }),
+    ).toEqual({ image: "QUJD", mime: "image/webp" })
+    expect(
+      parseCloudImage("openrouter", {
+        choices: [
+          { message: { images: [{ type: "image_url", image_url: { url: "https://example.com/private-image" } }] } },
+        ],
+      }),
+    ).toBeUndefined()
+  })
 })
