@@ -9,7 +9,7 @@ import type { GoalAction, SessionComposerController, SessionGoalView } from "./s
 
 export type SessionComposerFollowupDock = {
   items: { id: string; text: string }[]
-  sending?: string
+  sending?: string[]
   onSend: (id: string) => void
   onEdit: (id: string) => void
   onDelete: (id: string) => void
@@ -30,13 +30,13 @@ export function createSessionComposerRegionController(input: {
   prompt: PromptInputState
   ready: Accessor<boolean>
   centered: Accessor<boolean>
-    todo: {
-      collapsed: Accessor<boolean>
-      onToggle: () => void
-    }
-    goal: Accessor<SessionGoalView | undefined>
-    goalBusy: Accessor<boolean>
-    onGoalAction: (action: GoalAction) => void
+  todo: {
+    collapsed: Accessor<boolean>
+    onToggle: () => void
+  }
+  goal: Accessor<SessionGoalView | undefined>
+  goalBusy: Accessor<boolean>
+  onGoalAction: (action: GoalAction) => void
   followup: Accessor<SessionComposerFollowupDock | undefined>
   revert: Accessor<SessionComposerRevertDock | undefined>
   onResponseSubmit: () => void

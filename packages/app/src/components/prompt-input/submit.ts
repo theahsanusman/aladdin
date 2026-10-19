@@ -1,21 +1,22 @@
-import type { Message, Session } from "@opencode-ai/sdk/v2/client"
+import type { Session } from "@opencode-ai/sdk/v2/client"
 import { showToast } from "@/utils/toast"
 import { base64Encode } from "@opencode-ai/core/util/encode"
 import { Binary } from "@opencode-ai/core/util/binary"
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
 import { batch, startTransition, type Accessor } from "solid-js"
 import { useTabs } from "@/context/tabs"
-import { useServerSync, type ServerSync } from "@/context/server-sync"
+import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useLocal, type ModelSelection } from "@/context/local"
 import { usePermission } from "@/context/permission"
 import { type ContextItem, type ImageAttachmentPart, type Prompt, type usePrompt } from "@/context/prompt"
-import { useSDK, type DirectorySDK } from "@/context/sdk"
-import { useSync, type DirectorySync } from "@/context/sync"
+import { useSDK } from "@/context/sdk"
+import { useSync } from "@/context/sync"
 import { Identifier } from "@/utils/id"
 import { Worktree as WorktreeState } from "@/utils/worktree"
-import { buildRequestParts } from "./build-request-parts"
+import { sendFollowupDraft, type FollowupDraft } from "./followup"
+export { sendFollowupDraft, type FollowupDraft } from "./followup"
 import { setCursorPosition } from "./editor-dom"
 import { formatServerError } from "@/utils/server-errors"
 import { ScopedKey } from "@/utils/server-scope"
@@ -30,184 +31,6 @@ type PendingPrompt = {
 }
 
 const pending = new Map<string, PendingPrompt>()
-
-export type FollowupDraft = {
-  sessionID: string
-  sessionDirectory: string
-  prompt: Prompt
-  context: (ContextItem & { key: string })[]
-  agent: string
-  model: { providerID: string; modelID: string }
-  variant?: string
-}
-
-type FollowupSendInput = {
-  api: DirectorySDK["api"]["session"]
-  serverSync: ServerSync
-  sync: DirectorySync
-  draft: FollowupDraft
-  delivery?: "steer" | "queue"
-  messageID?: string
-  optimisticBusy?: boolean
-  before?: () => Promise<boolean> | boolean
-}
-
-const draftText = (prompt: Prompt) => prompt.map((part) => ("content" in part ? part.content : "")).join("")
-
-const draftImages = (prompt: Prompt) => prompt.filter((part): part is ImageAttachmentPart => part.type === "image")
-
-export async function sendFollowupDraft(input: FollowupSendInput) {
-  const text = draftText(input.draft.prompt)
-  const images = draftImages(input.draft.prompt)
-  const setBusy = () => {
-    if (!input.optimisticBusy) return
-    input.serverSync.session.set("session_status", input.draft.sessionID, { type: "busy" })
-  }
-
-  const setIdle = () => {
-    if (!input.optimisticBusy) return
-    input.serverSync.session.set("session_status", input.draft.sessionID, { type: "idle" })
-  }
-
-  const wait = async () => {
-    const ok = await input.before?.()
-    if (ok === false) return false
-    return true
-  }
-
-  const [head, ...tail] = text.split(" ")
-  const cmd = head?.startsWith("/") ? head.slice(1) : undefined
-  if (cmd && input.sync.data.command.find((item) => item.name === cmd)) {
-    setBusy()
-    try {
-      if (!(await wait())) {
-        setIdle()
-        return false
-      }
-
-      const messageID = Identifier.ascending("message")
-      await input.api.command({
-        sessionID: input.draft.sessionID,
-        id: messageID,
-        command: cmd,
-        arguments: tail.join(" "),
-        agent: input.draft.agent,
-        model: {
-          id: input.draft.model.modelID,
-          providerID: input.draft.model.providerID,
-          variant: input.draft.variant,
-        },
-        files: await Promise.all(
-          images.map(async (attachment) => ({
-            uri: await blobDataUrl(attachment.blob, attachment.mime),
-            name: attachment.filename,
-          })),
-        ),
-      })
-      return true
-    } catch (err) {
-      setIdle()
-      throw err
-    }
-  }
-
-  const messageID = input.messageID ?? Identifier.ascending("message")
-  const encodedImages = await Promise.all(
-    images.map(async (attachment) => ({
-      ...attachment,
-      dataUrl: await blobDataUrl(attachment.blob, attachment.mime),
-    })),
-  )
-  const { requestParts, optimisticParts } = buildRequestParts({
-    prompt: input.draft.prompt,
-    context: input.draft.context,
-    images: encodedImages,
-    text,
-    sessionID: input.draft.sessionID,
-    messageID,
-    sessionDirectory: input.draft.sessionDirectory,
-  })
-
-  const message: Message = {
-    id: messageID,
-    sessionID: input.draft.sessionID,
-    role: "user",
-    time: { created: Date.now() },
-    agent: input.draft.agent,
-    model: { ...input.draft.model, variant: input.draft.variant },
-  }
-
-  const add = () =>
-    input.sync.session.optimistic.add({
-      directory: input.draft.sessionDirectory,
-      sessionID: input.draft.sessionID,
-      message,
-      parts: optimisticParts,
-    })
-
-  const remove = () =>
-    input.sync.session.optimistic.remove({
-      directory: input.draft.sessionDirectory,
-      sessionID: input.draft.sessionID,
-      messageID,
-    })
-
-  batch(() => {
-    setBusy()
-    add()
-  })
-
-  try {
-    if (!(await wait())) {
-      batch(() => {
-        setIdle()
-        remove()
-      })
-      return false
-    }
-
-    await input.api.prompt({
-      sessionID: input.draft.sessionID,
-      id: messageID,
-      agent: input.draft.agent,
-      model: input.draft.model,
-      variant: input.draft.variant,
-      delivery: input.delivery,
-      legacyParts: requestParts,
-      text: requestParts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n"),
-      files: requestParts.flatMap((part) => {
-        if (part.type !== "file") return []
-        const text = part.source?.text
-        return [
-          {
-            uri: part.url,
-            name: part.filename,
-            mention: text ? { start: text.start, end: text.end, text: text.value } : undefined,
-          },
-        ]
-      }),
-      agents: requestParts.flatMap((part) =>
-        part.type === "agent"
-          ? [
-              {
-                name: part.name,
-                mention: part.source
-                  ? { start: part.source.start, end: part.source.end, text: part.source.value }
-                  : undefined,
-              },
-            ]
-          : [],
-      ),
-    })
-    return true
-  } catch (err) {
-    batch(() => {
-      setIdle()
-      remove()
-    })
-    throw err
-  }
-}
 
 type PromptSubmitInput = {
   prompt: ReturnType<typeof usePrompt>

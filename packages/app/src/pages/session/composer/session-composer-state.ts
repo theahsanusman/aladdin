@@ -8,7 +8,8 @@ import { useLanguage } from "@/context/language"
 import { usePermission } from "@/context/permission"
 import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
-import { sessionPermissionRequest, sessionQuestionRequest } from "./session-request-tree"
+import { isDetachedWorkerSession, sessionPermissionRequest, sessionQuestionRequest } from "./session-request-tree"
+export { isDetachedWorkerSession } from "./session-request-tree"
 
 export const todoState = (input: {
   count: number
@@ -39,13 +40,6 @@ export function permissionBlocksComposer(sessions: readonly Session[], owner: st
   return !isDetachedWorkerSession(sessions, owner, request.sessionID)
 }
 
-export function isDetachedWorkerSession(sessions: readonly Session[], owner: string, sessionID: string) {
-  if (sessionID === owner) return false
-  const actor = sessions.find((session) => session.id === sessionID)
-  const task = actor?.metadata?.task
-  return !!(task && typeof task === "object" && "ownerSessionID" in task && task.ownerSessionID === owner)
-}
-
 export function createSessionComposerController(options?: { closeMs?: number | (() => number) }) {
   const params = useParams()
   const sdk = useSDK()
@@ -55,12 +49,20 @@ export function createSessionComposerController(options?: { closeMs?: number | (
   const permission = usePermission()
 
   const questionRequest = createMemo((): QuestionRequest | undefined => {
-    return sessionQuestionRequest(sync().data.session, sync().data.question, params.id, (item) => !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID))
+    return sessionQuestionRequest(
+      sync().data.session,
+      sync().data.question,
+      params.id,
+      (item) => !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID),
+    )
   })
 
   const permissionRequest = createMemo((): PermissionRequest | undefined => {
     return sessionPermissionRequest(sync().data.session, sync().data.permission, params.id, (item) => {
-      return !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID) && !permission.autoResponds(item, sdk().directory)
+      return (
+        !isDetachedWorkerSession(sync().data.session, params.id ?? "", item.sessionID) &&
+        !permission.autoResponds(item, sdk().directory)
+      )
     })
   })
 
@@ -105,7 +107,9 @@ export function createSessionComposerController(options?: { closeMs?: number | (
       (id) => {
         setStore("goalBusy", false)
         if (!id) return
-        void serverSync().session.goal(id).catch(() => {})
+        void serverSync()
+          .session.goal(id)
+          .catch(() => {})
       },
     ),
   )

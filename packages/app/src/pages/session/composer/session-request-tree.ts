@@ -1,5 +1,12 @@
 import type { PermissionRequest, QuestionRequest, Session } from "@opencode-ai/sdk/v2/client"
 
+export function isDetachedWorkerSession(sessions: readonly Session[], owner: string, sessionID: string) {
+  if (sessionID === owner) return false
+  const actor = sessions.find((session) => session.id === sessionID)
+  const task = actor?.metadata?.task
+  return !!(task && typeof task === "object" && "ownerSessionID" in task && task.ownerSessionID === owner)
+}
+
 function sessionTreeRequest<T>(
   session: Session[],
   request: Record<string, T[] | undefined>,

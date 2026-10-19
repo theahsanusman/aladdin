@@ -1,0 +1,6 @@
+/* Native background work stays awake; decorative animation can rest separately. */
+html[data-window-inactive] *,
+html[data-window-inactive] *::before,
+html[data-window-inactive] *::after {
+  animation-play-state: paused !important;
+}

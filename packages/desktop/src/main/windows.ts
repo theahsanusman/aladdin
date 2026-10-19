@@ -197,6 +197,8 @@ export function createMainWindow(id: string = randomUUID()) {
         }
       : {}),
     webPreferences: {
+      // Queued chat work must keep advancing when the window is hidden or minimized.
+      backgroundThrottling: false,
       preload: join(root, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
@@ -207,6 +209,19 @@ export function createMainWindow(id: string = randomUUID()) {
   allowRendererPermissions(win)
   wireWindowRecovery(win, id)
   wireNavigationPolicy(win)
+  // Disabling timer throttling also forces document.visibilityState to visible.
+  // Report native activity separately so hidden UI can pause decorative animation.
+  const activity = () => {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) return
+    win.webContents.send("window-activity-changed", win.isVisible() && !win.isMinimized() && win.isFocused())
+  }
+  win.on("focus", activity)
+  win.on("blur", activity)
+  win.on("show", activity)
+  win.on("hide", activity)
+  win.on("minimize", activity)
+  win.on("restore", activity)
+  win.webContents.on("did-finish-load", activity)
 
   win.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
     const { requestHeaders } = details

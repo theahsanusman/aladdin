@@ -2,6 +2,14 @@ import { contextBridge, ipcRenderer, webUtils } from "electron"
 import type { ElectronAPI, WslServersEvent } from "./types"
 import type { UpdaterState } from "@opencode-ai/app/updater"
 
+let windowActive = true
+const updateActivity = () => document.documentElement?.toggleAttribute("data-window-inactive", !windowActive)
+ipcRenderer.on("window-activity-changed", (_: unknown, active: boolean) => {
+  windowActive = active
+  updateActivity()
+})
+window.addEventListener("DOMContentLoaded", updateActivity, { once: true })
+
 const updaterCallbacks = new Set<(state: UpdaterState) => void>()
 let updaterState: UpdaterState | undefined
 let updaterSubscription: Promise<void> | undefined

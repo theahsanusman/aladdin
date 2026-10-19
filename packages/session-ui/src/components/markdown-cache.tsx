@@ -9,7 +9,9 @@ export type MarkdownCacheEntry = {
 }
 
 const max = 200
-const cache = new Map<string, MarkdownCacheEntry>()
+const maxBytes = 16 * 1024 * 1024
+const cache = new Map<string, { value: MarkdownCacheEntry; bytes: number }>()
+let totalBytes = 0
 const config = {
   USE_PROFILES: { html: true, mathMl: true },
   SANITIZE_NAMED_PROPS: true,
@@ -38,18 +40,25 @@ export function sanitizeMarkdown(html: string) {
 }
 
 export function getCachedMarkdown(key: string) {
-  return cache.get(key)
+  return cache.get(key)?.value
 }
 
 export function touchCachedMarkdown(key: string, value: MarkdownCacheEntry) {
+  totalBytes -= cache.get(key)?.bytes ?? 0
   cache.delete(key)
-  cache.set(key, value)
+  // Count both source and expanded HTML conservatively as UTF-16. One large
+  // tool reply must not retain hundreds of megabytes in the optional render cache.
+  const bytes = (key.length + value.raw.length + value.hash.length + value.html.length) * 2
+  if (bytes > maxBytes) return
+  cache.set(key, { value, bytes })
+  totalBytes += bytes
 
-  if (cache.size <= max) return
-
-  const first = cache.keys().next().value
-  if (!first) return
-  cache.delete(first)
+  while (cache.size > max || totalBytes > maxBytes) {
+    const first = cache.keys().next().value
+    if (first === undefined) return
+    totalBytes -= cache.get(first)!.bytes
+    cache.delete(first)
+  }
 }
 
 export async function preloadMarkdown(text: string, cacheKey: string) {

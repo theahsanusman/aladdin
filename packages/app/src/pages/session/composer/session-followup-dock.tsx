@@ -18,7 +18,7 @@ import { followupDragIndex } from "./followup-order"
 
 export function SessionFollowupDock(props: {
   items: { id: string; text: string }[]
-  sending?: string
+  sending?: string[]
   onSend: (id: string) => void
   onEdit: (id: string) => void
   onDelete: (id: string) => void
@@ -35,10 +35,10 @@ export function SessionFollowupDock(props: {
   const preview = createMemo(() => props.items[0]?.text ?? "")
 
   const handleDragEnd = (event: DragEvent) => {
-    if (props.sending) return
     const source = getDraggableId(event)
     const target = event.droppable?.id
     if (!source || target === undefined) return
+    if (props.sending?.includes(source)) return
     const toIndex = followupDragIndex(props.items, source, target.toString())
     if (toIndex === undefined) return
     props.onReorder(source, toIndex)
@@ -106,7 +106,7 @@ export function SessionFollowupDock(props: {
                     item={item}
                     index={index()}
                     total={total()}
-                    sending={!!props.sending}
+                    sending={props.sending?.includes(item.id) ?? false}
                     reorderLabel={language.t("session.followupDock.reorder")}
                     onSend={() => props.onSend(item.id)}
                     onEdit={() => props.onEdit(item.id)}

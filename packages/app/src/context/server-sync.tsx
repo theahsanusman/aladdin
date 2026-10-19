@@ -59,6 +59,8 @@ import type {
 } from "@opencode-ai/client/promise"
 import { toggleMcp } from "./global-sync/mcp"
 import { createServerSession, type ServerSession } from "./server-session"
+import { createFollowups } from "./followup"
+import { usePlatform } from "./platform"
 
 type GlobalStore = {
   ready: boolean
@@ -726,7 +728,20 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
 
 export function createServerSyncContext(serverSDK: ServerSDK) {
   const inner = createServerSyncContextInner(serverSDK)
+  const language = useLanguage()
+  const followups = createFollowups({
+    sdk: serverSDK,
+    sync: inner,
+    platform: usePlatform(),
+    onError: (error) =>
+      showToast({
+        variant: "error",
+        title: language.t("common.requestFailed"),
+        description: formatServerError(error, language.t),
+      }),
+  })
   return Object.assign(inner, {
+    followups,
     ensureDirSyncContext: createRefCountMap(
       (dir) => createDirSyncContext(dir, inner, serverSDK),
       (dir) => inner.disableMcp(dir),
