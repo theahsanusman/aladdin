@@ -30,7 +30,6 @@ export const PRUNE_PROTECT = 40_000
 const TOOL_OUTPUT_MAX_CHARS = 2_000
 const PRUNE_PROTECTED_TOOLS = ["skill"]
 const MIN_PRESERVE_RECENT_TOKENS = 2_000
-const MAX_PRESERVE_RECENT_TOKENS = 15_000
 type Turn = {
   start: number
   end: number
@@ -112,10 +111,11 @@ function completedCompactions(messages: SessionV1.WithParts[]) {
   })
 }
 
-function preserveRecentBudget(input: { cfg: ConfigV1.Info; model: Provider.Model }) {
+function preserveRecentBudget(input: { cfg: ConfigV1.Info; model: Provider.Model; outputTokenMax?: number }) {
+  // Keep a useful verbatim tail on large windows while leaving most of the window for new work.
   return (
     input.cfg.compaction?.preserve_recent_tokens ??
-    Math.min(MAX_PRESERVE_RECENT_TOKENS, Math.max(MIN_PRESERVE_RECENT_TOKENS, Math.floor(usable(input) * 0.25)))
+    Math.max(MIN_PRESERVE_RECENT_TOKENS, Math.floor(usable(input) * 0.25))
   )
 }
 
@@ -227,7 +227,7 @@ const layer = Layer.effect(
     }) {
       const limit = input.cfg.compaction?.tail_turns
       if (limit !== undefined && limit <= 0) return { head: input.messages, tail_start_id: undefined }
-      const budget = preserveRecentBudget({ cfg: input.cfg, model: input.model })
+      const budget = preserveRecentBudget({ cfg: input.cfg, model: input.model, outputTokenMax: flags.outputTokenMax })
       const all = turns(input.messages)
       if (!all.length) return { head: input.messages, tail_start_id: undefined }
       const recent = limit === undefined ? all : all.slice(-limit)

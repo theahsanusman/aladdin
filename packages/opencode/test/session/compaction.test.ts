@@ -250,6 +250,7 @@ type CompactionProcessOptions = {
   plugin?: Layer.Layer<Plugin.Service>
   provider?: ReturnType<typeof wide>
   config?: Layer.Layer<Config.Service>
+  flags?: Partial<RuntimeFlags.Info>
 }
 
 function withCompaction(options?: CompactionProcessOptions) {
@@ -259,7 +260,7 @@ function withCompaction(options?: CompactionProcessOptions) {
 function compactionProcessLayer(options?: CompactionProcessOptions) {
   const replacements: LayerNode.Replacements = [
     [Provider.node, (options?.provider ?? wide()).layer],
-    [RuntimeFlags.node, RuntimeFlags.layer({ experimentalEventSystem: true })],
+    [RuntimeFlags.node, RuntimeFlags.layer({ experimentalEventSystem: true, ...options?.flags })],
     [SessionSummary.node, summary],
   ]
   if (!options?.llm) {
@@ -624,6 +625,52 @@ describe("session.compaction.create", () => {
 })
 
 describe("session.compaction.prune", () => {
+  for (const prune of [false, undefined]) {
+    itCompaction.instance(
+      `preserves old tool results when pruning is ${prune === false ? "disabled" : "not configured"}`,
+      Effect.gen(function* () {
+        const ssn = yield* SessionNs.Service
+        const instance = yield* TestInstance
+        const session = yield* ssn.create({})
+        const user = yield* createUserMessage(session.id, "first")
+        const assistant = yield* createAssistantMessage(session.id, user.id, instance.directory)
+        const output = "evidence ".repeat(30_000)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: assistant.id,
+          sessionID: session.id,
+          type: "tool",
+          callID: crypto.randomUUID(),
+          tool: "bash",
+          state: {
+            status: "completed",
+            input: {},
+            output,
+            title: "evidence",
+            metadata: {},
+            time: { start: Date.now(), end: Date.now() },
+          },
+        })
+        yield* createUserMessage(session.id, "second")
+        yield* createUserMessage(session.id, "third")
+
+        yield* SessionCompaction.use.prune({ sessionID: session.id })
+
+        const messages = yield* ssn.messages({ sessionID: session.id })
+        const part = messages.flatMap((message) => message.parts).find((part) => part.type === "tool")
+        expect(part?.state.status).toBe("completed")
+        if (part?.state.status !== "completed") throw new Error("Expected completed tool result")
+        expect(part.state.time.compacted).toBeUndefined()
+        const prompt = yield* MessageV2.toModelMessagesEffect(
+          messages,
+          createModel({ context: 524_288, output: 32_000 }),
+        )
+        expect(JSON.stringify(prompt)).toContain(output)
+        expect(JSON.stringify(prompt)).not.toContain("[Old tool result content cleared]")
+      }).pipe(withCompaction({ config: cfg({ prune }) })),
+    )
+  }
+
   it.live(
     "compacts old completed tool output",
     provideTmpdirInstance(
@@ -812,6 +859,102 @@ describe("session.compaction.prune", () => {
 })
 
 describe("session.compaction.process", () => {
+  for (const input of [
+    { context: 200_000, older: 200_000, recent: 120_000 },
+    { context: 524_288, older: 600_000, recent: 400_000 },
+    { context: 1_048_576, older: 1_100_000, recent: 800_000 },
+  ]) {
+    itCompaction.instance(
+      `scales default verbatim retention with the ${input.context} token context window`,
+      Effect.gen(function* () {
+        const ssn = yield* SessionNs.Service
+        const session = yield* ssn.create({})
+        yield* createUserMessage(session.id, "older ".padEnd(input.older, "x"))
+        const keep = yield* createUserMessage(session.id, "recent ".padEnd(input.recent, "y"))
+        yield* createUserMessage(session.id, "latest")
+        yield* createSummaryCompaction(session.id)
+
+        const messages = yield* ssn.messages({ sessionID: session.id })
+        yield* SessionCompaction.use.process({
+          parentID: messages.at(-1)!.info.id,
+          messages,
+          sessionID: session.id,
+          auto: false,
+        })
+
+        const part = yield* readCompactionPart(session.id)
+        expect(part?.tail_start_id).toBe(keep.id)
+      }).pipe(
+        withCompaction({
+          provider: ProviderTest.fake({ model: createModel({ context: input.context, output: 32_000 }) }),
+          config: cfg(),
+        }),
+      ),
+    )
+  }
+
+  itCompaction.instance("replays a large retained tail verbatim after compaction", () => {
+    const stub = llm()
+    let summarized = ""
+    stub.push(reply("anchored summary", (input) => (summarized = JSON.stringify(input.messages))))
+    const model = createModel({ context: 524_288, output: 32_000 })
+    return Effect.gen(function* () {
+      const ssn = yield* SessionNs.Service
+      const session = yield* ssn.create({})
+      const older = yield* createUserMessage(session.id, "older evidence ".padEnd(600_000, "x"))
+      const text = "recent exact details ".padEnd(400_000, "y")
+      const keep = yield* createUserMessage(session.id, text)
+      yield* createUserMessage(session.id, "latest")
+      yield* createSummaryCompaction(session.id)
+
+      const messages = yield* ssn.messages({ sessionID: session.id })
+      yield* SessionCompaction.use.process({
+        parentID: messages.at(-1)!.info.id,
+        messages,
+        sessionID: session.id,
+        auto: false,
+      })
+
+      const retained = MessageV2.filterCompacted(yield* MessageV2.stream(session.id))
+      expect(retained.map((message) => message.info.id)).not.toContain(older.id)
+      expect(retained.map((message) => message.info.id)).toContain(keep.id)
+      const prompt = yield* MessageV2.toModelMessagesEffect(retained, model)
+      expect(JSON.stringify(prompt)).toContain(text)
+      expect(JSON.stringify(prompt)).toContain("anchored summary")
+      expect(summarized).toContain("older evidence")
+      expect(summarized).not.toContain("recent exact details")
+    }).pipe(withCompaction({ provider: ProviderTest.fake({ model }), config: cfg(), llm: stub.llmLayer }))
+  })
+
+  itCompaction.instance(
+    "reserves the runtime output budget when sizing retained history",
+    Effect.gen(function* () {
+      const ssn = yield* SessionNs.Service
+      const session = yield* ssn.create({})
+      yield* createUserMessage(session.id, "older ".padEnd(80_000, "x"))
+      yield* createUserMessage(session.id, "too large ".padEnd(40_000, "y"))
+      const keep = yield* createUserMessage(session.id, "latest")
+      yield* createSummaryCompaction(session.id)
+
+      const messages = yield* ssn.messages({ sessionID: session.id })
+      yield* SessionCompaction.use.process({
+        parentID: messages.at(-1)!.info.id,
+        messages,
+        sessionID: session.id,
+        auto: false,
+      })
+
+      const part = yield* readCompactionPart(session.id)
+      expect(part?.tail_start_id).toBe(keep.id)
+    }).pipe(
+      withCompaction({
+        provider: ProviderTest.fake({ model: createModel({ context: 100_000, output: 70_000 }) }),
+        config: cfg(),
+        flags: { outputTokenMax: 70_000 },
+      }),
+    ),
+  )
+
   it.instance(
     "throws when parent is not a user message",
     Effect.gen(function* () {
