@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { gunzipSync } from "node:zlib"
 import { describe, expect, test } from "bun:test"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { ConfigProvider, Effect, Layer, Option } from "effect"
@@ -13,12 +14,15 @@ import {
   HttpServerResponse,
 } from "effect/unstable/http"
 import { FSUtil } from "@opencode-ai/core/fs-util"
+import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { RuntimeFlags } from "../../src/effect/runtime-flags"
 import { ServerAuth } from "../../src/server/auth"
 import { authorizationRouterMiddleware } from "../../src/server/routes/instance/httpapi/middleware/authorization"
+import { compressionLayer } from "../../src/server/routes/instance/httpapi/middleware/compression"
 import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
 import { embeddedWebUiDisabled, serveEmbeddedUIEffect, serveUIEffect } from "../../src/server/shared/ui"
 import { testEffect } from "../lib/effect"
+import { tmpdirScoped } from "../fixture/fixture"
 
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -41,7 +45,9 @@ const testStateLayer = Layer.effectDiscard(
 )
 
 const fsUtilLayer = AppNodeBuilder.build(FSUtil.node)
-const it = testEffect(Layer.mergeAll(testStateLayer, fsUtilLayer, RuntimeFlags.layer()))
+const it = testEffect(
+  Layer.mergeAll(testStateLayer, fsUtilLayer, RuntimeFlags.layer(), AppNodeBuilder.build(CrossSpawnSpawner.node)),
+)
 
 function authConfigLayer(input?: { password?: string; username?: string; desktopToken?: string }) {
   return ServerAuth.Config.configLayer({
@@ -92,6 +98,7 @@ function uiApp(input?: {
   username?: string
   client?: Layer.Layer<HttpClient.HttpClient>
   disableEmbeddedWebUi?: boolean
+  embedded?: Record<string, string>
 }) {
   const handler = HttpRouter.toWebHandler(
     HttpRouter.use((router) =>
@@ -100,10 +107,13 @@ function uiApp(input?: {
         const client = yield* HttpClient.HttpClient
         const flags = yield* RuntimeFlags.Service
         yield* router.add("*", "/*", (request) =>
-          serveUIEffect(request, { fs, client, disableEmbeddedWebUi: flags.disableEmbeddedWebUi }),
+          input?.embedded
+            ? serveEmbeddedUIEffect(new URL(request.url, "http://localhost").pathname, fs, input.embedded)
+            : serveUIEffect(request, { fs, client, disableEmbeddedWebUi: flags.disableEmbeddedWebUi }),
         )
       }),
     ).pipe(
+      Layer.provide(compressionLayer),
       Layer.provide(authorizationRouterMiddleware.layer.pipe(Layer.provide(authConfigLayer(input)))),
       Layer.provide([
         fsUtilLayer,
@@ -185,6 +195,49 @@ function responseText(response: Response) {
 }
 
 describe("HttpApi UI fallback", () => {
+  for (const input of [
+    {
+      key: "assets/app-A1b2C3d4.js",
+      file: "app-A1b2C3d4.js",
+      path: "/assets/app-A1b2C3d4.js",
+      cache: "private, max-age=31536000, immutable",
+    },
+    { key: "assets/app.js", path: "/assets/app.js", cache: "private, no-cache" },
+    { key: "index.html", path: "/assets/missing-A1b2C3d4.js", cache: "no-cache" },
+  ]) {
+    it.live(`sets safe browser caching for ${input.path}`, () =>
+      Effect.gen(function* () {
+        const tmp = yield* tmpdirScoped()
+        yield* Effect.promise(() => Bun.write(`${tmp}/${input.file ?? input.key}`, "<html>cache fixture</html>"))
+        const fs = yield* FSUtil.Service
+        const response = yield* serveEmbeddedUIEffect(input.path, fs, {
+          [input.key]: `${tmp}/${input.file ?? input.key}`,
+        }).pipe(Effect.map(HttpServerResponse.toWeb))
+
+        expect(response.status).toBe(200)
+        expect(response.headers.get("cache-control")).toBe(input.cache)
+        expect(yield* responseText(response)).toBe("<html>cache fixture</html>")
+      }),
+    )
+  }
+
+  it.live("compresses bundled JavaScript before transferring it to a phone", () =>
+    Effect.gen(function* () {
+      const tmp = yield* tmpdirScoped()
+      const body = "export const greeting = 'mobile connection';\n".repeat(100)
+      yield* Effect.promise(() => Bun.write(`${tmp}/assets/app-A1b2C3d4.js`, body))
+      const response = yield* uiApp({
+        embedded: { "assets/app-A1b2C3d4.js": `${tmp}/assets/app-A1b2C3d4.js` },
+      }).request("/assets/app-A1b2C3d4.js", { headers: { "accept-encoding": "gzip" } })
+
+      expect(response.headers.get("content-encoding")).toBe("gzip")
+      expect(response.headers.get("vary")).toContain("Accept-Encoding")
+      const bytes = yield* Effect.promise(() => response.arrayBuffer())
+      expect(bytes.byteLength).toBeLessThan(body.length)
+      expect(gunzipSync(new Uint8Array(bytes)).toString()).toBe(body)
+    }),
+  )
+
   // The desktop main process sets OPENCODE_DISABLE_EMBEDDED_WEB_UI for its own
   // listener, and every listener inherits it. An explicit serveWebUI must still
   // serve the bundle, otherwise the loopback sidecar keeps proxying a stale

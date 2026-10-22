@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch or validate the private, persistent Agent Chrome. Never discover Chrome."""
 
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -64,36 +65,44 @@ def main():
         raise RuntimeError("Agent Chrome data directory must not redirect to another directory")
     if DIRECTORY.exists() and (not DIRECTORY.is_dir() or DIRECTORY.stat().st_uid != os.getuid()):
         raise RuntimeError("Agent Chrome data directory must be owned by the current user")
-    pid = checked_listener()
-    if pid:
+    if len(sys.argv) == 2:
+        pid = checked_listener()
+        if not pid:
+            raise RuntimeError("Agent Chrome is not running")
         print(f"Agent Chrome ready: {ENDPOINT} (PID {pid}, data {DIRECTORY}, Sync disabled)", file=sys.stderr)
         return
-    if len(sys.argv) == 2:
-        raise RuntimeError("Agent Chrome is not running")
-    if not CHROME.is_file():
-        raise RuntimeError("Standard Google Chrome is not installed")
     DIRECTORY.mkdir(mode=0o700, exist_ok=True)
     DIRECTORY.chmod(0o700)
-    preferences = DIRECTORY / "Default" / "Preferences"
-    if not preferences.exists():
-        preferences.parent.mkdir(mode=0o700, exist_ok=True)
-        preferences.write_text(json.dumps({
-            "profile": {"name": "Agent Chrome"},
-            "sync": {"requested": False},
-            "session": {"restore_on_startup": 1},
-        }))
-    subprocess.run(["/usr/bin/open", "-na", str(APP)], check=True)
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        try:
-            pid = checked_listener()
-        except (TimeoutError, urllib.error.URLError):
-            pid = None
+    # Each workspace starts its own MCP. Share one launch until Chrome is ready.
+    with (DIRECTORY / ".launch.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        pid = checked_listener()
         if pid:
             print(f"Agent Chrome ready: {ENDPOINT} (PID {pid}, data {DIRECTORY}, Sync disabled)", file=sys.stderr)
             return
-        time.sleep(0.2)
-    raise RuntimeError("Agent Chrome did not open its verified endpoint; no fallback browser was used")
+        if not CHROME.is_file():
+            raise RuntimeError("Standard Google Chrome is not installed")
+        preferences = DIRECTORY / "Default" / "Preferences"
+        if not preferences.exists():
+            preferences.parent.mkdir(mode=0o700, exist_ok=True)
+            preferences.write_text(json.dumps({
+                "profile": {"name": "Agent Chrome"},
+                "sync": {"requested": False},
+                "session": {"restore_on_startup": 1},
+            }))
+        # The native exec launcher needs a fresh LaunchServices open event.
+        subprocess.run(["/usr/bin/open", "-na", str(APP)], check=True)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            try:
+                pid = checked_listener()
+            except (TimeoutError, urllib.error.URLError):
+                pid = None
+            if pid:
+                print(f"Agent Chrome ready: {ENDPOINT} (PID {pid}, data {DIRECTORY}, Sync disabled)", file=sys.stderr)
+                return
+            time.sleep(0.2)
+        raise RuntimeError("Agent Chrome did not open its verified endpoint; no fallback browser was used")
 
 
 if __name__ == "__main__":

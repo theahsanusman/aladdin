@@ -8,6 +8,32 @@ import type {
 import { directoryKey, normalizeAgentList, normalizePermissionRequest, normalizeProviderList } from "./utils"
 
 describe("normalizeAgentList", () => {
+  test("adapts body-only agent responses without requiring older request settings", () => {
+    const result = normalizeAgentList([
+      {
+        id: "michael",
+        mode: "primary",
+        hidden: false,
+        request: { headers: {}, body: { temperature: 0.2, top_p: 0.9, reasoning: "high" } },
+        permissions: [],
+      },
+    ])
+    expect(result[0]).toMatchObject({
+      name: "michael",
+      temperature: 0.2,
+      topP: 0.9,
+      options: { temperature: 0.2, top_p: 0.9, reasoning: "high" },
+    })
+  })
+
+  test("accepts agents with an empty request body", () => {
+    expect(
+      normalizeAgentList([
+        { id: "build", mode: "primary", hidden: false, request: { headers: {}, body: {} }, permissions: [] },
+      ])[0],
+    ).toMatchObject({ name: "build", options: {} })
+  })
+
   test("adapts current agents to the app agent shape", () => {
     const result = normalizeAgentList([
       {
@@ -68,6 +94,43 @@ describe("normalizePermissionRequest", () => {
 })
 
 describe("normalizeProviderList", () => {
+  test("preserves the current API model request body, headers and reasoning variants", () => {
+    const result = normalizeProviderList(
+      [
+        {
+          id: "opencode-go",
+          name: "OpenCode Go",
+          api: { type: "native", url: "https://example.test", settings: { timeout: 1000 } },
+          request: { headers: {}, body: {} },
+        },
+      ],
+      [
+        {
+          id: "glm-5.3-flash",
+          providerID: "opencode-go",
+          name: "GLM-5.3-Flash",
+          api: { id: "glm-5.3-flash", type: "native", url: "https://example.test", settings: {} },
+          request: { headers: { "x-model": "glm" }, body: { temperature: 0.2 } },
+          capabilities: { tools: true, input: ["text"], output: ["text"] },
+          variants: [{ id: "max", headers: {}, body: { reasoning: "max" } }],
+          time: { released: 1 },
+          cost: [],
+          status: "active",
+          enabled: true,
+          limit: { context: 262144, output: 32000 },
+        },
+      ],
+    )
+    expect(result.all.get("opencode-go")?.options).toEqual({ timeout: 1000 })
+    expect(result.all.get("opencode-go")?.models["glm-5.3-flash"]).toMatchObject({
+      api: { id: "glm-5.3-flash", url: "https://example.test", npm: "opencode-go" },
+      options: { temperature: 0.2 },
+      headers: { "x-model": "glm" },
+      variants: { max: { reasoning: "max" } },
+      limit: { context: 262144 },
+    })
+  })
+
   test("groups current models into the app provider catalog", () => {
     const result = normalizeProviderList(
       [{ id: "openai", name: "OpenAI", package: "@ai-sdk/openai" }] as ProviderListOutput["data"],

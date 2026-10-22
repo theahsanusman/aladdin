@@ -996,7 +996,7 @@ export const dict = {
   "automations.dialog.promptPlaceholder": "What should this automation do each run?",
   "automations.dialog.schedule": "Schedule",
   "automations.dialog.scheduleHint":
-    'Examples: "every 30 minutes", "daily at 08:00", "weekly on monday at 09:00", "cron 0 9 * * 1-5"',
+    'Examples: "every 30 minutes", "daily at 08:00", "weekly on monday at 09:00", "monthly on the last friday at 22:00", "cron 0 9 * * 1-5"',
   "automations.dialog.profile": "Permission profile",
   "automations.dialog.profileHint": "Unattended runs never prompt; the profile decides what they may touch.",
   "automations.dialog.name": "Name",

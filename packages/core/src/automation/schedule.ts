@@ -27,6 +27,22 @@ const WEEKDAY_ALIASES: Record<string, number> = {
 
 const DEFAULT_TIME = "09:00"
 
+const ORDINALS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5 }
+
+function parseNth(input: string): number | "last" | undefined {
+  if (input === "last") return "last"
+  const word = ORDINALS[input]
+  if (word !== undefined) return word
+  const numeric = /^(\d+)(?:st|nd|rd|th)$/.exec(input)
+  if (!numeric) return undefined
+  const value = Number(numeric[1])
+  return value >= 1 && value <= 5 ? value : undefined
+}
+
+function ordinalSuffix(value: number) {
+  return `${value}${value === 1 ? "st" : value === 2 ? "nd" : value === 3 ? "rd" : "th"}`
+}
+
 function pad(value: number) {
   return value.toString().padStart(2, "0")
 }
@@ -53,7 +69,12 @@ function parseClock(input: string): string | undefined {
 
 type CronField = { values: ReadonlySet<number>; wildcard: boolean }
 
-function parseCronField(input: string, min: number, max: number, aliases?: Record<string, number>): CronField | undefined {
+function parseCronField(
+  input: string,
+  min: number,
+  max: number,
+  aliases?: Record<string, number>,
+): CronField | undefined {
   if (input === "*") return { values: new Set(range(min, max)), wildcard: true }
   const values = new Set<number>()
   for (const piece of input.split(",")) {
@@ -170,10 +191,20 @@ export function parse(input: string): Schedule | undefined {
     }
   }
 
+  const monthlyWeekday =
+    /^monthly on the (last|\d+(?:st|nd|rd|th)|first|second|third|fourth|fifth) (\w+)(?: at (.+))?$/.exec(text)
+  if (monthlyWeekday) {
+    const nth = parseNth(monthlyWeekday[1])
+    const weekday = WEEKDAY_ALIASES[monthlyWeekday[2]]
+    if (nth === undefined || weekday === undefined) return undefined
+    const time = monthlyWeekday[3] ? parseClock(monthlyWeekday[3]) : DEFAULT_TIME
+    return time ? { type: "monthly_weekday", weekday, nth, time } : undefined
+  }
+
   const monthly = /^monthly(?:\s+on\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)?)?(?:\s+at\s+(.+))?$/.exec(text)
   if (monthly) {
     const day = monthly[1] ? Number(monthly[1]) : 1
-    if (day < 1 || day > 28) return undefined
+    if (day < 1 || day > 31) return undefined
     const time = monthly[2] ? parseClock(monthly[2]) : DEFAULT_TIME
     return time ? { type: "monthly", day, time } : undefined
   }
@@ -196,6 +227,12 @@ export function format(schedule: Schedule): string {
     return `Weekly on ${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} at ${schedule.time}`
   }
   if (schedule.type === "monthly") return `Monthly on day ${schedule.day} at ${schedule.time}`
+  if (schedule.type === "monthly_weekday") {
+    const weekday = WEEKDAYS[schedule.weekday] ?? "monday"
+    const name = weekday.charAt(0).toUpperCase() + weekday.slice(1)
+    const nth = schedule.nth === "last" ? "last" : ordinalSuffix(schedule.nth)
+    return `Monthly on the ${nth} ${name} at ${schedule.time}`
+  }
   return `Cron: ${schedule.expression}`
 }
 
@@ -207,6 +244,9 @@ export function next(schedule: Schedule, after: Date): Date | undefined {
   if (schedule.type === "daily") return nextDaily(schedule.time, after)
   if (schedule.type === "weekly") return nextWeekly(schedule.weekday, schedule.time, after)
   if (schedule.type === "monthly") return nextMonthly(schedule.day, schedule.time, after)
+  if (schedule.type === "monthly_weekday") {
+    return nextMonthlyWeekday(schedule.weekday, schedule.nth, schedule.time, after)
+  }
   return nextCron(schedule.expression, after)
 }
 
@@ -240,9 +280,42 @@ function nextDailyOn(day: Date, time: string) {
 
 function nextMonthly(day: number, time: string, after: Date): Date {
   const { hour, minute } = splitTime(time)
-  const candidate = new Date(after.getFullYear(), after.getMonth(), day, hour, minute)
-  if (candidate.getTime() > after.getTime()) return candidate
+  // Day 29-31 can overflow into the next month via Date normalization, so probe
+  // candidate months and skip any that do not actually contain the day.
+  for (let offset = 0; offset < 24; offset++) {
+    const base = new Date(after.getFullYear(), after.getMonth() + offset, 1)
+    const candidate = new Date(base.getFullYear(), base.getMonth(), day, hour, minute)
+    if (candidate.getMonth() !== base.getMonth()) continue
+    if (candidate.getTime() > after.getTime()) return candidate
+  }
   return new Date(after.getFullYear(), after.getMonth() + 1, day, hour, minute)
+}
+
+function nextMonthlyWeekday(weekday: number, nth: number | "last", time: string, after: Date): Date {
+  const { hour, minute } = splitTime(time)
+  for (let offset = 0; offset < 24; offset++) {
+    const base = new Date(after.getFullYear(), after.getMonth() + offset, 1)
+    const day = monthlyWeekdayDay(base.getFullYear(), base.getMonth(), weekday, nth)
+    if (day === undefined) continue
+    const candidate = new Date(base.getFullYear(), base.getMonth(), day, hour, minute)
+    if (candidate.getTime() > after.getTime()) return candidate
+  }
+  return nextDailyOn(new Date(after.getFullYear(), after.getMonth() + 1, 1), time)
+}
+
+function monthlyWeekdayDay(year: number, month: number, weekday: number, nth: number | "last"): number | undefined {
+  const last = new Date(year, month + 1, 0).getDate()
+  if (nth === "last") {
+    for (let day = last; day >= 1; day--) {
+      if (new Date(year, month, day).getDay() === weekday) return day
+    }
+    return undefined
+  }
+  let count = 0
+  for (let day = 1; day <= last; day++) {
+    if (new Date(year, month, day).getDay() === weekday && ++count === nth) return day
+  }
+  return undefined
 }
 
 function nextCron(expression: string, after: Date): Date | undefined {

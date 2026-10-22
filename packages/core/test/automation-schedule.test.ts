@@ -30,7 +30,38 @@ describe("Automation.Schedule.parse", () => {
     expect(Schedule.parse("monthly")).toEqual({ type: "monthly", day: 1, time: "09:00" })
     expect(Schedule.parse("monthly on the 15th at 07:30")).toEqual({ type: "monthly", day: 15, time: "07:30" })
     expect(Schedule.parse("monthly on 3 at 18:00")).toEqual({ type: "monthly", day: 3, time: "18:00" })
+    expect(Schedule.parse("monthly on the 31st at 10:00")).toEqual({ type: "monthly", day: 31, time: "10:00" })
     expect(Schedule.parse("monthly on the 45th")).toBeUndefined()
+    expect(Schedule.parse("monthly on the 32nd")).toBeUndefined()
+  })
+
+  test("monthly weekday", () => {
+    expect(Schedule.parse("monthly on the last friday at 22:00")).toEqual({
+      type: "monthly_weekday",
+      weekday: 5,
+      nth: "last",
+      time: "22:00",
+    })
+    expect(Schedule.parse("monthly on the 3rd tuesday at 09:00")).toEqual({
+      type: "monthly_weekday",
+      weekday: 2,
+      nth: 3,
+      time: "09:00",
+    })
+    expect(Schedule.parse("monthly on the first monday")).toEqual({
+      type: "monthly_weekday",
+      weekday: 1,
+      nth: 1,
+      time: "09:00",
+    })
+    expect(Schedule.parse("monthly on the fifth sunday at 8am")).toEqual({
+      type: "monthly_weekday",
+      weekday: 0,
+      nth: 5,
+      time: "08:00",
+    })
+    expect(Schedule.parse("monthly on the 6th friday")).toBeUndefined()
+    expect(Schedule.parse("monthly on the last smarchday")).toBeUndefined()
   })
 
   test("cron", () => {
@@ -58,6 +89,12 @@ describe("Automation.Schedule.format", () => {
     expect(Schedule.format({ type: "daily", time: "09:00" })).toBe("Daily at 09:00")
     expect(Schedule.format({ type: "weekly", weekday: 1, time: "09:00" })).toBe("Weekly on Monday at 09:00")
     expect(Schedule.format({ type: "monthly", day: 1, time: "09:00" })).toBe("Monthly on day 1 at 09:00")
+    expect(Schedule.format({ type: "monthly_weekday", weekday: 5, nth: "last", time: "22:00" })).toBe(
+      "Monthly on the last Friday at 22:00",
+    )
+    expect(Schedule.format({ type: "monthly_weekday", weekday: 2, nth: 3, time: "09:00" })).toBe(
+      "Monthly on the 3rd Tuesday at 09:00",
+    )
     expect(Schedule.format({ type: "cron", expression: "0 9 * * *" })).toBe("Cron: 0 9 * * *")
   })
 })
@@ -89,6 +126,49 @@ describe("Automation.Schedule.next", () => {
   test("monthly rolls to the next month", () => {
     const next = Schedule.next({ type: "monthly", day: 28, time: "09:00" }, new Date(2026, 0, 28, 10, 0))
     expect([next!.getMonth(), next!.getDate(), next!.getHours()]).toEqual([1, 28, 9])
+  })
+
+  test("monthly skips months without the day", () => {
+    // Day 31 from Jan 31 10:00: February has no 31st, so the next run is March 31.
+    const next = Schedule.next({ type: "monthly", day: 31, time: "10:00" }, new Date(2026, 0, 31, 10, 0))
+    expect([next!.getFullYear(), next!.getMonth(), next!.getDate(), next!.getHours()]).toEqual([2026, 2, 31, 10])
+
+    // Day 30 skips February in 2026 as well.
+    const thirtieth = Schedule.next({ type: "monthly", day: 30, time: "09:00" }, new Date(2026, 0, 30, 9, 0))
+    expect([thirtieth!.getMonth(), thirtieth!.getDate()]).toEqual([2, 30])
+
+    // Day 29 skips February in a non-leap year.
+    const twentyNinth = Schedule.next({ type: "monthly", day: 29, time: "09:00" }, new Date(2026, 0, 29, 9, 0))
+    expect([twentyNinth!.getMonth(), twentyNinth!.getDate()]).toEqual([2, 29])
+  })
+
+  test("monthly last weekday", () => {
+    // Last Friday of January 2026 is the 30th; the 30th 22:00 has passed, so the
+    // next last-Friday run is Friday February 27, 2026.
+    const next = Schedule.next(
+      { type: "monthly_weekday", weekday: 5, nth: "last", time: "22:00" },
+      new Date(2026, 0, 30, 22, 0),
+    )
+    expect([next!.getFullYear(), next!.getMonth(), next!.getDate(), next!.getHours()]).toEqual([2026, 1, 27, 22])
+  })
+
+  test("monthly nth weekday", () => {
+    // Third Tuesday of January 2026 is the 20th; before that date, the next run is the 20th.
+    const next = Schedule.next(
+      { type: "monthly_weekday", weekday: 2, nth: 3, time: "09:00" },
+      new Date(2026, 0, 7, 10, 0),
+    )
+    expect([next!.getMonth(), next!.getDate(), next!.getHours()]).toEqual([0, 20, 9])
+  })
+
+  test("monthly fifth weekday skips months with only four", () => {
+    // From Jan 31 2026, months with only four Fridays (Feb-Apr) are skipped;
+    // the next fifth-Friday month is May 2026, fifth Friday May 29.
+    const next = Schedule.next(
+      { type: "monthly_weekday", weekday: 5, nth: 5, time: "09:00" },
+      new Date(2026, 0, 31, 10, 0),
+    )
+    expect([next!.getMonth(), next!.getDate()]).toEqual([4, 29])
   })
 
   test("cron steps within the hour", () => {

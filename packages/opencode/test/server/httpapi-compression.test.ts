@@ -30,6 +30,21 @@ function fatConfig() {
 
 describe("HttpApi compression", () => {
   describe("encodes responses", () => {
+    test("preserves content negotiation alongside CORS origin variation", async () => {
+      await using tmp = await tmpdir({ config: fatConfig() })
+      const response = await app().request("/config", {
+        headers: {
+          "x-opencode-directory": tmp.path,
+          "accept-encoding": "gzip",
+          origin: "http://localhost:3000",
+        },
+      })
+      expect(response.headers.get("content-encoding")).toBe("gzip")
+      const vary = response.headers.get("vary")?.toLowerCase()
+      expect(vary).toContain("origin")
+      expect(vary).toContain("accept-encoding")
+    })
+
     test("gzips JSON when Accept-Encoding includes gzip and body exceeds threshold", async () => {
       await using tmp = await tmpdir({ config: fatConfig() })
       const response = await app().request("/config", {
@@ -84,6 +99,20 @@ describe("HttpApi compression", () => {
         headers: { "x-opencode-directory": tmp.path },
       })
       expect(response.headers.get("content-encoding")).toBeNull()
+    })
+
+    test("preserves content negotiation with CORS when sending an uncompressed body", async () => {
+      await using tmp = await tmpdir({ config: fatConfig() })
+      const response = await app().request("/config", {
+        headers: {
+          "x-opencode-directory": tmp.path,
+          origin: "http://localhost:3000",
+        },
+      })
+      expect(response.headers.get("content-encoding")).toBeNull()
+      const vary = response.headers.get("vary")?.toLowerCase()
+      expect(vary).toContain("origin")
+      expect(vary).toContain("accept-encoding")
     })
 
     test("when Accept-Encoding only allows unsupported encodings", async () => {

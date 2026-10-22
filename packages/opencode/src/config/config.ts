@@ -512,8 +512,13 @@ const layer = Layer.effect(
                 dir: path.dirname(source),
                 source,
               })
-              for (const providerID of Object.keys(next.provider ?? {})) {
+              for (const [providerID, provider] of Object.entries(next.provider ?? {})) {
                 consoleManagedProviders.add(providerID)
+                // Console supplies model defaults; explicit local token budgets take precedence.
+                for (const [modelID, model] of Object.entries(provider.models ?? {})) {
+                  const limit = result.provider?.[providerID]?.models?.[modelID]?.limit
+                  if (limit) model.limit = { ...limit }
+                }
               }
               yield* merge(source, next, "global")
             }

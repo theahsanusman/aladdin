@@ -76,6 +76,14 @@ export function formatSchedule(schedule: Automation.Schedule) {
     return `Weekly on ${WEEKDAYS[schedule.weekday] ?? "Monday"} at ${schedule.time}`
   }
   if (schedule.type === "monthly") return `Monthly on day ${schedule.day} at ${schedule.time}`
+  if (schedule.type === "monthly_weekday") {
+    const weekday = WEEKDAYS[schedule.weekday] ?? "Monday"
+    const nth =
+      schedule.nth === "last"
+        ? "last"
+        : `${schedule.nth}${schedule.nth === 1 ? "st" : schedule.nth === 2 ? "nd" : schedule.nth === 3 ? "rd" : "th"}`
+    return `Monthly on the ${nth} ${weekday} at ${schedule.time}`
+  }
   return `Cron: ${schedule.expression}`
 }
 

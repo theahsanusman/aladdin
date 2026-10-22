@@ -17,11 +17,15 @@ const TRANSIENT_MESSAGES = [
   "socket hang up",
 ]
 
-function isTransientError(error: unknown): boolean {
-  if (!error) return false
+function isTransientError(error: unknown, visited = new Set<unknown>()): boolean {
+  if (!error || visited.has(error)) return false
+  visited.add(error)
   // oxlint-disable-next-line no-base-to-string -- error is unknown, intentional coercion for message matching
   const message = String(error instanceof Error ? error.message : error).toLowerCase()
-  return TRANSIENT_MESSAGES.some((m) => message.includes(m))
+  return (
+    TRANSIENT_MESSAGES.some((m) => message.includes(m)) ||
+    (typeof error === "object" && "cause" in error && isTransientError(error.cause, visited))
+  )
 }
 
 export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {

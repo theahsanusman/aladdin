@@ -317,6 +317,56 @@ it.live("InstanceState dedupes concurrent lookups", () =>
   }),
 )
 
+it.live("InstanceState retries initialization after the first reader disconnects", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const started = yield* Deferred.make<void>()
+    const gate = yield* Deferred.make<void>()
+    let attempts = 0
+    const state = yield* InstanceState.make((ctx) =>
+      Effect.gen(function* () {
+        attempts += 1
+        if (attempts === 1) {
+          yield* Deferred.succeed(started, undefined)
+          yield* Deferred.await(gate)
+        }
+        return ctx.directory
+      }),
+    )
+
+    const first = yield* access(state, dir).pipe(Effect.forkScoped)
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(first)
+
+    const next = yield* Effect.exit(access(state, dir))
+    expect(Exit.isSuccess(next)).toBe(true)
+    if (Exit.isSuccess(next)) expect(next.value).toBe(dir)
+    expect(attempts).toBe(2)
+    expect(yield* access(state, dir)).toBe(dir)
+    expect(attempts).toBe(2)
+  }),
+)
+
+it.live("InstanceState keeps ordinary initialization failures cached", () =>
+  Effect.gen(function* () {
+    const dir = yield* tmpdirScoped()
+    const failure = new Error("Invalid project configuration")
+    let attempts = 0
+    const state = yield* InstanceState.make(() =>
+      Effect.gen(function* () {
+        attempts += 1
+        return yield* Effect.fail(failure)
+      }),
+    )
+
+    const first = yield* Effect.exit(access(state, dir))
+    const next = yield* Effect.exit(access(state, dir))
+    expect(next).toBe(first)
+    expect(Exit.isFailure(next)).toBe(true)
+    expect(attempts).toBe(1)
+  }),
+)
+
 it.live("InstanceState survives deferred resume from the same instance context", () =>
   Effect.gen(function* () {
     const dir = yield* tmpdirScoped({ git: true })

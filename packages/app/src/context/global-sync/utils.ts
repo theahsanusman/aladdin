@@ -8,32 +8,39 @@ import type {
 import type { Agent, PermissionRequest, Project, Provider, ProviderListResponse } from "@opencode-ai/sdk/v2/client"
 import type { Project as CurrentProject } from "@opencode-ai/client/promise"
 import { NormalizedProviderListResponse } from "@opencode-ai/session-ui/context"
+import type { AgentsListOutput, ModelsListOutput, ProvidersListOutput } from "../../../../client/src/generated/types"
 export { pathKey as directoryKey, type PathKey as DirectoryKey } from "@/utils/path-key"
 
 export const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
-export function normalizeAgentList(input: AgentListOutput["data"] | Agent[]): Agent[] {
-  if (input.every((agent) => !("request" in agent))) return input as Agent[]
-  return (input as AgentListOutput["data"]).map((agent) => ({
-    name: agent.id,
-    description: agent.description,
-    mode: agent.mode,
-    hidden: agent.hidden,
-    temperature:
-      typeof agent.request.settings.temperature === "number" ? agent.request.settings.temperature : undefined,
-    topP: typeof agent.request.settings.topP === "number" ? agent.request.settings.topP : undefined,
-    color: agent.color,
-    permission: agent.permissions.map((rule) => ({
-      permission: rule.action,
-      pattern: rule.resource,
-      action: rule.effect,
-    })),
-    model: agent.model && { providerID: agent.model.providerID, modelID: agent.model.id },
-    variant: agent.model?.variant,
-    prompt: agent.system,
-    options: agent.request.settings,
-    steps: agent.steps,
-  }))
+// Match both the bundled client's older response and the current server contract.
+export function normalizeAgentList(
+  input: ReadonlyArray<AgentsListOutput["data"][number] | AgentListOutput["data"][number] | Agent>,
+): Agent[] {
+  return input.map((agent) => {
+    if (!("request" in agent)) return agent
+    const settings = ("settings" in agent.request ? agent.request.settings : undefined) ?? agent.request.body
+    const topP = settings.topP ?? settings.top_p
+    return {
+      name: agent.id,
+      description: agent.description,
+      mode: agent.mode,
+      hidden: agent.hidden,
+      temperature: typeof settings.temperature === "number" ? settings.temperature : undefined,
+      topP: typeof topP === "number" ? topP : undefined,
+      color: agent.color,
+      permission: agent.permissions.map((rule) => ({
+        permission: rule.action,
+        pattern: rule.resource,
+        action: rule.effect,
+      })),
+      model: agent.model && { providerID: agent.model.providerID, modelID: agent.model.id },
+      variant: agent.model?.variant,
+      prompt: agent.system,
+      options: settings,
+      steps: agent.steps,
+    }
+  })
 }
 
 export function normalizePermissionRequest(input: PermissionV2Request | PermissionRequest): PermissionRequest {
@@ -51,11 +58,11 @@ export function normalizePermissionRequest(input: PermissionV2Request | Permissi
 }
 
 export function normalizeProviderList(
-  providers: ProviderListOutput["data"] | ProviderListResponse,
-  models?: ModelListOutput["data"],
+  providers: ProviderListOutput["data"] | ProvidersListOutput["data"] | ProviderListResponse,
+  models?: ModelListOutput["data"] | ModelsListOutput["data"],
   defaultModel?: ModelDefaultOutput["data"],
 ): NormalizedProviderListResponse {
-  if (!Array.isArray(providers)) {
+  if ("all" in providers) {
     return {
       ...providers,
       all: new Map(
@@ -79,7 +86,7 @@ export function normalizeProviderList(
       name: provider.name,
       source: "custom",
       env: [],
-      options: provider.settings ?? {},
+      options: ("api" in provider ? provider.api.settings : provider.settings) ?? {},
       models: {},
     })
   }
@@ -92,9 +99,14 @@ export function normalizeProviderList(
       id: model.id,
       providerID: model.providerID,
       api: {
-        id: model.modelID,
-        url: "",
-        npm: model.package ?? provider.id,
+        id: "api" in model ? model.api.id : model.modelID,
+        url: "api" in model ? (model.api.url ?? "") : "",
+        npm:
+          "api" in model
+            ? model.api.type === "aisdk"
+              ? model.api.package
+              : provider.id
+            : (model.package ?? provider.id),
       },
       name: model.name,
       family: model.family,
@@ -129,10 +141,12 @@ export function normalizeProviderList(
       },
       limit: model.limit,
       status: model.status,
-      options: model.settings ?? {},
-      headers: model.headers ?? {},
+      options: ("request" in model ? model.request.body : model.settings) ?? {},
+      headers: ("request" in model ? model.request.headers : model.headers) ?? {},
       release_date: new Date(model.time.released).toISOString().slice(0, 10),
-      variants: Object.fromEntries(model.variants.map((variant) => [variant.id, variant.settings ?? {}])),
+      variants: Object.fromEntries(
+        model.variants.map((variant) => [variant.id, ("body" in variant ? variant.body : variant.settings) ?? {}]),
+      ),
     }
   }
 

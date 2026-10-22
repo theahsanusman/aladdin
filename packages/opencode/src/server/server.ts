@@ -206,6 +206,13 @@ function forceClose(state: ListenerState) {
 
 function serverLayer(opts: { port: number; hostname: string; tls?: { cert: string; key: string } }) {
   const server = opts.tls ? createSecureServer({ cert: opts.tls.cert, key: opts.tls.key }) : createServer()
+  // Node drops an idle keep-alive socket after 5s. A phone reaching this listener
+  // through the droplet relay pays ~5 round trips per handshake, so a 5s ceiling
+  // means nearly every pause between requests re-handshakes (~2.9s instead of
+  // ~0.7s). headersTimeout must stay above keepAliveTimeout or Node refuses to
+  // start.
+  server.keepAliveTimeout = 60000
+  server.headersTimeout = 65000
   const serverRef = { closeStarted: false, forceStop: false }
   const close = server.close.bind(server)
   // Keep shutdown owned by NodeHttpServer, but honor listener.stop(true) by

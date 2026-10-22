@@ -17,6 +17,7 @@ import {
 import type { State, VcsCache } from "./types"
 import { ServerScope } from "@/utils/server-scope"
 import type { ServerApi } from "@/utils/server"
+import { createApiForServer } from "@/utils/server"
 
 type ProjectApi = ServerApi["project"]
 
@@ -281,6 +282,27 @@ describe("query keys", () => {
 
     expect(calls).toEqual([{ location: { directory: "/repo" } }])
     expect(result).toEqual([])
+  })
+
+  test("loads actual current-client agent responses after a wrapped browser transport failure", async () => {
+    let attempts = 0
+    const fetcher = Object.assign(
+      async () => {
+        attempts++
+        if (attempts === 1) throw new TypeError("Load failed")
+        return Response.json({
+          location: { directory: "/repo", project: { id: "project", directory: "/repo" } },
+          data: [
+            { id: "michael", mode: "primary", hidden: false, request: { headers: {}, body: {} }, permissions: [] },
+          ],
+        })
+      },
+      { preconnect: globalThis.fetch.preconnect },
+    )
+    const client = createApiForServer({ server: { url: "http://localhost:4096" }, fetch: fetcher })
+    const result = await new QueryClient().fetchQuery(loadAgentsQuery(ServerScope.local, "/repo", client.agent))
+    expect(attempts).toBe(2)
+    expect(result[0]).toMatchObject({ name: "michael", options: {} })
   })
 
   test("loads commands from the current location-scoped endpoint", async () => {

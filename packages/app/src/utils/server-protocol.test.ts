@@ -8,6 +8,23 @@ const mockFetch = (run: (input: string | URL | Request) => Promise<Response>) =>
   Object.assign(run, { preconnect: globalThis.fetch.preconnect })
 
 describe("detectServerProtocol", () => {
+  test("retries a failed discovery instead of treating a network error as V2", async () => {
+    let calls = 0
+    const fetcher = mockFetch(() => {
+      calls++
+      if (calls <= 2) return Promise.reject(new TypeError("Load failed"))
+      return Promise.resolve(json({ healthy: true, version: "1.18.31" }))
+    })
+    expect(await detectServerProtocol(server, fetcher)).toBe("v1")
+    expect(calls).toBe(3)
+  })
+
+  test("keeps an unreachable server from being permanently classified as V2", async () => {
+    const failure = new TypeError("Load failed")
+    const fetcher = mockFetch(() => Promise.reject(failure))
+    await expect(detectServerProtocol(server, fetcher)).rejects.toBe(failure)
+  })
+
   test("prefers the legacy health endpoint when both API generations exist", async () => {
     const fetcher = mockFetch((input) => {
       const path = new URL(input instanceof Request ? input.url : input).pathname

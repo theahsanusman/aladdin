@@ -7,17 +7,17 @@ Status: implementing (this doc is the frozen contract for the build).
 
 ## Concept map (Codex -> Aladdin)
 
-| Codex | Aladdin |
-| --- | --- |
-| Standalone automation (new chat per run) | Automation `kind: "standalone"` creates a new session per run |
-| Automation in a chat (returns to same chat) | Automation `kind: "thread"` targets an existing session |
-| Scheduled view / inbox | Automations page: automations + runs with unread indicator |
-| Run in project dir or worktree | Runs in the project directory. Worktrees are out of scope; a file-claim registry prevents write collisions instead |
-| Default sandbox + `approval_policy = never` | Per-automation permission profile compiled into a session ruleset; unattended runs never prompt |
-| Skills in prompts | Plain prompt text; skills can be referenced by name |
-| Model + reasoning effort | Optional `agent` and `model` per automation, defaulting to the user's defaults |
-| RRULE advanced schedule | `interval` / `daily` / `weekly` / `monthly` / `cron` schedule union |
-| Machine on + app running | Server process must be running (desktop app open). Missed runs are skipped, not caught up |
+| Codex                                       | Aladdin                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Standalone automation (new chat per run)    | Automation `kind: "standalone"` creates a new session per run                                                      |
+| Automation in a chat (returns to same chat) | Automation `kind: "thread"` targets an existing session                                                            |
+| Scheduled view / inbox                      | Automations page: automations + runs with unread indicator                                                         |
+| Run in project dir or worktree              | Runs in the project directory. Worktrees are out of scope; a file-claim registry prevents write collisions instead |
+| Default sandbox + `approval_policy = never` | Per-automation permission profile compiled into a session ruleset; unattended runs never prompt                    |
+| Skills in prompts                           | Plain prompt text; skills can be referenced by name                                                                |
+| Model + reasoning effort                    | Optional `agent` and `model` per automation, defaulting to the user's defaults                                     |
+| RRULE advanced schedule                     | `interval` / `daily` / `weekly` / `monthly` / `monthly_weekday` / `cron` schedule union                            |
+| Machine on + app running                    | Server process must be running (desktop app open). Missed runs are caught up once on the next tick, not replayed   |
 
 ## Data model
 
@@ -25,45 +25,45 @@ New tables in `packages/core/src/automation/sql.ts` (one migration).
 
 ### `automation`
 
-| column | type | notes |
-| --- | --- | --- |
-| `id` | text PK | `atm_...` |
-| `project_id` | text FK -> `project.id` cascade | resolved from `directory` |
-| `directory` | text | absolute project directory |
-| `name` | text | display name |
-| `prompt` | text | the saved prompt |
-| `kind` | text | `standalone` \| `thread` |
-| `target_session_id` | text nullable | required for `thread` |
-| `agent` | text nullable | agent name; NULL = default agent |
-| `model_provider_id` / `model_id` | text nullable | external model ref; NULL = default model |
-| `profile` | text | `read-only` \| `workspace-write` \| `full` (default `workspace-write`) |
-| `schedule` | json | `Schedule` union below |
-| `verification` | json | `VerificationCheck[]` (`{ command, timeout_seconds? }`) |
-| `budget_per_run_tokens` | integer nullable | hard per-run cap |
-| `budget_per_day_tokens` | integer nullable | hard per-automation daily cap |
-| `timeout_minutes` | integer | wall clock cap, default 30 |
-| `status` | text | `active` \| `paused` |
-| `next_run_at` | integer nullable | epoch ms; advanced when a run is admitted |
-| `last_run_at` | integer nullable | epoch ms |
-| `time_created` / `time_updated` | integer | house `Timestamps` |
+| column                           | type                            | notes                                                                  |
+| -------------------------------- | ------------------------------- | ---------------------------------------------------------------------- |
+| `id`                             | text PK                         | `atm_...`                                                              |
+| `project_id`                     | text FK -> `project.id` cascade | resolved from `directory`                                              |
+| `directory`                      | text                            | absolute project directory                                             |
+| `name`                           | text                            | display name                                                           |
+| `prompt`                         | text                            | the saved prompt                                                       |
+| `kind`                           | text                            | `standalone` \| `thread`                                               |
+| `target_session_id`              | text nullable                   | required for `thread`                                                  |
+| `agent`                          | text nullable                   | agent name; NULL = default agent                                       |
+| `model_provider_id` / `model_id` | text nullable                   | external model ref; NULL = default model                               |
+| `profile`                        | text                            | `read-only` \| `workspace-write` \| `full` (default `workspace-write`) |
+| `schedule`                       | json                            | `Schedule` union below                                                 |
+| `verification`                   | json                            | `VerificationCheck[]` (`{ command, timeout_seconds? }`)                |
+| `budget_per_run_tokens`          | integer nullable                | hard per-run cap                                                       |
+| `budget_per_day_tokens`          | integer nullable                | hard per-automation daily cap                                          |
+| `timeout_minutes`                | integer                         | wall clock cap, default 30                                             |
+| `status`                         | text                            | `active` \| `paused`                                                   |
+| `next_run_at`                    | integer nullable                | epoch ms; advanced when a run is admitted                              |
+| `last_run_at`                    | integer nullable                | epoch ms                                                               |
+| `time_created` / `time_updated`  | integer                         | house `Timestamps`                                                     |
 
 ### `automation_run`
 
-| column | type | notes |
-| --- | --- | --- |
-| `id` | text PK | `atr_...` |
-| `automation_id` | text FK -> `automation.id` cascade | |
-| `session_id` | text nullable | session used for the run |
-| `status` | text | `queued` \| `running` \| `done` \| `failed` \| `skipped` |
-| `outcome` | text nullable | `verified` `reported` `verification_failed` `budget_exceeded` `timed_out` `provider_error` `project_unavailable` `session_unavailable` `previous_run_active` `budget_exhausted` `cancelled` |
-| `summary` | text nullable | short human summary (final assistant text tail / failure reason) |
-| `evidence` | text nullable | verification results (command, exit code, output tail) |
-| `tokens_total` | integer | summed usage for the run |
-| `cost` | real | usage cost when known |
-| `unread` | integer (0/1) | inbox indicator |
-| `scheduled_for` | integer nullable | which due time this run fulfilled |
-| `trigger` | text | `schedule` \| `manual` |
-| `time_created` / `time_started` / `time_finished` | integer | |
+| column                                            | type                               | notes                                                                                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                              | text PK                            | `atr_...`                                                                                                                                                                                   |
+| `automation_id`                                   | text FK -> `automation.id` cascade |                                                                                                                                                                                             |
+| `session_id`                                      | text nullable                      | session used for the run                                                                                                                                                                    |
+| `status`                                          | text                               | `queued` \| `running` \| `done` \| `failed` \| `skipped`                                                                                                                                    |
+| `outcome`                                         | text nullable                      | `verified` `reported` `verification_failed` `budget_exceeded` `timed_out` `provider_error` `project_unavailable` `session_unavailable` `previous_run_active` `budget_exhausted` `cancelled` |
+| `summary`                                         | text nullable                      | short human summary (final assistant text tail / failure reason)                                                                                                                            |
+| `evidence`                                        | text nullable                      | verification results (command, exit code, output tail)                                                                                                                                      |
+| `tokens_total`                                    | integer                            | summed usage for the run                                                                                                                                                                    |
+| `cost`                                            | real                               | usage cost when known                                                                                                                                                                       |
+| `unread`                                          | integer (0/1)                      | inbox indicator                                                                                                                                                                             |
+| `scheduled_for`                                   | integer nullable                   | which due time this run fulfilled                                                                                                                                                           |
+| `trigger`                                         | text                               | `schedule` \| `manual`                                                                                                                                                                      |
+| `time_created` / `time_started` / `time_finished` | integer                            |                                                                                                                                                                                             |
 
 Indices: `automation(status, next_run_at)`, `automation(directory)`,
 `automation_run(automation_id, time_created)`, `automation_run(session_id)`.
@@ -77,22 +77,27 @@ Wire union (`packages/schema/src/automation.ts`):
 
 ```ts
 type Schedule =
-  | { type: "interval"; minutes: number }           // >= 1
-  | { type: "daily"; time: string }                 // "HH:MM" local
-  | { type: "weekly"; weekday: number; time: string }   // 0 = Sunday
-  | { type: "monthly"; day: number; time: string }      // 1..28
-  | { type: "cron"; expression: string }            // "min hour dom mon dow"
+  | { type: "interval"; minutes: number } // >= 1
+  | { type: "daily"; time: string } // "HH:MM" local
+  | { type: "weekly"; weekday: number; time: string } // 0 = Sunday
+  | { type: "monthly"; day: number; time: string } // 1..31, skips months without the day
+  | { type: "monthly_weekday"; weekday: number; nth: number | "last"; time: string } // 0 = Sunday, nth 1-5 or "last"
+  | { type: "cron"; expression: string } // "min hour dom mon dow"
 ```
 
 Parser/formatter/next-run in `packages/core/src/automation/schedule.ts`:
 
 - `parse(text)` accepts: `every N minute(s)/hour(s)`, `hourly`, `every hour`, `daily`,
   `daily at HH:MM`, `every day at HH:MM`, `weekly`, `weekly on <weekday> at HH:MM`,
-  `every <weekday> at HH:MM`, `monthly`, `monthly on the Nth at HH:MM`, `cron <expr>`,
-  and a bare five-field cron expression.
+  `every <weekday> at HH:MM`, `monthly`, `monthly on the Nth at HH:MM` (N up to 31),
+  `monthly on the last <weekday> at HH:MM`, `monthly on the Nth <weekday> at HH:MM`
+  (weekday of month, Nth 1-5 or "last"), `cron <expr>`, and a bare five-field cron
+  expression.
 - `format(schedule)` renders human text for UI/tool output.
 - `next(schedule, after: Date): Date | null`, local timezone; cron supports `*`, `*/n`,
-  lists (`a,b`), ranges (`a-b`) per field; weekday `0-6` and names.
+  lists (`a,b`), ranges (`a-b`) per field; weekday `0-6` and names. Monthly day 29-31
+  skips months that lack the day; `monthly_weekday` picks the Nth (or last) matching
+  weekday of each month.
 
 ## Execution lifecycle
 
@@ -100,10 +105,14 @@ Server-side scheduler (`packages/opencode/src/automation/scheduler.ts`, started 
 server app graph, 30s tick):
 
 1. Query due automations (`status = active`, `next_run_at <= now`) via the core
-   `Automation` service.
-2. For each: create a run row, advance `next_run_at` (schedule.next from the missed due
-   time, or now if far in the past), fork the engine, never overlap runs of the same
-   automation (skip with `previous_run_active`).
+   `Automation` service. Anything due, however stale, is returned — this is the
+   catch-up path for a machine that was off at the scheduled time.
+2. For each: advance `next_run_at` via `schedule.next` computed from `now` (so
+   multiple missed occurrences collapse into a single catch-up run), then fork the
+   engine with `scheduledFor` = the missed due time. Never overlap runs of the same
+   automation (skip with `previous_run_active`). A failure in one entry is logged
+   and does not block the rest; a failure in the whole tick is logged and the
+   30s loop keeps running.
 3. Engine (`packages/opencode/src/automation/engine.ts`) wraps work in
    `InstanceStore.provide({ directory }, ...)`:
    - day-budget precheck: sum today's `automation_run.tokens_total`; over cap -> `skipped` /

@@ -12,12 +12,14 @@ import { AutomationTrigger } from "@/automation/trigger"
 
 export const Parameters = Schema.Struct({
   action: Schema.Literals(["create", "list", "get", "update", "pause", "resume", "run", "delete"]),
-  id: Schema.optional(Schema.String).annotate({ description: "Automation ID (atm_...) for get/update/pause/resume/run/delete" }),
+  id: Schema.optional(Schema.String).annotate({
+    description: "Automation ID (atm_...) for get/update/pause/resume/run/delete",
+  }),
   name: Schema.optional(Schema.String).annotate({ description: "Short display name" }),
   prompt: Schema.optional(Schema.String).annotate({ description: "The prompt each run should execute" }),
   schedule: Schema.optional(Schema.String).annotate({
     description:
-      'When to run, e.g. "every 30 minutes", "daily at 08:00", "weekly on monday at 09:00", "cron 0 9 * * 1-5"',
+      'When to run, e.g. "every 30 minutes", "daily at 08:00", "weekly on monday at 09:00", "monthly on the last friday at 22:00", "cron 0 9 * * 1-5"',
   }),
   kind: Schema.optional(Schema.Literals(["standalone", "thread"])).annotate({
     description: "standalone starts a fresh session per run; thread continues an existing session",
@@ -25,13 +27,17 @@ export const Parameters = Schema.Struct({
   target_session_id: Schema.optional(Schema.String).annotate({
     description: "Target session for thread automations (defaults to the current session)",
   }),
-  agent: Schema.optional(Schema.String).annotate({ description: "Agent to run with (defaults to the configured default agent)" }),
+  agent: Schema.optional(Schema.String).annotate({
+    description: "Agent to run with (defaults to the configured default agent)",
+  }),
   model: Schema.optional(Schema.String).annotate({ description: 'Model as "provider/model"' }),
   profile: Schema.optional(Schema.Literals(["read-only", "workspace-write", "full"])).annotate({
     description: "Permission profile for unattended runs (defaults to workspace-write)",
   }),
   budget_tokens_per_run: Schema.optional(Schema.Number).annotate({ description: "Hard token cap for a single run" }),
-  budget_tokens_per_day: Schema.optional(Schema.Number).annotate({ description: "Hard token cap for all runs of this automation per day" }),
+  budget_tokens_per_day: Schema.optional(Schema.Number).annotate({
+    description: "Hard token cap for all runs of this automation per day",
+  }),
   verification: Schema.optional(Schema.Array(Schema.String)).annotate({
     description: "Commands that define done; they run after each run and must exit 0",
   }),
@@ -111,7 +117,9 @@ export const AutomationTool = Tool.define<
 
           if (params.action === "create") {
             yield* ctx.ask({ permission: "automation", patterns: ["create"], always: ["*"], metadata: {} })
-            const schedule = require(parseSchedule(params.schedule), "A valid schedule is required to create an automation")
+            const schedule = require(parseSchedule(
+              params.schedule,
+            ), "A valid schedule is required to create an automation")
             const prompt = require(params.prompt, "A prompt is required to create an automation")
             const kind = params.kind ?? "standalone"
             const target = kind === "thread" ? (params.target_session_id ?? ctx.sessionID) : undefined
@@ -157,7 +165,11 @@ export const AutomationTool = Tool.define<
             const runs = yield* automations.listRuns([found.id], 5)
             return {
               title: found.name,
-              output: JSON.stringify({ ...found, scheduleText: AutomationSchedule.format(found.schedule), runs }, null, 2),
+              output: JSON.stringify(
+                { ...found, scheduleText: AutomationSchedule.format(found.schedule), runs },
+                null,
+                2,
+              ),
               metadata: {},
             }
           }

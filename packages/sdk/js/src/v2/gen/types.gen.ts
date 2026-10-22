@@ -3921,6 +3921,12 @@ export type AutomationSchedule =
       time: string
     }
   | {
+      type: "monthly_weekday"
+      weekday: number
+      nth: "last" | number
+      time: string
+    }
+  | {
       type: "cron"
       expression: string
     }
@@ -8283,7 +8289,7 @@ export type AutomationCreateData = {
     name?: string
     prompt: string
     /**
-     * Human schedule text, for example "every 30 minutes", "daily at 08:00", or "cron 0 9 * * 1-5"
+     * Human schedule text, for example "every 30 minutes", "daily at 08:00", "monthly on the last friday at 22:00", or "cron 0 9 * * 1-5"
      */
     schedule: string
     kind?: "standalone" | "thread"

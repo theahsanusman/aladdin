@@ -220,6 +220,7 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
   const FLUSH_FRAME_MS = 16
   const STREAM_YIELD_MS = 8
   const RECONNECT_DELAY_MS = 250
+  const STREAM_IDLE_MS = 30_000
 
   let queue: Queued[] = []
   let buffer: Queued[] = []
@@ -268,19 +269,29 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
       if (previous) await previous
       // oxlint-disable-next-line no-unmodified-loop-condition -- `started` is set to false by stop() which also aborts; both flags are checked to allow graceful exit
       while (!abort.signal.aborted && started && generation === active) {
-        attempt = new AbortController()
+        const controller = new AbortController()
+        attempt = controller
+        let received = Date.now()
+        // V1 sends heartbeat events every 10 seconds. V2 uses SSE comments,
+        // which are not yielded by its client and must not count as an idle stream.
+        const watchdog = setInterval(() => {
+          if (protocolKind() === "v1" && Date.now() - received >= STREAM_IDLE_MS) controller.abort()
+        }, 5_000)
         const onAbort = () => {
-          attempt?.abort()
+          controller.abort()
         }
         abort.signal.addEventListener("abort", onAbort)
         try {
           const kind = await protocol
           const events =
             kind === "v1"
-              ? (await eventSdk.global.event({ signal: attempt.signal })).stream
+              ? // This loop owns retries. The SDK's internal backoff can otherwise leave
+                // a returning phone waiting up to 30 seconds before it can reconnect.
+                (await eventSdk.global.event({ signal: attempt.signal, sseMaxRetryAttempts: 1 })).stream
               : eventApi.event.subscribe({ signal: attempt.signal })
           let yielded = Date.now()
           for await (const event of events) {
+            received = Date.now()
             streamErrorLogged = false
             const legacy = "payload" in event
             if (legacy && event.payload.type === "sync") continue
@@ -302,6 +313,7 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
             })
           }
         } finally {
+          clearInterval(watchdog)
           abort.signal.removeEventListener("abort", onAbort)
           attempt = undefined
         }
@@ -325,8 +337,18 @@ function createServerSdkContextBase(server: ServerConnection.Any, scope: ServerS
   }
 
   onMount(() => {
+    const restart = () => {
+      stop()
+      void start()
+    }
     makeEventListener(window, "pagehide", stop)
-    makeEventListener(window, "pageshow", (event) => resumeStreamAfterPageShow(event, start))
+    makeEventListener(window, "pageshow", (event) => resumeStreamAfterPageShow(event, restart))
+    makeEventListener(document, "visibilitychange", () => {
+      if (!document.hidden) restart()
+    })
+    makeEventListener(window, "online", () => {
+      if (!document.hidden) restart()
+    })
   })
 
   onCleanup(() => {

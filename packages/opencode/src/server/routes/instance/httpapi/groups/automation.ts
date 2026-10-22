@@ -4,7 +4,11 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable
 import { ApiNotFoundError, InvalidRequestError } from "../errors"
 import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
-import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery, WorkspaceRoutingQueryFields } from "../middleware/workspace-routing"
+import {
+  WorkspaceRoutingMiddleware,
+  WorkspaceRoutingQuery,
+  WorkspaceRoutingQueryFields,
+} from "../middleware/workspace-routing"
 import { described } from "./metadata"
 
 const root = "/automation"
@@ -13,7 +17,8 @@ export const AutomationCreatePayload = Schema.Struct({
   name: Schema.optional(Schema.String),
   prompt: Schema.String,
   schedule: Schema.String.annotate({
-    description: 'Human schedule text, for example "every 30 minutes", "daily at 08:00", or "cron 0 9 * * 1-5"',
+    description:
+      'Human schedule text, for example "every 30 minutes", "daily at 08:00", "monthly on the last friday at 22:00", or "cron 0 9 * * 1-5"',
   }),
   kind: Schema.optional(Automation.Kind),
   targetSessionID: Schema.optional(Schema.String),

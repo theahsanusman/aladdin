@@ -48,12 +48,24 @@ export type Outcome = typeof Outcome.Type
 
 const TimeOfDay = Schema.String.check(Schema.isPattern(/^([01]\d|2[0-3]):[0-5]\d$/))
 const CronExpression = Schema.String.check(Schema.isMinLength(1))
+const Weekday = NonNegativeInt.check(Schema.isLessThanOrEqualTo(6))
+const MonthlyWeekdayNth = Schema.Union([Schema.Literals(["last"]), PositiveInt.check(Schema.isLessThanOrEqualTo(5))])
 
 export const Schedule = Schema.Union([
   Schema.Struct({ type: Schema.Literal("interval"), minutes: PositiveInt }),
   Schema.Struct({ type: Schema.Literal("daily"), time: TimeOfDay }),
-  Schema.Struct({ type: Schema.Literal("weekly"), weekday: NonNegativeInt, time: TimeOfDay }),
-  Schema.Struct({ type: Schema.Literal("monthly"), day: PositiveInt, time: TimeOfDay }),
+  Schema.Struct({ type: Schema.Literal("weekly"), weekday: Weekday, time: TimeOfDay }),
+  Schema.Struct({
+    type: Schema.Literal("monthly"),
+    day: PositiveInt.check(Schema.isLessThanOrEqualTo(31)),
+    time: TimeOfDay,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("monthly_weekday"),
+    weekday: Weekday,
+    nth: MonthlyWeekdayNth,
+    time: TimeOfDay,
+  }),
   Schema.Struct({ type: Schema.Literal("cron"), expression: CronExpression }),
 ]).annotate({ discriminator: "type", identifier: "Automation.Schedule" })
 export type Schedule = Schema.Schema.Type<typeof Schedule>

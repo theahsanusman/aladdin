@@ -64,11 +64,18 @@ function notFound() {
 
 function embeddedUIResponse(file: string, body: Uint8Array) {
   const mime = FSUtil.mimeType(file)
-  const headers = new Headers({ "content-type": mime })
+  const headers = new Headers({
+    "content-type": mime,
+    "cache-control": /\/assets\/[^/]+-[\w-]{8,}\.[\w.]+$/.test(file)
+      ? "private, max-age=31536000, immutable"
+      : "private, no-cache",
+  })
   if (mime.startsWith("text/html")) {
     headers.set("content-security-policy", cspForHtml(new TextDecoder().decode(body)))
+    headers.set("cache-control", "no-cache")
   }
-  return HttpServerResponse.raw(body, { headers })
+  // The compression middleware handles typed byte bodies; raw bodies bypass it.
+  return HttpServerResponse.uint8Array(body, { headers, contentType: mime })
 }
 
 export function serveEmbeddedUIEffect(
@@ -76,11 +83,14 @@ export function serveEmbeddedUIEffect(
   fs: FSUtil.Interface,
   embeddedWebUI: Record<string, string>,
 ) {
-  const file = embeddedWebUI[requestPath.replace(/^\//, "")] ?? embeddedWebUI["index.html"] ?? null
+  const key = requestPath.replace(/^\//, "")
+  const file = embeddedWebUI[key] ?? embeddedWebUI["index.html"] ?? null
   if (!file) return Effect.succeed(notFound())
 
   return fs.readFile(file).pipe(
-    Effect.map((body) => embeddedUIResponse(file, body)),
+    // Compiled Bun assets can have flattened virtual filesystem paths. Cache by
+    // the mapped asset name, and keep SPA fallbacks identified as index.html.
+    Effect.map((body) => embeddedUIResponse(embeddedWebUI[key] ? `/${key}` : "/index.html", body)),
     Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(notFound())),
   )
 }

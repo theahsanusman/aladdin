@@ -770,7 +770,17 @@ const accountTokenIt = configIt({
     config: () =>
       Effect.succeed(
         Option.some({
-          provider: { opencode: { options: { apiKey: "{env:OPENCODE_CONSOLE_TOKEN}" } } },
+          provider: {
+            opencode: { options: { apiKey: "{env:OPENCODE_CONSOLE_TOKEN}" } },
+            "opencode-go": {
+              options: { apiKey: "{env:OPENCODE_CONSOLE_TOKEN}" },
+              models: {
+                "mimo-v2.6-flash": { limit: { context: 1048576, input: 917504, output: 131072 } },
+                "deepseek-v4.1-flash": { limit: { context: 1000000, output: 384000 } },
+                "claude-haiku-5-5": { limit: { context: 1000000, output: 128000 } },
+              },
+            },
+          },
         }),
       ),
     token: () => Effect.succeed(Option.some(AccessToken.make("st_test_token"))),
@@ -781,6 +791,28 @@ accountTokenIt.instance("resolves env templates in account config with account t
   Effect.gen(function* () {
     const config = yield* Config.use.get()
     expect(config.provider?.["opencode"]?.options?.apiKey).toBe("st_test_token")
+  }),
+)
+
+accountTokenIt.instance("preserves configured model limits when loading Console defaults", () =>
+  Effect.gen(function* () {
+    const test = yield* TestInstance
+    yield* writeConfigEffect(test.directory, {
+      provider: {
+        "opencode-go": {
+          models: {
+            "mimo-v2.6-flash": { limit: { context: 262144, output: 131072 } },
+            "deepseek-v4.1-flash": { limit: { context: 262144, output: 32000 } },
+          },
+        },
+      },
+    })
+    const config = yield* Config.use.get()
+    const provider = config.provider?.["opencode-go"]
+    expect(provider?.models?.["mimo-v2.6-flash"]?.limit).toEqual({ context: 262144, output: 131072 })
+    expect(provider?.models?.["deepseek-v4.1-flash"]?.limit).toEqual({ context: 262144, output: 32000 })
+    expect(provider?.models?.["claude-haiku-5-5"]?.limit).toEqual({ context: 1000000, output: 128000 })
+    expect(provider?.options?.apiKey).toBe("st_test_token")
   }),
 )
 
